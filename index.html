@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>בית כנסת מואליבר</title>
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/png" href="logo.png">
     <style>
         /* רקע הדף עם השקיפות המקורית */
         body {
@@ -28,43 +28,46 @@
             z-index: -1;
         }
 
-        /* המכולה המרכזית (לוגו + כפתור זמנים בלבד) */
+        /* 2. הגדלה דרמטית של המכולה המרכזית (לוגו + כפתור זמנים בלבד) */
         .container {
             background: rgba(255, 255, 255, 0.9);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 50px 40px; /* יותר ריפוד פנימי למראה מרשים */
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
             text-align: center;
-            max-width: 400px;
+            max-width: 600px; /* הגדלה משמעותית של רוחב התיבה */
             width: 90%;
-            margin-top: 10vh; /* מרווח מלמעלה לפתיחה נקייה */
+            margin-top: 12vh;
         }
+        /* הגדלה דרמטית של הלוגו */
         .logo {
-            max-width: 180px;
+            max-width: 300px; 
             height: auto;
-            margin-bottom: 25px;
+            margin-bottom: 35px;
         }
+        /* הגדלה דרמטית של הכפתור הראשי */
         .btn {
             display: block;
             width: 100%;
-            padding: 14px;
+            padding: 20px; /* ריפוד עבה יותר */
             margin: 12px 0;
             background: #1a365d;
             color: white;
             text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 16px;
+            border-radius: 12px;
+            font-weight: 800; /* פונט עבה ובולט יותר */
+            font-size: 22px; /* גודל טקסט גדול וברור */
             box-sizing: border-box;
             border: none;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
         }
         .btn:hover {
             background: #2a4365;
+            transform: scale(1.02); /* אפקט הגדלה קל בריחוף */
         }
 
-        /* עיצוב לתפריט הכפתור הנפתח (Dropdown) */
+        /* עיצוב לתפריט הכפתור הנפתח (Dropdown) - מותאם לגודל החדש */
         .dropdown {
             position: relative;
             display: inline-block;
@@ -75,18 +78,19 @@
             position: absolute;
             background-color: #f9f9f9;
             min-width: 100%;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.25);
             z-index: 10;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
             margin-top: -8px;
         }
         .dropdown-content a {
             color: #333;
-            padding: 14px 16px;
+            padding: 18px 16px; /* תפריט גדול ונוח ללחיצה בטלפון */
             text-decoration: none;
             display: block;
             font-weight: bold;
+            font-size: 18px;
             border-bottom: 1px solid #eee;
             background: #fdfdfd;
         }
@@ -101,7 +105,7 @@
             display: block;
         }
 
-        /* מקטע ניווט ומפה מובנית בתחתית העמוד - דורש גלילה */
+        /* 1. מקטע ניווט ומפה - מורד עוד יותר למטה (דרושה גלילה ארוכה) */
         .bottom-section {
             width: 100%;
             max-width: 460px;
@@ -111,7 +115,7 @@
             padding: 15px;
             box-sizing: border-box;
             text-align: center;
-            margin-top: 150px; /* מרווח גדול שמאלץ גלילה מטה כדי לראות את המפה */
+            margin-top: 300px; /* מרווח ענק שמוריד את המפה עמוק למטה */
             margin-bottom: 0;
         }
         .map-container {
@@ -130,6 +134,8 @@
         .waze-btn {
             background: #007dff;
             margin: 0;
+            font-size: 16px;
+            padding: 12px;
         }
         .waze-btn:hover {
             background: #005ec3;
@@ -138,7 +144,6 @@
 </head>
 <body>
 
-<!-- מרכז העמוד: לוגו ותפריט זמנים -->
 <div class="container">
     <img src="logo.png" alt="לוגו בית כנסת מואליבר" class="logo">
 
@@ -151,17 +156,14 @@
     </div>
 </div>
 
-<!-- תחתית העמוד: מפה קטנה קבועה וכפתור Waze (בגלילה מטה) -->
 <div class="bottom-section">
     <div class="map-container">
-        <!-- מפה מוטמעת המכוונת לרחוב מוהליבר 10, בני ברק -->
         <iframe 
             src="https://maps.google.com/maps?q=מוהליבר%2010,%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed" 
             allowfullscreen="" 
             loading="lazy">
         </iframe>
     </div>
-    <!-- קישור Waze מעודכן לרחוב מוהליבר 10, בני ברק -->
     <a href="https://waze.com/ul?q=מוהליבר+10+בני+ברק" target="_blank" class="btn waze-btn">ניווט ב-Waze</a>
 </div>
 
