@@ -2,49 +2,126 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>זמני תפילות - בית הכנסת מוהליבר</title>
-    
-    <link rel="icon" type="image/png" href="logo.png">
-    
+    <title>זמני תפילות - בית הכנסת</title>
     <style>
-        body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
+        body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 40px 0; text-align: center; }
+        h1 { color: #800020; margin-bottom: 2rem; font-size: 2.5rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
         
-        .logo-container { margin-bottom: 2rem; }
-        .logo-img { max-width: 250px; height: auto; display: block; margin: 0 auto; }
-
-        .main-menu-container { display: flex; flex-direction: column; align-items: center; min-height: 150px; }
-        
-        .main-toggle-btn { display: inline-block; width: 220px; padding: 20px; border: 2px solid #800020; color: white; background-color: #800020; border-radius: 8px; font-weight: bold; font-size: 1.3rem; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .main-toggle-btn:hover { background-color: #600018; transform: translateY(-2px); }
-
-        .sub-buttons { display: none; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
-        
-        .nav-button { display: inline-block; width: 200px; padding: 18px; border: 2px solid #000080; color: #000080; border-radius: 8px; font-weight: bold; text-decoration: none; font-size: 1.1rem; transition: 0.3s; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .button-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 3rem; }
+        .nav-button { display: inline-block; width: 200px; padding: 20px; border: 2px solid #000080; color: #000080; border-radius: 8px; font-weight: bold; text-decoration: none; font-size: 1.2rem; transition: 0.3s; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .nav-button:hover { background-color: #000080; color: #F5F5DC; transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        
+        /* עיצוב אזור שליחת המייל */
+        .email-section { background: white; border: 2px solid #000080; padding: 25px; border-radius: 12px; max-width: 450px; width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.08); box-sizing: border-box; margin-bottom: 2rem; }
+        .email-section h3 { color: #800020; margin-top: 0; margin-bottom: 10px; font-size: 1.3rem; }
+        .email-section p { color: #555; font-size: 0.9rem; margin-bottom: 15px; }
+        
+        .form-group { display: flex; gap: 10px; }
+        .email-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; text-align: left; dir: ltr; }
+        .email-input:focus { border-color: #000080; outline: none; }
+        
+        .submit-button { background-color: #000080; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .submit-button:hover { background-color: #000060; }
+        .submit-button:disabled { background-color: #999; cursor: not-allowed; }
+        
+        .message { margin-top: 12px; font-size: 0.9rem; font-weight: bold; display: none; }
+        .message.success { color: green; }
+        .message.error { color: red; }
+
+        /* אזור פרטי הגעה ומפה */
+        .location-section { background: white; border: 2px solid #000080; padding: 25px; border-radius: 12px; max-width: 450px; width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.08); box-sizing: border-box; }
+        .location-section h3 { color: #800020; margin-top: 0; margin-bottom: 10px; font-size: 1.3rem; }
+        .location-text { color: #333; font-size: 1rem; margin-bottom: 15px; font-weight: bold; }
+        
+        /* מפת גוגל לחיצה */
+        .map-container { display: block; width: 100%; height: 180px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; margin-bottom: 15px; transition: 0.3s; }
+        .map-container:hover { transform: scale(1.01); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .map-container iframe { width: 100%; height: 100%; border: none; }
+
+        /* כפתור ווייז */
+        .waze-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background-color: #33CCFF; color: white; padding: 12px 24px; font-size: 1rem; font-weight: bold; border-radius: 25px; text-decoration: none; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .waze-button:hover { background-color: #1AA3FF; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0,0,0,0.15); }
+        .waze-icon { width: 20px; height: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="logo-container">
-        <img src="logo.png" alt="לוגו בית הכנסת מוהליבר" class="logo-img">
-    </div>
+    <h1>ברוכים הבאים לבית הכנסת</h1>
     
-    <div class="main-menu-container">
-        <button class="main-toggle-btn" onclick="toggleMenu()">זמני התפילות</button>
+    <div class="button-container">
+        <a href="yemothachol.html" class="nav-button">זמני תפילות ימות החול</a>
+        <a href="shabbat.html" class="nav-button">זמני תפילות שבתות</a>
+    </div>
+
+    <div class="email-section">
+        <h3>לקבלת לוח הזמנים המעודכן לנייד</h3>
+        <p>הזינו את כתובת המייל שלכם ולוח הזמנים ישלח אליכם מיד</p>
         
-        <div class="sub-buttons" id="subButtonsMenu">
-            <a href="yemothachol.html" class="nav-button">זמני תפילות ימות החול</a>
-            <a href="shabbat.html" class="nav-button">זמני תפילות שבתות</a>
-        </div>
+        <form id="emailForm" onsubmit="sendSchedule(event)">
+            <div class="form-group">
+                <input type="email" id="subscriberEmail" class="email-input" placeholder="you@example.com" required>
+                <button type="submit" id="submitBtn" class="submit-button">שלח לי</button>
+            </div>
+        </form>
+        <div id="responseMessage" class="message"></div>
+    </div>
+
+    <div class="location-section">
+        <h3>פרטי הגעה ומיקום</h3>
+        <div class="location-text">בית הכנסת מוהליבר, רחוב הרב שמואל מוהליבר 10, בני ברק</div>
+        
+        <a href="https://maps.google.com/?q=הרב%20מוהליבר%2010%20בני%20ברק" target="_blank" class="map-container" title="לחץ כאן לפתיחה בגוגל מפות">
+            <iframe 
+                src="https://maps.google.com/maps?q=הרב%20מוהליבר%2010%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed">
+            </iframe>
+        </a>
+
+        <a href="https://waze.com/ul?q=הרב%20מוהליבר%2010%20בני%20ברק" target="_blank" class="waze-button">
+            <svg class="waze-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM15.5 16.5C14.67 16.5 14 15.83 14 15C14 14.17 14.67 13.5 15.5 13.5C16.33 13.5 17 14.17 17 15C17 15.83 16.33 16.5 15.5 16.5ZM8.5 16.5C7.67 16.5 7 15.83 7 15C7 14.17 7.67 13.5 8.5 13.5C9.33 13.5 10 14.17 10 15C10 15.83 9.33 16.5 8.5 16.5ZM17.48 11.23C16.89 11.45 16.21 11.16 15.99 10.57C15.55 9.4 14.36 8.5 12 8.5C9.64 8.5 8.45 9.4 8.01 10.57C7.79 11.16 7.11 11.45 6.52 11.23C5.93 11.01 5.64 10.33 5.86 9.74C6.55 7.89 8.35 6.5 12 6.5C15.65 6.5 17.45 7.89 18.14 9.74C18.36 10.33 18.07 11.01 17.48 11.23Z" fill="currentColor"/>
+            </svg>
+            ניווט באמצעות Waze
+        </a>
     </div>
 
     <script>
-        function toggleMenu() {
-            const menu = document.getElementById('subButtonsMenu');
-            if (menu.style.display === 'flex') {
-                menu.style.display = 'none';
-            } else {
-                menu.style.display = 'flex';
+        async function sendSchedule(event) {
+            event.preventDefault(); // מונע מהעמוד להתרענן
+            
+            const emailInput = document.getElementById('subscriberEmail');
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('responseMessage');
+            
+            const email = emailInput.value.trim();
+            if (!email) return;
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'שולח...';
+            messageDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/.netlify/functions/send-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+
+                if (response.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.innerText = 'הזמנים נשלחו בהצלחה למייל שלך!';
+                    emailInput.value = ''; // מנקה את התיבה
+                } else {
+                    const errText = await response.text();
+                    messageDiv.className = 'message error';
+                    messageDiv.innerText = 'שגיאה בשליחה: ' + (errText || 'נסה שוב מאוחר יותר');
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.innerText = 'אירעה שגיאת תקשורת. ודא שהאתר באוויר בנטליפיי.';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'שלח לי';
+                messageDiv.style.display = 'block';
             }
         }
     </script>
