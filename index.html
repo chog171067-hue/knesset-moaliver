@@ -6,14 +6,13 @@
     <title>בית כנסת מואליבר</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <style>
-        /* 1. רקע הדף עם השקיפות המקורית של התמונה */
+        /* רקע הדף עם השקיפות המקורית */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
             align-items: center;
             min-height: 100vh;
             color: #333;
@@ -25,11 +24,11 @@
             top: 0; left: 0; right: 0; bottom: 0;
             background: url('background.jpg') no-repeat center center fixed;
             background-size: cover;
-            opacity: 0.3; /* שקיפות עדינה של תמונת הרקע */
+            opacity: 0.3;
             z-index: -1;
         }
 
-        /* 3. המכולה המרכזית (לוגו + כפתור זמנים בלבד) */
+        /* המכולה המרכזית (לוגו + כפתור זמנים בלבד) */
         .container {
             background: rgba(255, 255, 255, 0.9);
             padding: 30px;
@@ -38,8 +37,7 @@
             text-align: center;
             max-width: 400px;
             width: 90%;
-            margin-top: auto;
-            margin-bottom: auto; /* מרכוז אנכי מושלם */
+            margin-top: 10vh; /* מרווח מלמעלה לפתיחה נקייה */
         }
         .logo {
             max-width: 180px;
@@ -103,21 +101,22 @@
             display: block;
         }
 
-        /* 2. מקטע ניווט ומפה מובנית בתחתית העמוד */
+        /* מקטע ניווט ומפה מובנית בתחתית העמוד - דורש גלילה */
         .bottom-section {
             width: 100%;
             max-width: 460px;
             background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px 15px 0 0; /* פינות מעוגלות רק למעלה */
+            border-radius: 15px 15px 0 0;
             box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
             padding: 15px;
             box-sizing: border-box;
             text-align: center;
-            margin-top: auto; /* דוחף את המקטע לתחתית הדף */
+            margin-top: 150px; /* מרווח גדול שמאלץ גלילה מטה כדי לראות את המפה */
+            margin-bottom: 0;
         }
         .map-container {
             width: 100%;
-            height: 150px; /* מפה קטנה וקבועה */
+            height: 150px;
             border-radius: 8px;
             overflow: hidden;
             border: 1px solid #ddd;
@@ -152,17 +151,18 @@
     </div>
 </div>
 
-<!-- תחתית העמוד: מפה קטנה קבועה וכפתור Waze -->
+<!-- תחתית העמוד: מפה קטנה קבועה וכפתור Waze (בגלילה מטה) -->
 <div class="bottom-section">
     <div class="map-container">
-        <!-- מפה מוטמעת נקייה של גוגל מפות ללא שגיאות 403 -->
+        <!-- מפה מוטמעת המכוונת לרחוב מוהליבר 10, בני ברק -->
         <iframe 
-            src="https://maps.google.com/maps?q=מונטפיורי%208,%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed" 
+            src="https://maps.google.com/maps?q=מוהליבר%2010,%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed" 
             allowfullscreen="" 
             loading="lazy">
         </iframe>
     </div>
-    <a href="https://waze.com/ul?q=מונטפיורי+8+בני+ברק" target="_blank" class="btn waze-btn">ניווט ב-Waze</a>
+    <!-- קישור Waze מעודכן לרחוב מוהליבר 10, בני ברק -->
+    <a href="https://waze.com/ul?q=מוהליבר+10+בני+ברק" target="_blank" class="btn waze-btn">ניווט ב-Waze</a>
 </div>
 
 <script>
