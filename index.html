@@ -6,26 +6,40 @@
     <title>בית כנסת מואליבר</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <style>
+        /* 1. רקע הדף עם השקיפות המקורית של התמונה */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: url('background.jpg') no-repeat center center fixed;
-            background-size: cover;
             margin: 0;
             padding: 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
             min-height: 100vh;
             color: #333;
+            position: relative;
         }
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            opacity: 0.3; /* שקיפות עדינה של תמונת הרקע */
+            z-index: -1;
+        }
+
+        /* 3. המכולה המרכזית (לוגו + כפתור זמנים בלבד) */
         .container {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.9);
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             text-align: center;
             max-width: 400px;
             width: 90%;
+            margin-top: auto;
+            margin-bottom: auto; /* מרכוז אנכי מושלם */
         }
         .logo {
             max-width: 180px;
@@ -51,7 +65,8 @@
         .btn:hover {
             background: #2a4365;
         }
-        /* עיצוב לתפריט הכפתור הנפתח */
+
+        /* עיצוב לתפריט הכפתור הנפתח (Dropdown) */
         .dropdown {
             position: relative;
             display: inline-block;
@@ -63,48 +78,71 @@
             background-color: #f9f9f9;
             min-width: 100%;
             box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1;
+            z-index: 10;
             border-radius: 8px;
             overflow: hidden;
             margin-top: -8px;
         }
         .dropdown-content a {
             color: #333;
-            padding: 12px 16px;
+            padding: 14px 16px;
             text-decoration: none;
             display: block;
             font-weight: bold;
             border-bottom: 1px solid #eee;
+            background: #fdfdfd;
         }
         .dropdown-content a:last-child {
             border-bottom: none;
         }
         .dropdown-content a:hover {
-            background-color: #f1f1f1;
-            color: #1a365d;
+            background-color: #1a365d;
+            color: white;
         }
         .show {
             display: block;
         }
-        .nav-links {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
+
+        /* 2. מקטע ניווט ומפה מובנית בתחתית העמוד */
+        .bottom-section {
+            width: 100%;
+            max-width: 460px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px 15px 0 0; /* פינות מעוגלות רק למעלה */
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            box-sizing: border-box;
+            text-align: center;
+            margin-top: auto; /* דוחף את המקטע לתחתית הדף */
         }
-        .nav-links .btn {
+        .map-container {
+            width: 100%;
+            height: 150px; /* מפה קטנה וקבועה */
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+            margin-bottom: 12px;
+        }
+        .map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .waze-btn {
+            background: #007dff;
             margin: 0;
-            font-size: 14px;
-            padding: 10px;
+        }
+        .waze-btn:hover {
+            background: #005ec3;
         }
     </style>
 </head>
 <body>
 
+<!-- מרכז העמוד: לוגו ותפריט זמנים -->
 <div class="container">
-    <!-- 2. במקום כותרת - לוגו בלבד -->
     <img src="logo.png" alt="לוגו בית כנסת מואליבר" class="logo">
 
-    <!-- 3. כפתור אחד המשלב את שבת וימות החול בתפריט נפתח -->
     <div class="dropdown">
         <button onclick="toggleDropdown()" class="btn">זמני התפילות ▾</button>
         <div id="timesDropdown" class="dropdown-content">
@@ -112,21 +150,26 @@
             <a href="yemothachol.html">ימות החול</a>
         </div>
     </div>
+</div>
 
-    <!-- 1. כפתורי הניווט (כולל תיקון הקישור של המפה שלא ייתן שגיאת 403) -->
-    <div class="nav-links">
-        <a href="https://waze.com/ul?q=מונטפיורי+8+בני+ברק" target="_blank" class="btn" style="background: #007dff;">ניווט ב-Waze</a>
-        <a href="https://maps.google.com/?q=מונטפיורי+8+בני+ברק" target="_blank" class="btn" style="background: #34a853;">ניווט במפה</a>
+<!-- תחתית העמוד: מפה קטנה קבועה וכפתור Waze -->
+<div class="bottom-section">
+    <div class="map-container">
+        <!-- מפה מוטמעת נקייה של גוגל מפות ללא שגיאות 403 -->
+        <iframe 
+            src="https://maps.google.com/maps?q=מונטפיורי%208,%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed" 
+            allowfullscreen="" 
+            loading="lazy">
+        </iframe>
     </div>
+    <a href="https://waze.com/ul?q=מונטפיורי+8+בני+ברק" target="_blank" class="btn waze-btn">ניווט ב-Waze</a>
 </div>
 
 <script>
-    // פונקציה לפתיחה וסגירה של תפריט זמני התפילות
     function toggleDropdown() {
         document.getElementById("timesDropdown").classList.toggle("show");
     }
 
-    // סגירת התפריט אם המשתמש לוחץ מחוץ לו
     window.onclick = function(event) {
         if (!event.target.matches('.btn')) {
             var dropdowns = document.getElementsByClassName("dropdown-content");
