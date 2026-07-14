@@ -33,20 +33,21 @@
             border-radius: 20px;
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
             text-align: center;
-            max-width: 450px;
+            max-width: 550px;
             width: 90%;
+            box-sizing: border-box;
         }
         .logo {
-            max-width: 200px;
+            max-width: 180px;
             height: auto;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         h2 {
             color: #1a365d;
             margin-bottom: 10px;
             font-size: 24px;
         }
-        p {
+        .subtitle {
             font-size: 15px;
             color: #555;
             margin-bottom: 25px;
@@ -63,7 +64,7 @@
             color: #1a365d;
             font-size: 15px;
         }
-        input[type="tel"] {
+        input {
             width: 100%;
             padding: 14px;
             border: 2px solid #ddd;
@@ -71,10 +72,9 @@
             font-size: 18px;
             text-align: center;
             box-sizing: border-box;
-            direction: ltr;
             transition: border-color 0.2s;
         }
-        input[type="tel"]:focus {
+        input:focus {
             border-color: #1a365d;
             outline: none;
         }
@@ -84,7 +84,7 @@
             padding: 15px;
             background: #1a365d;
             color: white;
-            text-decoration: none;
+            text-radius: 8px;
             border-radius: 8px;
             font-weight: bold;
             font-size: 18px;
@@ -106,38 +106,159 @@
         .back-link:hover {
             text-decoration: underline;
         }
+        .error-msg {
+            color: #c53030;
+            background: #fff5f5;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            display: none;
+        }
+        .loading {
+            display: none;
+            font-weight: bold;
+            color: #1a365d;
+            margin: 20px 0;
+        }
+        /* עיצוב טבלת הנתונים שתוצג */
+        .results-container {
+            display: none;
+            text-align: right;
+            margin-top: 20px;
+        }
+        .keva-card {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .keva-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #1a365d;
+        }
+        .keva-row {
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        .status-active { color: #38a169; font-weight: bold; }
+        .status-inactive { color: #e53e3e; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <img src="logo.png" alt="לוגו בית כנסת מואליבר" class="logo">
-    <h2>אזור אישי לתורמים</h2>
-    <p>כדי לצפות ולנהל את התרומות, הקבלות והוראות הקבע הפעילות שלכם בקהילה, אנא הזינו את מספר הטלפון המעודכן במערכת:</p>
     
-    <form id="loginForm" onsubmit="redirectToNedarim(event)">
-        <div class="form-group">
-            <label for="phone">מספר טלפון נייד:</label>
-            <input type="tel" id="phone" placeholder="0501234567" required pattern="[0-9]{9,10}">
-        </div>
-        <button type="submit" class="btn">כניסה מאובטחת</button>
-    </form>
+    <div id="loginSection">
+        <h2>אזור אישי לתורמים</h2>
+        <p class="subtitle">לצפייה מאובטחת בהוראות הקבע הפעילות שלכם בקהילה, אנא הזדהו באמצעות מספר הטלפון ותעודת הזהות הרשומים במערכת:</p>
+        
+        <div id="errorMessage" class="error-msg"></div>
+        
+        <form onsubmit="fetchDonorData(event)">
+            <div class="form-group">
+                <label for="phone">מספר טלפון נייד:</label>
+                <input type="tel" id="phone" placeholder="0501234567" required pattern="[0-9]{9,10}">
+            </div>
+            <div class="form-group">
+                <label for="tz">מספר תעודת זהות:</label>
+                <input type="text" id="tz" placeholder="123456789" required pattern="[0-9]{4,9}">
+            </div>
+            <button type="submit" class="btn">התחברות מאובטחת</button>
+        </form>
+        
+        <div id="loadingSpinner" class="loading">מתחבר לשרת נדרים פלוס ומאמת נתונים...</div>
+    </div>
+
+    <div id="resultsSection" class="results-container">
+        <h2>שלום, <span id="donorName"></span></h2>
+        <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מואליבר:</p>
+        
+        <div id="kevaList"></div>
+        
+        <button onclick="logout()" class="btn" style="background:#718096; margin-top:20px; padding:10px; font-size:15px;">נתק מערכת / יציאה</button>
+    </div>
     
     <a href="index.html" class="back-link">→ חזרה לדף הבית</a>
 </div>
 
 <script>
-    function redirectToNedarim(event) {
+    async function fetchDonorData(event) {
         event.preventDefault();
         
-        // שליפת מספר הטלפון שהמשתמש הזין וניקוי רווחים או מקפים מיותרים
-        let phone = document.getElementById('phone').value.trim().replace(/[- ]/g, '');
+        const phone = document.getElementById('phone').value;
+        const tz = document.getElementById('tz').value;
+        const errorDiv = document.getElementById('errorMessage');
+        const loadingDiv = document.getElementById('loadingSpinner');
         
-        // יצירת קישור הפנייה מאובטח המכיל את מספר המוסד שלכם, פרמטר האזור האישי, והטלפון של התורם
-        let nedarimUrl = `https://www.matara.pro/nedarimplus/online/?mosad=7012851&ClientZone=1&Phone=${phone}`;
+        errorDiv.style.display = 'none';
+        loadingDiv.style.display = 'block';
         
-        // מעבר אוטומטי לקישור
-        window.location.href = nedarimUrl;
+        try {
+            // פנייה לפונקציית השרת המאובטחת שהקמנו בנטליפיי
+            const response = await fetch('/.netlify/functions/get-donor-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, tz })
+            });
+            
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+            
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || "לא נמצאו נתונים תואמים. ודא שהפרטים שהזנת מדויקים.");
+            }
+            
+            if (result.count === 0) {
+                throw new Error("לא נמצאו הוראות קבע פעילות תחת שילוב פרטים זה במערכת של בית הכנסת.");
+            }
+            
+            // הצגת הנתונים בהצלחה
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('donorName').innerText = result.data[0].name;
+            
+            const kevaListDiv = document.getElementById('kevaList');
+            kevaListDiv.innerHTML = ''; // ניקוי היסטוריה
+            
+            result.data.forEach(keva => {
+                const card = document.createElement('div');
+                card.className = 'keva-card';
+                card.innerHTML = `
+                    <div class="keva-header">
+                        <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
+                        <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
+                            ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
+                        </div>
+                    </div>
+                    <div class="keva-row"><strong>סכום חודשי:</strong> ${keva.amount} ₪</div>
+                    <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
+                    <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
+                    ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
+                `;
+                kevaListDiv.appendChild(card);
+            });
+            
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    function logout() {
+        document.getElementById('phone').value = '';
+        document.getElementById('tz').value = '';
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('loginSection').style.display = 'block';
     }
 </script>
 
