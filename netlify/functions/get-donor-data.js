@@ -15,7 +15,7 @@ exports.handler = async function(event, context) {
         }
 
         const MOSAD_1 = "7012851"; 
-        const MOSAD_2 = "0000000"; // <--- שנה למספר המוסד השני שלכם!
+        const MOSAD_2 = "7005583"; // <--- שנה למספר המוסד השני שלכם!
 
         // מצב ב': המשתמש ביקש היסטוריית חיובים מפורטת עבור הוראת קבע ספציפית (KevaId)
         if (body.kevaId) {
