@@ -36,6 +36,7 @@
             max-width: 550px;
             width: 90%;
             box-sizing: border-box;
+            margin: 20px 0;
         }
         .logo {
             max-width: 180px;
@@ -84,7 +85,7 @@
             padding: 15px;
             background: #1a365d;
             color: white;
-            text-radius: 8px;
+            text-decoration: none;
             border-radius: 8px;
             font-weight: bold;
             font-size: 18px;
@@ -121,7 +122,6 @@
             color: #1a365d;
             margin: 20px 0;
         }
-        /* עיצוב טבלת הנתונים שתוצג */
         .results-container {
             display: none;
             text-align: right;
@@ -132,8 +132,9 @@
             border: 1px solid #e2e8f0;
             border-radius: 10px;
             padding: 20px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            text-align: right;
         }
         .keva-header {
             display: flex;
@@ -150,6 +151,69 @@
         }
         .status-active { color: #38a169; font-weight: bold; }
         .status-inactive { color: #e53e3e; font-weight: bold; }
+
+        /* כפתור היסטוריה ועיצוב הטבלה הנפתחת */
+        .history-btn {
+            background: #edf2f7;
+            color: #4a5568;
+            border: 1px solid #cbd5e0;
+            padding: 8px 15px;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+            transition: background 0.2s;
+            width: auto;
+            display: inline-block;
+        }
+        .history-btn:hover {
+            background: #e2e8f0;
+        }
+        .history-section {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #cbd5e0;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .history-table th, .history-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            text-align: center;
+        }
+        .history-table th {
+            background-color: #ebf8ff;
+            color: #2b6cb0;
+        }
+        .badge-success {
+            background-color: #c6f6d5;
+            color: #22543d;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .badge-danger {
+            background-color: #fed7d7;
+            color: #742a2a;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .summary-info {
+            background: #ebf8ff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2b6cb0;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -159,7 +223,7 @@
     
     <div id="loginSection">
         <h2>אזור אישי לתורמים</h2>
-        <p class="subtitle">לצפייה מאובטחת בהוראות הקבע הפעילות שלכם בקהילה, אנא הזדהו באמצעות מספר הטלפון ותעודת הזהות הרשומים במערכת:</p>
+        <p class="subtitle">לצפייה מאובטחת בהוראות הקבע הפעילות שלכם בקהילה, אנא הזדהו באמצעות מספר הטלפון ותעודת הזהות שלכם:</p>
         
         <div id="errorMessage" class="error-msg"></div>
         
@@ -203,7 +267,6 @@
         loadingDiv.style.display = 'block';
         
         try {
-            // פנייה לפונקציית השרת המאובטחת שהקמנו בנטליפיי
             const response = await fetch('/.netlify/functions/get-donor-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -221,13 +284,12 @@
                 throw new Error("לא נמצאו הוראות קבע פעילות תחת שילוב פרטים זה במערכת של בית הכנסת.");
             }
             
-            // הצגת הנתונים בהצלחה
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('resultsSection').style.display = 'block';
             document.getElementById('donorName').innerText = result.data[0].name;
             
             const kevaListDiv = document.getElementById('kevaList');
-            kevaListDiv.innerHTML = ''; // ניקוי היסטוריה
+            kevaListDiv.innerHTML = '';
             
             result.data.forEach(keva => {
                 const card = document.createElement('div');
@@ -243,6 +305,12 @@
                     <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
                     <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
                     ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
+                    
+                    <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
+                    
+                    <div id="history_${keva.kevaId}" class="history-section">
+                        <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
+                    </div>
                 `;
                 kevaListDiv.appendChild(card);
             });
@@ -251,6 +319,86 @@
             loadingDiv.style.display = 'none';
             errorDiv.innerText = err.message;
             errorDiv.style.display = 'block';
+        }
+    }
+
+    // פונקציה לפתיחה וטעינה דינמית של היסטוריית החיובים בלחיצה
+    async function toggleHistory(kevaId, buttonElement) {
+        const historyDiv = document.getElementById(`history_${kevaId}`);
+        
+        if (historyDiv.style.display === 'block') {
+            historyDiv.style.display = 'none';
+            buttonElement.innerText = "הצג היסטוריית חיובים ▾";
+            return;
+        }
+        
+        historyDiv.style.display = 'block';
+        buttonElement.innerText = "סגור היסטוריית חיובים ▴";
+        
+        try {
+            // פנייה לשרת למשיכת היסטוריית החיובים של הוראת הקבע הספציפית
+            const response = await fetch('/.netlify/functions/get-donor-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kevaId })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                throw new Error("כשל בטעינת ההיסטוריה");
+            }
+            
+            let historyHTML = `
+                <div class="summary-info">
+                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ נתרם בפועל: ${result.totalAmount} ₪
+                </div>
+            `;
+            
+            if (result.history.length === 0) {
+                historyHTML += `<div style="text-align:center; font-size:14px; color:#718096; padding:10px;">טרם בוצעו ניסיונות חיוב עבור הוראה זו.</div>`;
+            } else {
+                historyHTML += `
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>תאריך</th>
+                                <th>סכום</th>
+                                <th>סטטוס</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.history.forEach(row => {
+                    let statusBadge = "";
+                    if (row.status === "1") {
+                        statusBadge = `<span class="badge-success">הצליח</span>`;
+                    } else if (row.status === "2") {
+                        statusBadge = `<span class="badge-danger">סירוב</span>`;
+                    } else {
+                        statusBadge = `<span class="badge-danger">בוטל</span>`;
+                    }
+                    
+                    historyHTML += `
+                        <tr>
+                            <td>${row.date}</td>
+                            <td>${row.amount ? row.amount + ' ₪' : '-'}</td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+                
+                historyHTML += `
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            historyDiv.innerHTML = historyHTML;
+            
+        } catch (err) {
+            historyDiv.innerHTML = `<div style="color:#c53030; text-align:center; font-size:14px;">${err.message}</div>`;
         }
     }
 
