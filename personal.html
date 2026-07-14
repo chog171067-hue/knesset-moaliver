@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בית כנסת מואליבר - אזור אישי</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #333;
+            position: relative;
+        }
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            opacity: 0.3;
+            z-index: -1;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+        .logo {
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 25px;
+        }
+        h2 {
+            color: #1a365d;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        p {
+            font-size: 15px;
+            color: #555;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #1a365d;
+            font-size: 15px;
+        }
+        input[type="tel"] {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 18px;
+            text-align: center;
+            box-sizing: border-box;
+            direction: ltr;
+            transition: border-color 0.2s;
+        }
+        input[type="tel"]:focus {
+            border-color: #1a365d;
+            outline: none;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #1a365d;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #2a4365;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #1a365d;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <img src="logo.png" alt="לוגו בית כנסת מואליבר" class="logo">
+    <h2>אזור אישי לתורמים</h2>
+    <p>כדי לצפות ולנהל את התרומות, הקבלות והוראות הקבע הפעילות שלכם בקהילה, אנא הזינו את מספר הטלפון המעודכן במערכת:</p>
+    
+    <form id="loginForm" onsubmit="redirectToNedarim(event)">
+        <div class="form-group">
+            <label for="phone">מספר טלפון נייד:</label>
+            <input type="tel" id="phone" placeholder="0501234567" required pattern="[0-9]{9,10}">
+        </div>
+        <button type="submit" class="btn">כניסה מאובטחת</button>
+    </form>
+    
+    <a href="index.html" class="back-link">→ חזרה לדף הבית</a>
+</div>
+
+<script>
+    function redirectToNedarim(event) {
+        event.preventDefault();
+        
+        // שליפת מספר הטלפון שהמשתמש הזין וניקוי רווחים או מקפים מיותרים
+        let phone = document.getElementById('phone').value.trim().replace(/[- ]/g, '');
+        
+        // יצירת קישור הפנייה מאובטח המכיל את מספר המוסד שלכם והטלפון של התורם
+        // נדרים פלוס ישלח לו קוד אימות אוטומטית למספר הזה כדי להציג את פרטיו בצורה מאובטחת
+        let nedarimUrl = `https://www.matara.pro/nedarimplus/online/?mosad=7012851&Phone=${phone}`;
+        
+        // מעבר אוטומטי לקישור
+        window.location.href = nedarimUrl;
+    }
+</script>
+
+</body>
+</html>
