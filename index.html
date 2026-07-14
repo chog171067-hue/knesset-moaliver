@@ -6,7 +6,6 @@
     <title>בית כנסת מואליבר</title>
     <link rel="icon" type="image/png" href="logo.png">
     <style>
-        /* רקע הדף עם השקיפות המקורית */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -28,35 +27,32 @@
             z-index: -1;
         }
 
-        /* 2. הגדלה דרמטית של המכולה המרכזית (לוגו + כפתור זמנים בלבד) */
         .container {
             background: rgba(255, 255, 255, 0.9);
-            padding: 50px 40px; /* יותר ריפוד פנימי למראה מרשים */
+            padding: 50px 40px;
             border-radius: 20px;
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
             text-align: center;
-            max-width: 600px; /* הגדלה משמעותית של רוחב התיבה */
+            max-width: 600px;
             width: 90%;
             margin-top: 12vh;
         }
-        /* הגדלה דרמטית של הלוגו */
         .logo {
             max-width: 300px; 
             height: auto;
             margin-bottom: 35px;
         }
-        /* הגדלה דרמטית של הכפתור הראשי */
         .btn {
             display: block;
             width: 100%;
-            padding: 20px; /* ריפוד עבה יותר */
+            padding: 20px;
             margin: 12px 0;
             background: #1a365d;
             color: white;
             text-decoration: none;
             border-radius: 12px;
-            font-weight: 800; /* פונט עבה ובולט יותר */
-            font-size: 22px; /* גודל טקסט גדול וברור */
+            font-weight: 800;
+            font-size: 22px;
             box-sizing: border-box;
             border: none;
             cursor: pointer;
@@ -64,10 +60,20 @@
         }
         .btn:hover {
             background: #2a4365;
-            transform: scale(1.02); /* אפקט הגדלה קל בריחוף */
+            transform: scale(1.02);
         }
 
-        /* עיצוב לתפריט הכפתור הנפתח (Dropdown) - מותאם לגודל החדש */
+        /* סגנון מיוחד לכפתור האזור האישי כדי להבדיל אותו במעט */
+        .btn-secondary {
+            background: #2c5282;
+            font-size: 18px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .btn-secondary:hover {
+            background: #3182ce;
+        }
+
         .dropdown {
             position: relative;
             display: inline-block;
@@ -86,7 +92,7 @@
         }
         .dropdown-content a {
             color: #333;
-            padding: 18px 16px; /* תפריט גדול ונוח ללחיצה בטלפון */
+            padding: 18px 16px;
             text-decoration: none;
             display: block;
             font-weight: bold;
@@ -105,7 +111,6 @@
             display: block;
         }
 
-        /* 1. מקטע ניווט ומפה - מורד עוד יותר למטה (דרושה גלילה ארוכה) */
         .bottom-section {
             width: 100%;
             max-width: 460px;
@@ -115,7 +120,7 @@
             padding: 15px;
             box-sizing: border-box;
             text-align: center;
-            margin-top: 300px; /* מרווח ענק שמוריד את המפה עמוק למטה */
+            margin-top: 300px;
             margin-bottom: 0;
         }
         .map-container {
@@ -154,6 +159,8 @@
             <a href="yemothachol.html">ימות החול</a>
         </div>
     </div>
+
+    <a href="personal.html" class="btn btn-secondary">אזור אישי לתורמים 👤</a>
 </div>
 
 <div class="bottom-section">
