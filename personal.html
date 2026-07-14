@@ -133,9 +133,8 @@
         // שליפת מספר הטלפון שהמשתמש הזין וניקוי רווחים או מקפים מיותרים
         let phone = document.getElementById('phone').value.trim().replace(/[- ]/g, '');
         
-        // יצירת קישור הפנייה מאובטח המכיל את מספר המוסד שלכם והטלפון של התורם
-        // נדרים פלוס ישלח לו קוד אימות אוטומטית למספר הזה כדי להציג את פרטיו בצורה מאובטחת
-        let nedarimUrl = `https://www.matara.pro/nedarimplus/online/?mosad=7012851&Phone=${phone}`;
+        // יצירת קישור הפנייה מאובטח המכיל את מספר המוסד שלכם, פרמטר האזור האישי, והטלפון של התורם
+        let nedarimUrl = `https://www.matara.pro/nedarimplus/online/?mosad=7012851&ClientZone=1&Phone=${phone}`;
         
         // מעבר אוטומטי לקישור
         window.location.href = nedarimUrl;
