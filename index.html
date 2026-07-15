@@ -6,7 +6,6 @@
     <title>בית כנסת מוהליבר - דף הבית</title>
     <link rel="icon" type="image/png" href="logo.png">
     
-    <!-- ספרית ה-Widget של Netlify Identity לקליטת אישורי מייל והתחברות ברקע -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     
     <style>
@@ -111,7 +110,7 @@
             display: block;
         }
 
-        /* 2. מרכז הדף - סטריפ לבן חצי שקוף עם לוגו וטקסט (בגובה מסך מלא למניעת חפיפה) */
+        /* 2. מרכז הדף - סטריפ לבן חצי שקוף עם לוגו וטקסט (בגובה מסך מלא למניעת חפיפה ומכריח גלילה מטה) */
         .main-content {
             position: relative;
             z-index: 2;
@@ -147,6 +146,12 @@
             font-size: 28px;
             font-weight: 700;
             line-height: 1.4;
+        }
+        .tagline {
+            color: #2d3748;
+            font-size: 18px;
+            font-weight: 500;
+            margin-top: 10px;
         }
 
         /* 3. תחתית העמוד - אזור הניווט ומפות (מתחת לקפל הגלילה) */
@@ -236,6 +241,9 @@
             h1 {
                 font-size: 22px;
             }
+            .tagline {
+                font-size: 15px;
+            }
             .map-container {
                 height: 200px;
             }
@@ -244,7 +252,6 @@
 </head>
 <body>
 
-<!-- 1. סרגל כלים עליון -->
 <header>
     <nav class="nav-container">
         <ul class="nav-menu">
@@ -262,7 +269,6 @@
     </nav>
 </header>
 
-<!-- 2. מרכז הדף: סטריפ לבן חצי שקוף עם לוגו וטקסט -->
 <main class="main-content">
     <div class="center-strip">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
@@ -270,24 +276,21 @@
             דף המידע של<br>
             בית הכנסת המרכזי מוהליבר
         </h1>
+        <div class="tagline">מגדלור של תורה ותפילה בשכונת 'מוהליבר'</div>
     </div>
 </main>
 
-<!-- 3. תחתית העמוד: אזור הניווט והמפות (מחייב גלילה מטה) -->
 <section class="bottom-nav-section">
     <div class="address-text">כתובת: מוהליבר 10 בני ברק</div>
     
     <div class="map-container">
-        <!-- חלונית גוגל מאפס ממוקדת ומדויקת על רחוב שמואל מוהליבר 10, בני ברק -->
-        <iframe src="https://maps.google.com/maps?q=%D7%A9%D7%9E%D7%95%D7%90%D7%9C%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&t=&z=17&ie=UTF8&iwloc=&output=embed" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <iframe src="https://maps.google.com/maps?q=%D7%A9%D7%9E%D7%95%D7%90%D7%9C%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%2C%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&t=&z=16&ie=UTF8&iwloc=&output=embed" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
     </div>
 
-    <!-- כפתור ניווט בוויז -->
     <a href="https://waze.com/ul?q=%D7%A9%D7%9E%D7%95%D7%90%D7%9C%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&navigate=yes" class="waze-btn" target="_blank">
         ניווט באמצעות Waze 🚗
     </a>
 
-    <!-- 4. טקסט באנגלית קטן למטה למטה -->
     <div class="footer-credits">
         The Central Synagogue of Mohiliver, headed by Rabbi Ehud Shapira, Shlita
     </div>
