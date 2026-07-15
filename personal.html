@@ -424,6 +424,7 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
+        <!-- שלב א': טופס התחברות -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             <p class="subtitle">לצפייה מאובטחת בהוראות הקבע הפעילות שלכם בקהילה, אנא הזדהו באמצעות מספר הטלפון ותעודת הזהות שלכם:</p>
@@ -433,18 +434,19 @@
             <form onsubmit="fetchDonorData(event)">
                 <div class="form-group">
                     <label for="phone">מספר טלפון נייד:</label>
-                    <input type="tel" id="phone" placeholder="0501234567" required pattern="[0-9]{9,10}">
+                    <input type="tel" id="phone" required pattern="[0-9]{9,10}">
                 </div>
                 <div class="form-group">
                     <label for="tz">מספר תעודת זהות:</label>
-                    <input type="text" id="tz" placeholder="123456789" required pattern="[0-9]{4,9}">
+                    <input type="text" id="tz" required pattern="[0-9]{4,9}">
                 </div>
                 <button type="submit" class="btn">התחברות מאובטחת</button>
             </form>
             
-            <div id="loadingSpinner" class="loading">מתחבר לשרת נדרים פלוס ומאמת נתונים...</div>
+            <div id="loadingSpinner" class="loading">מתחבר למערכת ומאמת נתונים...</div>
         </div>
 
+        <!-- שלב ב': תצוגת נתונים לאחר הצלחה -->
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
             <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
