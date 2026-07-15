@@ -228,6 +228,34 @@
         .btn:hover {
             background: #2a4365;
         }
+        .google-btn {
+            background-color: #ffffff;
+            color: #757575;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .google-btn:hover {
+            background-color: #f7fafc;
+        }
+        .google-icon {
+            width: 18px;
+            height: 18px;
+        }
+        .toggle-auth-mode {
+            color: #2b6cb0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 15px;
+            text-decoration: underline;
+        }
         .error-msg {
             color: #c53030;
             background: #fff5f5;
@@ -357,13 +385,13 @@
             font-weight: bold;
         }
 
-        /* קבוצת הרשמה/כניסה מאובטחת */
+        /* קבוצת הרשמה/כניסה מאובטחת בעברית מלאה */
         .identity-auth-box {
             display: none;
             margin-top: 25px;
             padding-top: 25px;
             border-top: 2px dashed #e2e8f0;
-            text-align: center;
+            text-align: right;
         }
 
         @media (max-width: 768px) {
@@ -465,9 +493,30 @@
             </form>
             
             <div id="identityAuthBox" class="identity-auth-box">
-                <p style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
-                <p class="subtitle" style="margin-bottom: 15px;">כעת באפשרותך ליצור חשבון אישי, או להתחבר לחשבון קיים באופן מאובטח:</p>
-                <button class="btn" onclick="openIdentityModal()" style="background: #2b6cb0;">התחברות / הרשמה לאתר</button>
+                <p style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
+                
+                <h3 id="authTitle" style="color: #1a365d; margin-bottom: 20px; text-align: center;">התחברות לחשבון</h3>
+                
+                <form id="customAuthForm" onsubmit="handleCustomAuth(event)">
+                    <div class="form-group">
+                        <label for="authEmail">כתובת אימייל:</label>
+                        <input type="email" id="authEmail" required placeholder="name@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="authPassword">סיסמה:</label>
+                        <input type="password" id="authPassword" required minlength="6" placeholder="לפחות 6 תווים">
+                    </div>
+                    <button type="submit" id="authSubmitBtn" class="btn">התחבר</button>
+                </form>
+
+                <button class="btn google-btn" onclick="loginWithGoogle()">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" class="google-icon">
+                    התחברות מהירה באמצעות Google
+                </button>
+
+                <div style="text-align: center;">
+                    <button type="button" id="toggleAuthBtn" class="toggle-auth-mode" onclick="toggleAuthMode()">אין לך חשבון? להרשמה לחץ כאן</button>
+                </div>
             </div>
             
             <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
@@ -486,8 +535,8 @@
 
 <script>
     let verifiedTz = null;
+    let authMode = "login"; // מצב ברירת מחדל: התחברות. יכול להשתנות ל-"signup"
 
-    // עטיפת הכל ב-Event הממתין לטעינה מלאה של הדף ושל הספרייה של נטליפיי
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
@@ -499,7 +548,6 @@
             });
 
             netlifyIdentity.on('login', user => {
-                netlifyIdentity.close();
                 fetchDonorData(user);
             });
 
@@ -522,9 +570,24 @@
         }
     }
 
-    function openIdentityModal() {
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.open();
+    // מעבר דינמי בעברית בין מצב כניסה למצב הרשמה
+    function toggleAuthMode() {
+        const title = document.getElementById('authTitle');
+        const submitBtn = document.getElementById('authSubmitBtn');
+        const toggleBtn = document.getElementById('toggleAuthBtn');
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.style.display = 'none';
+
+        if (authMode === "login") {
+            authMode = "signup";
+            title.innerText = "הרשמה ויצירת חשבון חדש";
+            submitBtn.innerText = "צור חשבון";
+            toggleBtn.innerText = "כבר יש לך חשבון? להתחברות לחץ כאן";
+        } else {
+            authMode = "login";
+            title.innerText = "התחברות לחשבון";
+            submitBtn.innerText = "התחבר";
+            toggleBtn.innerText = "אין לך חשבון? להרשמה לחץ כאן";
         }
     }
 
@@ -551,212 +614,3 @@
             loadingDiv.style.display = 'none';
 
             if (result.allowed) {
-                verifiedTz = tz;
-                whitelistForm.style.display = 'none';
-                authBox.style.display = 'block';
-                openIdentityModal();
-            } else {
-                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
-            }
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            errorDiv.innerHTML = err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    // שלב 3: שליפת נתוני התרומות מנדרים פלוס
-    async function fetchDonorData(user) {
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-        const loginSection = document.getElementById('loginSection');
-        const resultsSection = document.getElementById('resultsSection');
-
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
-
-        try {
-            const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz);
-
-            if (!tzToSearch) {
-                throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
-            }
-
-            if (verifiedTz && typeof netlifyIdentity !== 'undefined') {
-                const currentUser = netlifyIdentity.currentUser();
-                if (currentUser) {
-                    await currentUser.update({ data: { verified_tz: verifiedTz } });
-                }
-            }
-
-            const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tz: tzToSearch })
-            });
-
-            const result = await response.json();
-            loadingDiv.style.display = 'none';
-
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || "לא נמצאו נתונים תואמים במערכת.");
-            }
-
-            loginSection.style.display = 'none';
-            resultsSection.style.display = 'block';
-            document.getElementById('donorName').innerText = result.data[0].name;
-
-            const kevaListDiv = document.getElementById('kevaList');
-            kevaListDiv.innerHTML = '';
-
-            const groups = {};
-            result.data.forEach(keva => {
-                const groupName = keva.mosadName || "אחר";
-                if (!groups[groupName]) {
-                    groups[groupName] = [];
-                }
-                groups[groupName].push(keva);
-            });
-
-            for (const [mosadName, kevaArray] of Object.entries(groups)) {
-                const mTitle = document.createElement('div');
-                mTitle.className = 'mosad-title';
-                mTitle.innerText = mosadName;
-                kevaListDiv.appendChild(mTitle);
-
-                kevaArray.forEach(keva => {
-                    const card = document.createElement('div');
-                    card.className = 'keva-card';
-
-                    const hasError = keva.errorText && keva.errorText.trim().length > 0;
-                    const errorBadge = hasError ? `
-                        <div class="denial-warning">
-                            ⚠️ תשומת לב: החיוב האחרון לא צלח עקב סירוב מהבנק/אשראי. 
-                            <br>פירוט: ${keva.errorText}
-                        </div>
-                    ` : '';
-
-                    card.innerHTML = `
-                        <div class="keva-header">
-                            <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
-                            <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
-                                ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
-                            </div>
-                        </div>
-                        <div class="keva-row"><strong>סכום חודשי:</strong> ${keva.amount} ₪</div>
-                        <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
-                        <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
-                        ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
-                        
-                        ${errorBadge}
-                        
-                        <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
-                        
-                        <div id="history_${keva.kevaId}" class="history-section">
-                            <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
-                        </div>
-                    `;
-                    kevaListDiv.appendChild(card);
-                });
-            }
-
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            errorDiv.innerHTML = err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    async function toggleHistory(kevaId, buttonElement) {
-        const historyDiv = document.getElementById(`history_${kevaId}`);
-        
-        if (historyDiv.style.display === 'block') {
-            historyDiv.style.display = 'none';
-            buttonElement.innerText = "הצג היסטוריית חיובים ▾";
-            return;
-        }
-        
-        historyDiv.style.display = 'block';
-        buttonElement.innerText = "סגור היסטוריית חיובים ▴";
-        
-        try {
-            const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kevaId })
-            });
-            
-            const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-                throw new Error("כשל בטעינת ההיסטוריה");
-            }
-            
-            let historyHTML = `
-                <div class="summary-info">
-                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ נתרם בפועל: ${result.totalAmount} ₪
-                </div>
-            `;
-            
-            if (result.history.length === 0) {
-                historyHTML += `<div style="text-align:center; font-size:14px; color:#718096; padding:10px;">טרם בוצעו ניסיונות חיוב עבור הוראה זו.</div>`;
-            } else {
-                historyHTML += `
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th>תאריך</th>
-                                <th>סכום</th>
-                                <th>סטטוס</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-                
-                result.history.forEach(row => {
-                    let statusBadge = "";
-                    if (row.status === "1") {
-                        statusBadge = `<span class="badge-success">הצליח</span>`;
-                    } else if (row.status === "2") {
-                        statusBadge = `<span class="badge-danger">סירוב</span>`;
-                    } else {
-                        statusBadge = `<span class="badge-danger">בוטל</span>`;
-                    }
-                    
-                    historyHTML += `
-                        <tr>
-                            <td>${row.date}</td>
-                            <td>${row.amount ? row.amount + ' ₪' : '-'}</td>
-                            <td>${statusBadge}</td>
-                        </tr>
-                    `;
-                });
-                
-                historyHTML += `
-                        </tbody>
-                    </table>
-                `;
-            }
-            
-            historyDiv.innerHTML = historyHTML;
-            
-        } catch (err) {
-            historyDiv.innerHTML = `<div style="color:#c53030; text-align:center; font-size:14px;">${err.message}</div>`;
-        }
-    }
-
-    function handleLogout() {
-        verifiedTz = null;
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.logout();
-        }
-        document.getElementById('verificationTz').value = '';
-        document.getElementById('resultsSection').style.display = 'none';
-        document.getElementById('identityAuthBox').style.display = 'none';
-        document.getElementById('whitelistForm').style.display = 'block';
-        document.getElementById('loginSection').style.display = 'block';
-    }
-</script>
-
-</body>
-</html>
