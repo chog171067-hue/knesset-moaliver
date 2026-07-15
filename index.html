@@ -185,7 +185,7 @@
             position: relative;
             z-index: 2;
             background-color: rgba(26, 54, 93, 0.96);
-            padding: 30px 20px 15px 20px; /* מרווח תחתון קטן לשורת הקרדיט */
+            padding: 30px 20px 15px 20px;
             border-top: 4px solid #2b6cb0;
             display: flex;
             flex-direction: column;
@@ -232,6 +232,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
             border: 2px solid rgba(255, 255, 255, 0.1);
             margin-bottom: 10px;
+            background-color: #e2e8f0; /* צבע רקע למקרה של עיכוב בטעינה */
         }
         .map-container iframe {
             display: block;
@@ -243,11 +244,11 @@
         /* שורת קידום מוסתרת-אלגנטית באנגלית */
         .seo-attribution {
             font-size: 11px;
-            color: #a0aec0; /* צבע אפור-תכלת עדין שמשתלב בתוך הכחול הכהה */
+            color: #a0aec0;
             letter-spacing: 0.5px;
             margin-top: 10px;
             font-weight: 400;
-            direction: ltr; /* תצוגה משמאל לימין לאנגלית */
+            direction: ltr;
         }
 
         /* התאמה לניידים */
@@ -353,8 +354,9 @@
     </a>
     
     <div class="map-container">
+        <!-- קוד ה-iframe תוקן לכתובת הרשמית והתקינה של גוגל מפות -->
         <iframe 
-            src="http://googleusercontent.com/maps.google.com/3" 
+            src="https://maps.google.com/maps?q=%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010,%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&t=&z=16&ie=UTF8&iwloc=&output=embed" 
             allowfullscreen="" 
             loading="lazy">
         </iframe>
