@@ -127,6 +127,15 @@
             text-align: right;
             margin-top: 20px;
         }
+        .mosad-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2b6cb0;
+            margin-top: 25px;
+            margin-bottom: 8px;
+            border-right: 4px solid #2b6cb0;
+            padding-right: 10px;
+        }
         .keva-card {
             background: #f7fafc;
             border: 1px solid #e2e8f0;
@@ -135,6 +144,7 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             text-align: right;
+            position: relative;
         }
         .keva-header {
             display: flex;
@@ -151,6 +161,21 @@
         }
         .status-active { color: #38a169; font-weight: bold; }
         .status-inactive { color: #e53e3e; font-weight: bold; }
+
+        /* התראת סירובים */
+        .denial-warning {
+            background-color: #fff5f5;
+            border: 1px solid #feb2b2;
+            color: #9b2c2c;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
         .history-btn {
             background: #edf2f7;
@@ -220,7 +245,6 @@
 <div class="container">
     <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
     
-    <!-- שלב א': טופס התחברות -->
     <div id="loginSection">
         <h2>אזור אישי לתורמים</h2>
         <p class="subtitle">לצפייה מאובטחת בהוראות הקבע הפעילות שלכם בקהילה, אנא הזדהו באמצעות מספר הטלפון ותעודת הזהות שלכם:</p>
@@ -242,7 +266,6 @@
         <div id="loadingSpinner" class="loading">מתחבר לשרת נדרים פלוס ומאמת נתונים...</div>
     </div>
 
-    <!-- שלב ב': תצוגת נתונים לאחר הצלחה -->
     <div id="resultsSection" class="results-container">
         <h2>שלום, <span id="donorName"></span></h2>
         <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
@@ -292,29 +315,61 @@
             const kevaListDiv = document.getElementById('kevaList');
             kevaListDiv.innerHTML = '';
             
+            // ארגון הוראות הקבע לפי שם המוסד
+            const groups = {};
             result.data.forEach(keva => {
-                const card = document.createElement('div');
-                card.className = 'keva-card';
-                card.innerHTML = `
-                    <div class="keva-header">
-                        <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
-                        <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
-                            ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
-                        </div>
-                    </div>
-                    <div class="keva-row"><strong>סכום חודשי:</strong> ${keva.amount} ₪</div>
-                    <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
-                    <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
-                    ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
-                    
-                    <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
-                    
-                    <div id="history_${keva.kevaId}" class="history-section">
-                        <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
-                    </div>
-                `;
-                kevaListDiv.appendChild(card);
+                const groupName = keva.mosadName || "אחר";
+                if (!groups[groupName]) {
+                    groups[groupName] = [];
+                }
+                groups[groupName].push(keva);
             });
+            
+            // יצירת התצוגה לפי מוסדות
+            for (const [mosadName, kevaArray] of Object.entries(groups)) {
+                // הוספת כותרת המוסד
+                const mTitle = document.createElement('div');
+                mTitle.className = 'mosad-title';
+                mTitle.innerText = mosadName;
+                kevaListDiv.appendChild(mTitle);
+                
+                // הוספת כרטיסי הוראות הקבע של אותו מוסד
+                kevaArray.forEach(keva => {
+                    const card = document.createElement('div');
+                    card.className = 'keva-card';
+                    
+                    // בדיקה אם קיימת התראת סירוב (ErrorText אינו ריק)
+                    const hasError = keva.errorText && keva.errorText.trim().length > 0;
+                    const errorBadge = hasError ? `
+                        <div class="denial-warning">
+                            ⚠️ שומת לב: החיוב האחרון לא צלח עקב סירוב מהבנק/אשראי. 
+                            <br>פירוט: ${keva.errorText}
+                        </div>
+                    ` : '';
+                    
+                    card.innerHTML = `
+                        <div class="keva-header">
+                            <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
+                            <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
+                                ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
+                            </div>
+                        </div>
+                        <div class="keva-row"><strong>סכום חודשי:</strong> ${keva.amount} ₪</div>
+                        <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
+                        <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
+                        ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
+                        
+                        ${errorBadge}
+                        
+                        <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
+                        
+                        <div id="history_${keva.kevaId}" class="history-section">
+                            <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
+                        </div>
+                    `;
+                    kevaListDiv.appendChild(card);
+                });
+            }
             
         } catch (err) {
             loadingDiv.style.display = 'none';
