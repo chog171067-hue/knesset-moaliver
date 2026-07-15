@@ -28,8 +28,6 @@
             background: rgba(255, 255, 255, 0.45);
             z-index: 1;
         }
-
-        /* סרגל ניווט עליון מיושר */
         header {
             background-color: rgba(26, 54, 93, 0.95);
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
@@ -89,8 +87,6 @@
             background-color: #2b6cb0;
             color: white;
         }
-
-        /* תפריט נפתח (Dropdown) */
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -120,8 +116,6 @@
         .nav-item:hover .dropdown-menu {
             display: block;
         }
-
-        /* המבורגר למובייל */
         .hamburger {
             display: none;
             flex-direction: column;
@@ -139,8 +133,6 @@
             border-radius: 2px;
             transition: 0.3s;
         }
-
-        /* תוכן מרכזי מקורי של דף הבית */
         .main-content {
             position: relative;
             z-index: 2;
@@ -171,8 +163,6 @@
             margin: 0 auto 40px auto;
             font-weight: 500;
         }
-
-        /* סקשן ניווט תחתון מקורי (כרטיסיות) */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -201,7 +191,6 @@
             background-color: #fff;
             border-color: #2b6cb0;
         }
-
         @media (max-width: 768px) {
             .nav-container {
                 flex-direction: row;
@@ -306,7 +295,7 @@
         }
     }
 
-    // מאזין אישור הרשמה והתחברות של Netlify Identity
+    // מאזין אישור הרשמה והתחברות של Netlify Identity ברקע
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
