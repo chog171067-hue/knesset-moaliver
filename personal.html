@@ -592,32 +592,34 @@
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
 
+        // ניסיון התחברות ישיר תחילה (ללא קשר למצב שנבחר) כדי לעקוף שגיאות הרשמה כפולות
         try {
-            if (authMode === "signup") {
-                // תיקון שמירת המטא-דאטה: שימוש במבנה המדויק של Netlify (תחת מפתח data)
-                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
-                loadingDiv.style.display = 'none';
-                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
-                switchToLoginMode();
-            } else {
-                await netlifyIdentity.gotrue.login(email, password, true);
+            await netlifyIdentity.gotrue.login(email, password, true);
+            return; // התחברות הצליחה, נעצור כאן
+        } catch (loginErr) {
+            // אם ההתחברות נכשלה בגלל שהמשתמש באמת לא קיים (ולא בגלל סיסמה שגויה) ורצינו להירשם:
+            if (authMode === "signup" && loginErr.message.includes("not found")) {
+                try {
+                    // שמירת המטא-דאטה במבנה המדויק של Netlify (תחת מפתח data)
+                    await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
+                    loadingDiv.style.display = 'none';
+                    alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
+                    switchToLoginMode();
+                    return;
+                } catch (signupErr) {
+                    loadingDiv.style.display = 'none';
+                    errorDiv.innerHTML = "שגיאה ברישום החשבון: " + signupErr.message;
+                    errorDiv.style.display = 'block';
+                    return;
+                }
             }
-        } catch (err) {
+            
+            // הצגת שגיאה מתאימה למשתמש
             loadingDiv.style.display = 'none';
-            let friendlyError = err.message;
-
-            // מנגנון פלאג-אין חכם: אם מנסים להירשם עם מייל קיים, מחליפים מייד למצב כניסה ומאפשרים למשתמש להתחבר
-            if (authMode === "signup" && (err.message.includes("already exists") || err.message.includes("already registered"))) {
-                console.log("משתמש קיים זוהה במהלך ניסיון רישום. מעביר אוטומטית למצב התחברות.");
-                switchToLoginMode();
-                errorDiv.innerHTML = "חשבון תחת אימייל זה כבר קיים במערכת! אנא הקלד את הסיסמה שלך ולחץ על 'התחבר'.";
-                errorDiv.style.display = 'block';
-                return;
-            }
-
-            if (err.message.includes("Email not confirmed")) {
+            let friendlyError = loginErr.message;
+            if (loginErr.message.includes("Email not confirmed")) {
                 friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור שנשלח אליך.";
-            } else if (err.message.includes("Invalid login")) {
+            } else if (loginErr.message.includes("Invalid login")) {
                 friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים.";
             }
             errorDiv.innerHTML = friendlyError;
