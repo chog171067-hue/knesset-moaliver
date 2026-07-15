@@ -184,9 +184,9 @@
         .navigation-footer {
             position: relative;
             z-index: 2;
-            background-color: rgba(26, 54, 93, 0.96); /* רקע כחול כהה עמוק, נפרד לחלוטין מהדף הלבן */
-            padding: 30px 20px;
-            border-top: 4px solid #2b6cb0; /* קו גבול כחול זוהר למעלה */
+            background-color: rgba(26, 54, 93, 0.96);
+            padding: 30px 20px 15px 20px; /* מרווח תחתון קטן לשורת הקרדיט */
+            border-top: 4px solid #2b6cb0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -194,12 +194,12 @@
             width: 100%;
             box-sizing: border-box;
             text-align: center;
-            margin-top: auto; /* דוחף את הניווט תמיד לתחתית העמוד */
+            margin-top: auto;
         }
         .location-text {
             font-size: 18px;
             font-weight: bold;
-            color: #ffffff; /* טקסט לבן */
+            color: #ffffff;
             text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
         .waze-btn {
@@ -231,12 +231,23 @@
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
             border: 2px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 10px;
         }
         .map-container iframe {
             display: block;
             border: none;
             width: 100%;
             height: 240px;
+        }
+
+        /* שורת קידום מוסתרת-אלגנטית באנגלית */
+        .seo-attribution {
+            font-size: 11px;
+            color: #a0aec0; /* צבע אפור-תכלת עדין שמשתלב בתוך הכחול הכהה */
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+            font-weight: 400;
+            direction: ltr; /* תצוגה משמאל לימין לאנגלית */
         }
 
         /* התאמה לניידים */
@@ -343,10 +354,14 @@
     
     <div class="map-container">
         <iframe 
-            src="https://maps.google.com/maps?q=מוהליבר%2010,%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed" 
+            src="http://googleusercontent.com/maps.google.com/3" 
             allowfullscreen="" 
             loading="lazy">
         </iframe>
+    </div>
+
+    <div class="seo-attribution">
+        The Central Synagogue of Mohiliver, headed by Rabbi Ehud Shapira, Shlita
     </div>
 </footer>
 
