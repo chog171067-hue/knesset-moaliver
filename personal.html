@@ -348,4 +348,415 @@
             font-weight: bold;
         }
         .summary-info {
-            background: #ebf
+            background: #ebf8ff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2b6cb0;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        /* קבוצת הרשמה/כניסה מאובטחת */
+        .identity-auth-box {
+            display: none;
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 2px dashed #e2e8f0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+            .hamburger {
+                display: flex;
+            }
+            .nav-menu {
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                position: absolute;
+                top: 70px;
+                left: 0;
+                background-color: #1a365d;
+                padding: 15px 0;
+                box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            }
+            .nav-menu.open {
+                display: flex;
+            }
+            .nav-item {
+                text-align: center;
+                width: 100%;
+            }
+            .nav-item a, .dropdown-toggle {
+                padding: 12px 0;
+                border-radius: 0;
+                width: 100%;
+                text-align: center;
+            }
+            .dropdown-menu {
+                position: static;
+                display: none;
+                width: 100%;
+                background-color: rgba(0, 0, 0, 0.2);
+                box-shadow: none;
+            }
+            .nav-item.open-dropdown .dropdown-menu {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="nav-container">
+        <a href="index.html" class="nav-logo-link">
+            <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
+        </a>
+        
+        <button class="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        
+        <ul class="nav-menu" id="navMenu">
+            <li class="nav-item"><a href="index.html">דף הבית</a></li>
+            
+            <li class="nav-item" id="prayersDropdown">
+                <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>
+                <ul class="dropdown-menu">
+                    <li><a href="yemothachol.html">ימות החול</a></li>
+                    <li><a href="shabbat.html">שבתות וחגים</a></li>
+                </ul>
+            </li>
+            
+            <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
+            <li class="nav-item active"><a href="personal.html">אזור אישי</a></li>
+        </ul>
+    </div>
+</header>
+
+<main class="main-content">
+    <div class="container">
+        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
+        
+        <div id="loginSection">
+            <h2>אזור אישי</h2>
+            
+            <div class="instructions-box">
+                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
+                במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
+            </div>
+            
+            <div id="errorMessage" class="error-msg"></div>
+            
+            <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
+                <div class="form-group">
+                    <label for="verificationTz">הזן מספר תעודת זהות:</label>
+                    <input type="text" id="verificationTz" required pattern="[0-9]{4,9}" placeholder="אנא הקלד ת.ז.">
+                </div>
+                <button type="submit" class="btn">המשך</button>
+            </form>
+            
+            <div id="identityAuthBox" class="identity-auth-box">
+                <p style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
+                <p class="subtitle" style="margin-bottom: 15px;">כעת באפשרותך ליצור חשבון אישי, או להתחבר לחשבון קיים באופן מאובטח:</p>
+                <button class="btn" onclick="openIdentityModal()" style="background: #2b6cb0;">התחברות / הרשמה לאתר</button>
+            </div>
+            
+            <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
+        </div>
+
+        <div id="resultsSection" class="results-container">
+            <h2>שלום, <span id="donorName"></span></h2>
+            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
+            
+            <div id="kevaList"></div>
+            
+            <button onclick="handleLogout()" class="btn" style="background:#718096; margin-top:20px; padding:10px; font-size:15px;">יציאה מהמערכת</button>
+        </div>
+    </div>
+</main>
+
+<script>
+    let verifiedTz = null;
+
+    // עטיפת הכל ב-Event הממתין לטעינה מלאה של הדף ושל הספרייה של נטליפיי
+    window.addEventListener('load', () => {
+        if (typeof netlifyIdentity !== 'undefined') {
+            netlifyIdentity.on('init', user => {
+                if (user && user.user_metadata && user.user_metadata.verified_tz) {
+                    fetchDonorData(user);
+                } else if (user) {
+                    netlifyIdentity.logout();
+                }
+            });
+
+            netlifyIdentity.on('login', user => {
+                netlifyIdentity.close();
+                fetchDonorData(user);
+            });
+
+            netlifyIdentity.on('logout', () => {
+                handleLogout();
+            });
+        }
+    });
+
+    function toggleMenu() {
+        const menu = document.getElementById('navMenu');
+        menu.classList.toggle('open');
+    }
+
+    function toggleDropdown(event) {
+        if (window.innerWidth <= 768) {
+            event.preventDefault();
+            const dropdown = document.getElementById('prayersDropdown');
+            dropdown.classList.toggle('open-dropdown');
+        }
+    }
+
+    function openIdentityModal() {
+        if (typeof netlifyIdentity !== 'undefined') {
+            netlifyIdentity.open();
+        }
+    }
+
+    // שלב 1: אימות ת"ז מול פונקציית השרת המאובטחת
+    async function verifyWhitelist(event) {
+        event.preventDefault();
+        const tz = document.getElementById('verificationTz').value;
+        const errorDiv = document.getElementById('errorMessage');
+        const loadingDiv = document.getElementById('loadingSpinner');
+        const whitelistForm = document.getElementById('whitelistForm');
+        const authBox = document.getElementById('identityAuthBox');
+
+        errorDiv.style.display = 'none';
+        loadingDiv.style.display = 'block';
+
+        try {
+            const response = await fetch('/.netlify/functions/verify-tz', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tz })
+            });
+
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (result.allowed) {
+                verifiedTz = tz;
+                whitelistForm.style.display = 'none';
+                authBox.style.display = 'block';
+                openIdentityModal();
+            } else {
+                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
+            }
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerHTML = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    // שלב 3: שליפת נתוני התרומות מנדרים פלוס
+    async function fetchDonorData(user) {
+        const errorDiv = document.getElementById('errorMessage');
+        const loadingDiv = document.getElementById('loadingSpinner');
+        const loginSection = document.getElementById('loginSection');
+        const resultsSection = document.getElementById('resultsSection');
+
+        errorDiv.style.display = 'none';
+        loadingDiv.style.display = 'block';
+
+        try {
+            const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz);
+
+            if (!tzToSearch) {
+                throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
+            }
+
+            if (verifiedTz && typeof netlifyIdentity !== 'undefined') {
+                const currentUser = netlifyIdentity.currentUser();
+                if (currentUser) {
+                    await currentUser.update({ data: { verified_tz: verifiedTz } });
+                }
+            }
+
+            const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tz: tzToSearch })
+            });
+
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || "לא נמצאו נתונים תואמים במערכת.");
+            }
+
+            loginSection.style.display = 'none';
+            resultsSection.style.display = 'block';
+            document.getElementById('donorName').innerText = result.data[0].name;
+
+            const kevaListDiv = document.getElementById('kevaList');
+            kevaListDiv.innerHTML = '';
+
+            const groups = {};
+            result.data.forEach(keva => {
+                const groupName = keva.mosadName || "אחר";
+                if (!groups[groupName]) {
+                    groups[groupName] = [];
+                }
+                groups[groupName].push(keva);
+            });
+
+            for (const [mosadName, kevaArray] of Object.entries(groups)) {
+                const mTitle = document.createElement('div');
+                mTitle.className = 'mosad-title';
+                mTitle.innerText = mosadName;
+                kevaListDiv.appendChild(mTitle);
+
+                kevaArray.forEach(keva => {
+                    const card = document.createElement('div');
+                    card.className = 'keva-card';
+
+                    const hasError = keva.errorText && keva.errorText.trim().length > 0;
+                    const errorBadge = hasError ? `
+                        <div class="denial-warning">
+                            ⚠️ תשומת לב: החיוב האחרון לא צלח עקב סירוב מהבנק/אשראי. 
+                            <br>פירוט: ${keva.errorText}
+                        </div>
+                    ` : '';
+
+                    card.innerHTML = `
+                        <div class="keva-header">
+                            <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
+                            <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
+                                ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
+                            </div>
+                        </div>
+                        <div class="keva-row"><strong>סכום חודשי:</strong> ${keva.amount} ₪</div>
+                        <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
+                        <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
+                        ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
+                        
+                        ${errorBadge}
+                        
+                        <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
+                        
+                        <div id="history_${keva.kevaId}" class="history-section">
+                            <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
+                        </div>
+                    `;
+                    kevaListDiv.appendChild(card);
+                });
+            }
+
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerHTML = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function toggleHistory(kevaId, buttonElement) {
+        const historyDiv = document.getElementById(`history_${kevaId}`);
+        
+        if (historyDiv.style.display === 'block') {
+            historyDiv.style.display = 'none';
+            buttonElement.innerText = "הצג היסטוריית חיובים ▾";
+            return;
+        }
+        
+        historyDiv.style.display = 'block';
+        buttonElement.innerText = "סגור היסטוריית חיובים ▴";
+        
+        try {
+            const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kevaId })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                throw new Error("כשל בטעינת ההיסטוריה");
+            }
+            
+            let historyHTML = `
+                <div class="summary-info">
+                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ נתרם בפועל: ${result.totalAmount} ₪
+                </div>
+            `;
+            
+            if (result.history.length === 0) {
+                historyHTML += `<div style="text-align:center; font-size:14px; color:#718096; padding:10px;">טרם בוצעו ניסיונות חיוב עבור הוראה זו.</div>`;
+            } else {
+                historyHTML += `
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>תאריך</th>
+                                <th>סכום</th>
+                                <th>סטטוס</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.history.forEach(row => {
+                    let statusBadge = "";
+                    if (row.status === "1") {
+                        statusBadge = `<span class="badge-success">הצליח</span>`;
+                    } else if (row.status === "2") {
+                        statusBadge = `<span class="badge-danger">סירוב</span>`;
+                    } else {
+                        statusBadge = `<span class="badge-danger">בוטל</span>`;
+                    }
+                    
+                    historyHTML += `
+                        <tr>
+                            <td>${row.date}</td>
+                            <td>${row.amount ? row.amount + ' ₪' : '-'}</td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+                
+                historyHTML += `
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            historyDiv.innerHTML = historyHTML;
+            
+        } catch (err) {
+            historyDiv.innerHTML = `<div style="color:#c53030; text-align:center; font-size:14px;">${err.message}</div>`;
+        }
+    }
+
+    function handleLogout() {
+        verifiedTz = null;
+        if (typeof netlifyIdentity !== 'undefined') {
+            netlifyIdentity.logout();
+        }
+        document.getElementById('verificationTz').value = '';
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('identityAuthBox').style.display = 'none';
+        document.getElementById('whitelistForm').style.display = 'block';
+        document.getElementById('loginSection').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
