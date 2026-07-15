@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>בית כנסת מוהליבר - אזור אישי</title>
     <link rel="icon" type="image/png" href="logo.png">
-    <!-- ספרית ה-Widget של Netlify Identity לשליטה על הרשמה וכניסה -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <style>
         body {
@@ -447,38 +446,33 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
-        <!-- שלב א': אימות תעודת זהות מול רשימה לבנה והרשמה -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             
             <div class="instructions-box">
-                <strong>שלום וברכה,</strong><br>
                 ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
                 במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
             </div>
             
             <div id="errorMessage" class="error-msg"></div>
             
-            <!-- טופס בדיקה ראשוני -->
             <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
                 <div class="form-group">
-                    <label for="verificationTz">הזן מספר תעודת זהות לבדיקת זכאות:</label>
+                    <label for="verificationTz">הזן מספר תעודת זהות:</label>
                     <input type="text" id="verificationTz" required pattern="[0-9]{4,9}" placeholder="אנא הקלד ת.ז.">
                 </div>
-                <button type="submit" class="btn">בדוק זכאות והמשך</button>
+                <button type="submit" class="btn">המשך</button>
             </form>
             
-            <!-- סקשן התחברות של נטליפיי (מופיע רק אחרי שהתעודת זהות מאושרת) -->
             <div id="identityAuthBox" class="identity-auth-box">
                 <p style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
                 <p class="subtitle" style="margin-bottom: 15px;">כעת באפשרותך ליצור חשבון אישי, או להתחבר לחשבון קיים באופן מאובטח:</p>
                 <button class="btn" onclick="netlifyIdentity.open()" style="background: #2b6cb0;">התחברות / הרשמה לאתר</button>
             </div>
             
-            <div id="loadingSpinner" class="loading">בודק נתוני זכאות בשרת...</div>
+            <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
         </div>
 
-        <!-- שלב ב': תצוגת נתונים לאחר התחברות מוצלחת ואימות -->
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
             <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
@@ -491,6 +485,33 @@
 </main>
 
 <script>
+    // הגדרת תרגום מלא של ה-Widget של Netlify Identity לעברית
+    netlifyIdentity.on('init', () => {
+        // עיצוב ותרגום כפתורים וטקסטים פנימיים ב-Widget
+        const translations = {
+            en: {
+                "log_in": "התחברות",
+                "sign_up": "הרשמה",
+                "email": "כתובת אימייל",
+                "password": "סיסמה",
+                "forgot_password": "שכחת סיסמה?",
+                "or": "או",
+                "login_with_provider": "התחבר באמצעות {{provider}}",
+                "signing_up": "מבצע הרשמה...",
+                "logging_in": "מתחבר...",
+                "send_recovery_email": "שלח מייל לשחזור",
+                "recover_password": "שחזור סיסמה",
+                "signup_header": "צור חשבון חדש בקהילה",
+                "login_header": "התחבר לחשבון שלך"
+            }
+        };
+        // הגדרת הממשק לעברית ימין-לשמאל
+        const iframe = document.getElementById('netlify-identity-widget');
+        if (iframe) {
+            iframe.setAttribute('dir', 'rtl');
+        }
+    });
+
     // משתנה שישמור באופן זמני את ה-TZ שאומת בהצלחה
     let verifiedTz = null;
 
@@ -531,10 +552,10 @@
 
             if (result.allowed) {
                 // תעודת הזהות נמצאה ברשימה
-                verifiedTz = tz; // שמירת תעודת הזהות להמשך התהליך
-                whitelistForm.style.display = 'none'; // העלמת טופס הבדיקה
-                authBox.style.display = 'block'; // הצגת אפשרויות ההתחברות של נטליפיי
-                netlifyIdentity.open(); // פתיחת חלונית ההרשמה אוטומטית
+                verifiedTz = tz;
+                whitelistForm.style.display = 'none';
+                authBox.style.display = 'block';
+                netlifyIdentity.open(); // פותח את חלונית הרישום
             } else {
                 throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
             }
@@ -548,7 +569,6 @@
     // שלב 2: הגדרות מאזינים של Netlify Identity לשליפת הנתונים לאחר התחברות
     netlifyIdentity.on('init', user => {
         if (user) {
-            // אם המשתמש כבר מחובר, נשלוף את הנתונים שלו
             fetchDonorData(user);
         }
     });
@@ -573,21 +593,18 @@
         loadingDiv.style.display = 'block';
 
         try {
-            // נשתמש ב-TZ שאומת בשלב הקודם, או בנתוני המשתמש השמורים
             const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz);
 
             if (!tzToSearch) {
                 throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
             }
 
-            // עדכון הפרופיל של המשתמש בנטליפיי עם ה-TZ המאומת (שמירה לפעם הבאה)
             if (verifiedTz) {
                 await netlifyIdentity.currentUser().update({
                     data: { verified_tz: verifiedTz }
                 });
             }
 
-            // שליפת נתוני הוראות קבע באמצעות השרת
             const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
