@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מהנעשה ונשמע - בית כנסת מוהליבר</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+            position: relative;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.45);
+            z-index: 1;
+        }
+
+        /* סרגל ניווט עליון (Header) */
+        header {
+            background-color: rgba(26, 54, 93, 0.95);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+        }
+        .nav-logo-link {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .nav-logo {
+            height: 45px;
+            width: auto;
+        }
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 15px;
+        }
+        .nav-item a {
+            color: #f7fafc;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: block;
+        }
+        .nav-item a:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+        .nav-item.active a {
+            background-color: #2b6cb0;
+            color: white;
+        }
+
+        /* המבורגר */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px;
+        }
+        .hamburger span {
+            display: block;
+            width: 28px;
+            height: 3px;
+            background-color: white;
+            border-radius: 2px;
+            transition: 0.3s;
+        }
+
+        /* תוכן */
+        .main-content {
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .info-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 50px 30px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+            max-width: 550px;
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .icon {
+            font-size: 50px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1a365d;
+            margin-bottom: 15px;
+        }
+        p {
+            font-size: 17px;
+            color: #4a5568;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+            .nav-menu {
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                position: absolute;
+                top: 65px;
+                left: 0;
+                background-color: #1a365d;
+                padding: 15px 0;
+                box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            }
+            .nav-menu.open {
+                display: flex;
+            }
+            .nav-item {
+                text-align: center;
+                width: 100%;
+            }
+            .nav-item a {
+                padding: 12px 0;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="nav-container">
+        <a href="index.html" class="nav-logo-link">
+            <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
+        </a>
+        
+        <button class="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        
+        <ul class="nav-menu" id="navMenu">
+            <li class="nav-item"><a href="index.html">דף הבית</a></li>
+            <li class="nav-item"><a href="prayers.html">זמני התפילות</a></li>
+            <li class="nav-item active"><a href="news.html">מהנעשה ונשמע</a></li>
+            <li class="nav-item"><a href="personal.html">אזור אישי לתורמים</a></li>
+        </ul>
+    </div>
+</header>
+
+<main class="main-content">
+    <div class="info-card">
+        <div class="icon">📢</div>
+        <h2>מהנעשה ונשמע בקהילה</h2>
+        <p>כרגע הדף ריק. עובדים על תוכן איכותי בשבילכם.</p>
+    </div>
+</main>
+
+<script>
+    function toggleMenu() {
+        const menu = document.getElementById('navMenu');
+        menu.classList.toggle('open');
+    }
+</script>
+
+</body>
+</html>
