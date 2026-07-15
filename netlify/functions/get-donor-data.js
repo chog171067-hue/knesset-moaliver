@@ -5,8 +5,6 @@ exports.handler = async function(event, context) {
 
     try {
         const body = JSON.parse(event.body);
-        
-        // שליפת שתי הסיסמאות מנטליפיי
         const API_PASSWORD_1 = process.env.NEDARIM_API_PASSWORD; 
         const API_PASSWORD_2 = process.env.NEDARIM_API_PASSWORD_2; 
 
@@ -15,15 +13,17 @@ exports.handler = async function(event, context) {
         }
 
         const MOSAD_1 = "7012851"; 
-        const MOSAD_2 = "7005583"; // <--- שנה למספר המוסד השני שלכם!
+        const MOSAD_2 = "7005583"; // מוסד קרן הבנין 'גדול יהיה' מעודכן
+
+        // שמות התצוגה של המוסדות
+        const MOSAD_1_NAME = "בית הכנסת המרכזי מוהליבר";
+        const MOSAD_2_NAME = "קרן הבנין 'גדול יהיה'";
 
         // מצב ב': המשתמש ביקש היסטוריית חיובים מפורטת עבור הוראת קבע ספציפית (KevaId)
         if (body.kevaId) {
-            // ננסה קודם למשוך מהמוסד הראשון עם הסיסמה שלו
             let historyResponse = await fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetKevaId&MosadId=${MOSAD_1}&ApiPassword=${API_PASSWORD_1}&KevaId=${body.kevaId}`);
             let kevaDetails = await historyResponse.json();
 
-            // אם המוסד הראשון מחזיר שגיאה או לא מוצא, ננסה למשוך מהמוסד השני עם הסיסמה שלו
             if (kevaDetails.Result === "Error" || !kevaDetails.KevaName) {
                 historyResponse = await fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetKevaId&MosadId=${MOSAD_2}&ApiPassword=${API_PASSWORD_2}&KevaId=${body.kevaId}`);
                 kevaDetails = await historyResponse.json();
@@ -46,7 +46,7 @@ exports.handler = async function(event, context) {
             };
         }
 
-        // מצב א': כניסה ראשונית (שליפת רשימת ההוראות קבע משני המוסדות)
+        // מצב א': כניסה ראשונית (שליפת רשימת ההוראות קבע)
         const { phone, tz } = body;
         if (!phone || !tz) {
             return { statusCode: 400, body: JSON.stringify({ error: "מספר טלפון ותעודת זהות הם שדות חובה" }) };
@@ -55,7 +55,6 @@ exports.handler = async function(event, context) {
         const cleanPhone = phone.trim().replace(/[- ]/g, '');
         const cleanTz = tz.trim();
 
-        // פנייה לשני המוסדות במקביל, כל אחד עם הסיסמה הייעודית שלו
         const [res1, res2] = await Promise.all([
             fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetKevaJson&MosadId=${MOSAD_1}&ApiPassword=${API_PASSWORD_1}`),
             fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetKevaJson&MosadId=${MOSAD_2}&ApiPassword=${API_PASSWORD_2}`)
@@ -64,7 +63,11 @@ exports.handler = async function(event, context) {
         const allKevot1 = res1.ok ? await res1.json() : [];
         const allKevot2 = res2.ok ? await res2.json() : [];
 
-        const combinedKevot = [...allKevot1, ...allKevot2];
+        // הוספת סימון מזהה מוסד לכל הוראה לפני האיחוד
+        const markedKevot1 = allKevot1.map(k => ({ ...k, belongsToMosad: MOSAD_1_NAME }));
+        const markedKevot2 = allKevot2.map(k => ({ ...k, belongsToMosad: MOSAD_2_NAME }));
+
+        const combinedKevot = [...markedKevot1, ...markedKevot2];
 
         const donorKevot = combinedKevot.filter(keva => {
             const kevaPhone = (keva.Phone || "").trim().replace(/[- ]/g, '');
@@ -80,13 +83,15 @@ exports.handler = async function(event, context) {
                 count: donorKevot.length,
                 data: donorKevot.map(k => ({
                     kevaId: k.KevaId,
+                    mosadName: k.belongsToMosad,
                     name: k.ClientName,
                     amount: k.Amount,
                     nextDate: k.NextDate,
                     lastNum: k.LastNum,
                     category: k.Groupe,
                     comments: k.Comments,
-                    enabled: k.Enabled === "1"
+                    enabled: k.Enabled === "1",
+                    errorText: k.ErrorText
                 }))
             })
         };
