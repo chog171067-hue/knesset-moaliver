@@ -357,7 +357,7 @@
             font-weight: bold;
         }
 
-        /* קבוצת הרשמה/כניסה מאובטחת בעברית מלאה */
+        /* קבוצת הרשמה/כניסה מאובטחת */
         .identity-auth-box {
             display: none;
             margin-top: 25px;
@@ -424,7 +424,7 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
-        <!-- שלב א': אימות והרשמה בעברית מלאה -->
+        <!-- שלב א': אימות והרשמה -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             
@@ -490,6 +490,14 @@
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
+                // בדיקת הימצאות טוקן אימות (confirmation_token) בכתובת ה-URL
+                const hash = window.location.hash;
+                if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
+                    // פתיחת חלונית Identity באופן שקט כדי שנטליפיי תבצע אישור עצמי של הטוקן
+                    netlifyIdentity.open();
+                    return;
+                }
+
                 if (user && user.user_metadata && user.user_metadata.verified_tz) {
                     fetchDonorData(user);
                 } else if (user) {
@@ -497,7 +505,9 @@
                 }
             });
 
+            // הפעלה ברגע שהאימות/התחברות הושלמה
             netlifyIdentity.on('login', user => {
+                netlifyIdentity.close(); // סגירת החלונית אם הייתה פתוחה
                 fetchDonorData(user);
             });
 
@@ -578,7 +588,6 @@
                 await netlifyIdentity.gotrue.signup(email, password, { verified_tz: verifiedTz });
                 loadingDiv.style.display = 'none';
                 alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
-                // לאחר רישום מוצלח, המערכת ממתינה לאישור המייל ומעבירה למצב התחברות
                 authMode = "login";
                 document.getElementById('authTitle').innerText = "התחברות לחשבון";
                 document.getElementById('authSubmitBtn').innerText = "התחבר";
