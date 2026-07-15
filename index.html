@@ -149,11 +149,11 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 40px 20px;
+            padding: 30px 20px;
         }
         .welcome-card {
-            background: rgba(255, 255, 255, 0.92);
-            padding: 50px 30px;
+            background: rgba(255, 255, 255, 0.94);
+            padding: 40px 30px;
             border-radius: 24px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
             max-width: 650px;
@@ -162,22 +162,73 @@
             border: 1px solid rgba(255, 255, 255, 0.5);
         }
         .main-logo {
-            max-width: 250px;
+            max-width: 200px;
             height: auto;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         h1 {
             color: #1a365d;
-            font-size: 28px;
-            margin: 0 0 15px 0;
+            font-size: 26px;
+            margin: 0 0 10px 0;
             line-height: 1.4;
         }
         .welcome-subtitle {
-            font-size: 19px;
+            font-size: 17px;
             color: #2b6cb0;
             font-weight: bold;
-            margin: 0;
+            margin: 0 0 25px 0;
             line-height: 1.4;
+        }
+
+        /* סקשן ניווט ומיקום */
+        .navigation-section {
+            border-top: 2px solid #e2e8f0;
+            padding-top: 20px;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .location-text {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        .waze-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #33ccff;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 15px;
+            box-shadow: 0 4px 10px rgba(51, 204, 255, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .waze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(51, 204, 255, 0.4);
+        }
+        .waze-icon {
+            width: 20px;
+            height: 20px;
+        }
+        .map-container {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+        }
+        .map-container iframe {
+            display: block;
+            border: none;
+            width: 100%;
+            height: 180px;
         }
 
         /* התאמה לניידים */
@@ -213,7 +264,6 @@
                 width: 100%;
                 text-align: center;
             }
-            /* בניידים נציג את תפריט הבחירה פתוח או בלחיצה */
             .dropdown-menu {
                 position: static;
                 display: none;
@@ -225,13 +275,13 @@
                 display: block;
             }
             h1 {
-                font-size: 22px;
+                font-size: 20px;
             }
             .welcome-subtitle {
-                font-size: 16px;
+                font-size: 15px;
             }
             .main-logo {
-                max-width: 180px;
+                max-width: 150px;
             }
         }
     </style>
@@ -272,6 +322,23 @@
         <img src="logo.png" alt="לוגו" class="main-logo">
         <h1>ברוכים הבאים לדף המידע של <br>ביהכנ"ס המרכזי 'מוהליבר'</h1>
         <p class="welcome-subtitle">מגדלור של תורה ותפילה בשכונת מוהליבר</p>
+        
+        <div class="navigation-section">
+            <div class="location-text">📍 רחוב מוהליבר 10, בני ברק</div>
+            
+            <a href="https://waze.com/ul/hsv8y8by6x" target="_blank" class="waze-btn">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Waze_logo.svg" alt="Waze Logo" class="waze-icon">
+                ניווט באמצעות Waze
+            </a>
+            
+            <div class="map-container">
+                <iframe 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3380.2520846067756!2d34.82902927518596!3d32.08339831932379!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x151d4b9b9409b629%3A0x7d6fb586a1df0b8c!2z157e someN_15be_156_157_IDExLCDXkde_16_15dfINeR16e_16_!5e0!3m2!1she!2sil!4v1710000000000!5m2!1she!2sil&q=מוהליבר+10+בני+ברק" 
+                    allowfullscreen="" 
+                    loading="lazy">
+                </iframe>
+            </div>
+        </div>
     </div>
 </main>
 
@@ -282,7 +349,6 @@
     }
 
     function toggleDropdown(event) {
-        // מונע מעבר דף ומפעיל פתיחה בניידים
         if (window.innerWidth <= 768) {
             event.preventDefault();
             const dropdown = document.getElementById('prayersDropdown');
