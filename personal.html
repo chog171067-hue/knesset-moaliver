@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בית כנסת מואליבר - אזור אישי</title>
+    <title>בית כנסת מוהליבר - אזור אישי</title>
     <link rel="icon" type="image/png" href="logo.png">
     <style>
         body {
@@ -152,7 +152,6 @@
         .status-active { color: #38a169; font-weight: bold; }
         .status-inactive { color: #e53e3e; font-weight: bold; }
 
-        /* כפתור היסטוריה ועיצוב הטבלה הנפתחת */
         .history-btn {
             background: #edf2f7;
             color: #4a5568;
@@ -219,8 +218,9 @@
 <body>
 
 <div class="container">
-    <img src="logo.png" alt="לוגו בית כנסת מואליבר" class="logo">
+    <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
     
+    <!-- שלב א': טופס התחברות -->
     <div id="loginSection">
         <h2>אזור אישי לתורמים</h2>
         <p class="subtitle">לצפייה מאובטחת בהוראות הקבע הפעילות שלכם בקהילה, אנא הזדהו באמצעות מספר הטלפון ותעודת הזהות שלכם:</p>
@@ -242,9 +242,10 @@
         <div id="loadingSpinner" class="loading">מתחבר לשרת נדרים פלוס ומאמת נתונים...</div>
     </div>
 
+    <!-- שלב ב': תצוגת נתונים לאחר הצלחה -->
     <div id="resultsSection" class="results-container">
         <h2>שלום, <span id="donorName"></span></h2>
-        <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מואליבר:</p>
+        <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
         
         <div id="kevaList"></div>
         
@@ -281,7 +282,7 @@
             }
             
             if (result.count === 0) {
-                throw new Error("לא נמצאו הוראות קבע פעילות תחת שילוב פרטים זה במערכת של בית הכנסת.");
+                throw new Error("לא נמצאו הוראות קבע פעילות תחת שילוב פרטים זה במערכות בית הכנסת.");
             }
             
             document.getElementById('loginSection').style.display = 'none';
@@ -322,7 +323,6 @@
         }
     }
 
-    // פונקציה לפתיחה וטעינה דינמית של היסטוריית החיובים בלחיצה
     async function toggleHistory(kevaId, buttonElement) {
         const historyDiv = document.getElementById(`history_${kevaId}`);
         
@@ -336,7 +336,6 @@
         buttonElement.innerText = "סגור היסטוריית חיובים ▴";
         
         try {
-            // פנייה לשרת למשיכת היסטוריית החיובים של הוראת הקבע הספציפית
             const response = await fetch('/.netlify/functions/get-donor-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
