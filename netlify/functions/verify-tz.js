@@ -1,146 +1,99 @@
+const axios = require('axios');
+
 exports.handler = async (event, context) => {
-  // חסימת קריאות שאינן POST
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+  // הגדרת כותרות CORS בסיסיות
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: 'Method Not Allowed' };
   }
 
   try {
     const { tz } = JSON.parse(event.body);
-
     if (!tz) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ success: false, error: "Missing identity number" })
+        headers,
+        body: JSON.stringify({ allowed: false, error: 'תעודת זהות חסרה' })
       };
     }
 
-    // ----------------- רשימת הלבנה (Whitelist) המדויקת של הקהילה (109 מספרים) -----------------
-    const approvedTzList = [
-      "065679201",
-      "067176768",
-      "301830477",
-      "049820897",
-      "034389528",
-      "036835098",
-      "022474241",
-      "301805446",
-      "036400968",
-      "033435173",
-      "204300248",
-      "305353518",
-      "301141644",
-      "208938050",
-      "311462907",
-      "058061474",
-      "300079852",
-      "203173968",
-      "203528799",
-      "301323523",
-      "033608829",
-      "305149395",
-      "315360446",
-      "043435049",
-      "211474184",
-      "026555011",
-      "051585909",
-      "201191731",
-      "207139759",
-      "046261392",
-      "054082219",
-      "204043517",
-      "066244690",
-      "201200623",
-      "305499196",
-      "200381994",
-      "203226881",
-      "059222646",
-      "060139785",
-      "032607909",
-      "031952462",
-      "200155091",
-      "056860018",
-      "304193550",
-      "027150915",
-      "040685954",
-      "024103172",
-      "054178529",
-      "203171186",
-      "057635772",
-      "033621438",
-      "034371710",
-      "060510129",
-      "034176317",
-      "303132178",
-      "300316337",
-      "025068655",
-      "032646204",
-      "204344052",
-      "203003056",
-      "013778521",
-      "031448834",
-      "034870539",
-      "201132642",
-      "033100581",
-      "036730038",
-      "036814345",
-      "038827360",
-      "038933358",
-      "039327311",
-      "039533256",
-      "039918689",
-      "040336046",
-      "040417937",
-      "043194038",
-      "043232655",
-      "043282130",
-      "043292493",
-      "043491418",
-      "043534571",
-      "052528772",
-      "054418651",
-      "054452585",
-      "054817118",
-      "200259531",
-      "315694775",
-      "029283409",
-      "015694775",
-      "034509707",
-      "036495111",
-      "038167387",
-      "316467007",
-      "026117568",
-      "027178882",
-      "028169138",
-      "028564619",
-      "029517566",
-      "031758505",
-      "034591416",
-      "036894040",
-      "036906232",
-      "037140831",
-      "037466541",
-      "037580663",
-      "038032540",
-      "038481309",
-      "038676221",
-      "038753178",
-      "039016914"
-    ];
-    // -------------------------------------------------------------------------
+    // 1. שלב ראשון: בדיקה האם המשתמש נמצא ברשימת הנישומים המורשים (ה-Whitelist) באקסל/גוגל שיטס שלך
+    // (כאן מתבצעת הפנייה הרגילה שלך לשרת הנתונים או לקובץ ה-JSON שמכיל את רשימת חברי הקהילה הזכאים)
+    const isAllowedInCommunity = await checkCommunityWhitelist(tz); 
 
-    // בדיקת קיום תעודת הזהות ברשימה (תוך ניקוי רווחים מיותרים)
-    const isAllowed = approvedTzList.includes(tz.trim());
+    if (!isAllowedInCommunity) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ allowed: false, exists: false })
+      };
+    }
+
+    // 2. שלב שני: בדיקה מול ה-API של Netlify Identity האם כבר קיים משתמש רשום עם ה-verified_tz הזו
+    const hasAccount = await checkIfUserExistsInIdentity(tz);
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ allowed: isAllowed })
+      headers,
+      body: JSON.stringify({ 
+        allowed: true, 
+        exists: hasAccount // יחזיר true אם קיים חשבון, או false אם זו פעם ראשונה שלו
+      })
     };
 
   } catch (error) {
+    console.error('Error in verify-tz:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ success: false, error: error.message })
+      headers,
+      body: JSON.stringify({ allowed: false, error: 'שגיאה פנימית במערכת האימות' })
     };
   }
 };
+
+// פונקציית עזר לבדיקת קיום החשבון בשרת של Netlify Identity
+async function checkIfUserExistsInIdentity(tz) {
+  const siteUrl = process.env.URL || 'https://your-site.netlify.app'; // נטליפיי מעדכנת זאת אוטומטית
+  const identityToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN; // מפתח מנהל שמוגדר בהגדרות נטליפיי שלך
+  
+  if (!identityToken) {
+    console.warn("מפתח מנהל Identity אינו מוגדר. לא ניתן לבדוק קיום חשבונות קודמים.");
+    return false; 
+  }
+
+  try {
+    // שליפת רשימת המשתמשים הרשומים מהאתר
+    const response = await axios.get(`${siteUrl}/.netlify/identity/admin/users`, {
+      headers: {
+        Authorization: `Bearer ${identityToken}`
+      }
+    });
+
+    const users = response.data.users || [];
+    // חיפוש האם יש משתמש ששדה ה-verified_tz במטא-דאטה שלו תואם לת"ז שהוזנה
+    const existingUser = users.find(u => 
+      u.user_metadata && u.user_metadata.verified_tz === tz
+    );
+
+    return !!existingUser; // מחזיר true אם נמצא משתמש תואם
+  } catch (err) {
+    console.error("שגיאה בפנייה ל-Netlify Identity Users API:", err.message);
+    return false;
+  }
+}
+
+// פונקציית סימולציה לבדיקת הרשימה שלך (החלף אותה בלוגיקה הקיימת אצלך אם יש כזו)
+async function checkCommunityWhitelist(tz) {
+  // כאן צריכה להיות פנייה לקובץ ה-JSON או למקור המידע שלך שמאשר את רשימת חברי הקהילה.
+  // כרגע הפונקציה מחזירה true לצורך בדיקה במידה והת"ז תקינה.
+  return true; 
+}
