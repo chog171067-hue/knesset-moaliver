@@ -6,6 +6,7 @@
     <title>בית כנסת מוהליבר - דף הבית</title>
     <link rel="icon" type="image/png" href="logo.png">
     
+    <!-- ספרית ה-Widget של Netlify Identity לקליטת אישורי מייל והתחברות ברקע -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     
     <style>
@@ -110,11 +111,11 @@
             display: block;
         }
 
-        /* 2. מרכז הדף - סטריפ לבן חצי שקוף עם לוגו וטקסט (בגובה מסך מלא למניעת חפיפה ומכריח גלילה מטה) */
+        /* 2. מרכז הדף - סטריפ בגוון מותאם חצי שקוף */
         .main-content {
             position: relative;
             z-index: 2;
-            min-height: calc(100vh - 70px); /* תופס בדיוק את כל גובה המסך פחות סרגל הכלים */
+            min-height: calc(100vh - 70px);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -124,19 +125,19 @@
             box-sizing: border-box;
         }
         .center-strip {
-            background: rgba(255, 255, 255, 0.75); /* סטריפ לבן חצי שקוף */
+            background: rgba(235, 248, 255, 0.8); /* גוון כחלחל-מלכותי עדין ושקוף */
             width: 100%;
             max-width: 800px;
             padding: 40px 20px;
             border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 20px rgba(26, 54, 93, 0.15);
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
         .logo {
-            max-width: 280px; /* לוגו גדול */
+            max-width: 280px;
             height: auto;
             margin-bottom: 20px;
         }
@@ -154,12 +155,12 @@
             margin-top: 10px;
         }
 
-        /* 3. תחתית העמוד - אזור הניווט ומפות (מתחת לקפל הגלילה) */
+        /* 3. תחתית העמוד - אזור הניווט בצבע מלא (מתחת לקפל הגלילה) */
         .bottom-nav-section {
             position: relative;
             z-index: 2;
-            background: rgba(255, 255, 255, 0.92);
-            border-top: 2px solid #cbd5e0;
+            background: #1a365d; /* צבע כחול כהה מלא */
+            border-top: 4px solid #2b6cb0; /* עיטור עליון כחול בהיר */
             padding: 40px 20px;
             display: flex;
             flex-direction: column;
@@ -171,7 +172,7 @@
         .address-text {
             font-size: 20px;
             font-weight: bold;
-            color: #1a365d;
+            color: #ffffff; /* התאמה לרקע כהה */
         }
         .map-container {
             width: 100%;
@@ -179,8 +180,8 @@
             height: 280px;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-            border: 1px solid #cbd5e0;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+            border: 2px solid #2b6cb0;
         }
         .map-container iframe {
             width: 100%;
@@ -209,10 +210,10 @@
         /* 4. הערת קרדיט/רב בתחתית הדף */
         .footer-credits {
             font-size: 13px;
-            color: #718096;
+            color: #cbd5e0; /* התאמה לרקע כהה */
             margin-top: 15px;
             text-align: center;
-            direction: ltr; /* אנגלית לשמאל */
+            direction: ltr;
             font-weight: 500;
         }
 
@@ -281,12 +282,14 @@
 </main>
 
 <section class="bottom-nav-section">
-    <div class="address-text">כתובת: מוהליבר 10 בני ברק</div>
+    <div class="address-text">כתובת: הרב מוהליבר 10 בני ברק</div>
     
     <div class="map-container">
-        <iframe src="https://maps.google.com/maps?q=%D7%94%D7%A8%D7%91%20%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&t=&z=17&ie=UTF8&iwloc=&output=embed" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <!-- מפת גוגל מעודכנת וממוקדת בדיוק על רחוב הרב מוהליבר 10, בני ברק -->
+        <iframe src="https://maps.google.com/maps?q=%D7%94%D7%A8%D7%91%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&t=&z=17&ie=UTF8&iwloc=&output=embed" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
     </div>
 
+    <!-- כפתור ניווט בוויז מעודכן לרחוב הרב מוהליבר -->
     <a href="https://waze.com/ul?q=%D7%94%D7%A8%D7%91%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&navigate=yes" class="waze-btn" target="_blank">
         ניווט באמצעות Waze 🚗
     </a>
