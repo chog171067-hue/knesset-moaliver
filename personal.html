@@ -409,6 +409,11 @@
                 display: block;
             }
         }
+
+        /* סגנונות מיוחדים לתרגום ה-Widget ויישור לימין (RTL) */
+        #netlify-identity-widget {
+            direction: rtl !important;
+        }
     </style>
 </head>
 <body>
@@ -485,31 +490,62 @@
 </main>
 
 <script>
-    // הגדרת תרגום מלא של ה-Widget של Netlify Identity לעברית
+    // הגדרת תרגום מלא של ה-Widget של Netlify Identity לעברית ושינוי הטקסטים ב-Iframe
     netlifyIdentity.on('init', () => {
-        // עיצוב ותרגום כפתורים וטקסטים פנימיים ב-Widget
-        const translations = {
-            en: {
-                "log_in": "התחברות",
-                "sign_up": "הרשמה",
-                "email": "כתובת אימייל",
-                "password": "סיסמה",
-                "forgot_password": "שכחת סיסמה?",
-                "or": "או",
-                "login_with_provider": "התחבר באמצעות {{provider}}",
-                "signing_up": "מבצע הרשמה...",
-                "logging_in": "מתחבר...",
-                "send_recovery_email": "שלח מייל לשחזור",
-                "recover_password": "שחזור סיסמה",
-                "signup_header": "צור חשבון חדש בקהילה",
-                "login_header": "התחבר לחשבון שלך"
-            }
-        };
-        // הגדרת הממשק לעברית ימין-לשמאל
-        const iframe = document.getElementById('netlify-identity-widget');
-        if (iframe) {
-            iframe.setAttribute('dir', 'rtl');
-        }
+        // מאחר ואי אפשר לגשת ישירות ל-DOM של ה-iframe עקב מגבלות דפדפן (CORS),
+        // אנו נשתמש במאזין מיוחד שמזהה פתיחה של חלון ה-Widget ומבצע החלפת טקסטים דינמית.
+        netlifyIdentity.on('open', () => {
+            setTimeout(() => {
+                const iframe = document.getElementById('netlify-identity-widget');
+                if (iframe) {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc) {
+                        // הזרקת הגדרת כיוון RTL לתוך ה-Iframe
+                        const style = iframeDoc.createElement('style');
+                        style.innerHTML = `
+                            body, html { direction: rtl !important; font-family: 'Segoe UI', Tahoma, sans-serif !important; }
+                            .header { font-size: 18px !important; }
+                            .btn-primary { background-color: #2b6cb0 !important; }
+                            .provider-btn { direction: ltr !important; }
+                        `;
+                        iframeDoc.head.appendChild(style);
+
+                        // פונקציית עזר להחלפת טקסטים קבועה בתוך הממשק של ה-Iframe
+                        function translateElements() {
+                            const mappings = [
+                                { selector: 'h1.header, .header h1', text: 'התחברות לחשבון' },
+                                { selector: '.login-btn, button[type="submit"]', text: 'התחבר' },
+                                { selector: 'input[name="email"]', attr: 'placeholder', text: 'כתובת אימייל' },
+                                { selector: 'input[name="password"]', attr: 'placeholder', text: 'סיסמה' },
+                                { selector: 'label[for="email"]', text: 'אימייל' },
+                                { selector: 'label[for="password"]', text: 'סיסמה' },
+                                { selector: '.forgot-password', text: 'שכחת סיסמה?' },
+                                { selector: '.form-link-signup, .signup-link', text: 'אין לך חשבון? הרשם כאן' },
+                                { selector: '.form-link-login, .login-link', text: 'כבר יש לך חשבון? התחבר כאן' },
+                                { selector: '.provider-btn span', text: 'התחבר באמצעות Google' },
+                                { selector: '.btn-signup', text: 'צור חשבון' }
+                            ];
+
+                            mappings.forEach(map => {
+                                const elements = iframeDoc.querySelectorAll(map.selector);
+                                elements.forEach(el => {
+                                    if (map.attr) {
+                                        el.setAttribute(map.attr, map.text);
+                                    } else {
+                                        el.textContent = map.text;
+                                    }
+                                });
+                            });
+                        }
+
+                        // הרצת התרגום הראשוני ומעקב אחרי שינוי דפים (כמו מעבר בין כניסה להרשמה)
+                        translateElements();
+                        const observer = new MutationObserver(translateElements);
+                        observer.observe(iframeDoc.body, { childList: true, subtree: true });
+                    }
+                }
+            }, 100);
+        });
     });
 
     // משתנה שישמור באופן זמני את ה-TZ שאומת בהצלחה
