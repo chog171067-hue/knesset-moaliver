@@ -6,6 +6,7 @@
     <title>בית כנסת מוהליבר - דף הבית</title>
     <link rel="icon" type="image/png" href="logo.png">
     
+    <!-- ספרית ה-Widget של Netlify Identity לקליטת אישורי מייל והתחברות ברקע -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     
     <style>
@@ -110,17 +111,18 @@
             display: block;
         }
 
-        /* 2. מרכז הדף - סטריפ לבן חצי שקוף עם לוגו וטקסט */
+        /* 2. מרכז הדף - סטריפ לבן חצי שקוף עם לוגו וטקסט (בגובה מסך מלא למניעת חפיפה) */
         .main-content {
             position: relative;
             z-index: 2;
-            flex: 1;
+            min-height: calc(100vh - 70px); /* תופס בדיוק את כל גובה המסך פחות סרגל הכלים */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 40px 20px;
             text-align: center;
+            box-sizing: border-box;
         }
         .center-strip {
             background: rgba(255, 255, 255, 0.75); /* סטריפ לבן חצי שקוף */
@@ -147,31 +149,33 @@
             line-height: 1.4;
         }
 
-        /* 3. תחתית העמוד - אזור הניווט ומפות */
+        /* 3. תחתית העמוד - אזור הניווט ומפות (מתחת לקפל הגלילה) */
         .bottom-nav-section {
             position: relative;
             z-index: 2;
-            background: rgba(255, 255, 255, 0.9);
-            border-top: 1px solid #e2e8f0;
-            padding: 25px 20px;
+            background: rgba(255, 255, 255, 0.92);
+            border-top: 2px solid #cbd5e0;
+            padding: 40px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
             text-align: center;
+            box-sizing: border-box;
         }
         .address-text {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             color: #1a365d;
         }
         .map-container {
             width: 100%;
-            max-width: 450px;
-            height: 180px;
-            border-radius: 10px;
+            max-width: 600px;
+            height: 280px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+            border: 1px solid #cbd5e0;
         }
         .map-container iframe {
             width: 100%;
@@ -182,26 +186,29 @@
             background-color: #2ec4b6;
             color: white;
             text-decoration: none;
-            padding: 10px 24px;
-            border-radius: 20px;
+            padding: 12px 30px;
+            border-radius: 25px;
             font-weight: bold;
-            font-size: 15px;
-            transition: background 0.2s;
+            font-size: 16px;
+            transition: background 0.2s, transform 0.1s;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            box-shadow: 0 4px 10px rgba(46, 196, 182, 0.25);
         }
         .waze-btn:hover {
             background-color: #0f9f90;
+            transform: translateY(-1px);
         }
 
         /* 4. הערת קרדיט/רב בתחתית הדף */
         .footer-credits {
-            font-size: 12px;
+            font-size: 13px;
             color: #718096;
-            margin-top: 10px;
+            margin-top: 15px;
             text-align: center;
             direction: ltr; /* אנגלית לשמאל */
+            font-weight: 500;
         }
 
         /* התאמה למובייל */
@@ -216,6 +223,9 @@
                 font-size: 14px;
                 padding: 8px 10px;
             }
+            .main-content {
+                min-height: calc(100vh - 55px);
+            }
             .center-strip {
                 width: 95%;
                 padding: 25px 15px;
@@ -227,13 +237,14 @@
                 font-size: 22px;
             }
             .map-container {
-                height: 140px;
+                height: 200px;
             }
         }
     </style>
 </head>
 <body>
 
+<!-- 1. סרגל כלים עליון -->
 <header>
     <nav class="nav-container">
         <ul class="nav-menu">
@@ -251,6 +262,7 @@
     </nav>
 </header>
 
+<!-- 2. מרכז הדף: סטריפ לבן חצי שקוף עם לוגו וטקסט -->
 <main class="main-content">
     <div class="center-strip">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
@@ -261,17 +273,21 @@
     </div>
 </main>
 
+<!-- 3. תחתית העמוד: אזור הניווט והמפות (מחייב גלילה מטה) -->
 <section class="bottom-nav-section">
     <div class="address-text">כתובת: מוהליבר 10 בני ברק</div>
     
     <div class="map-container">
-        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3380.706173468822!2d34.8271731!3d32.0772428!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x151d4b9bf8e71861%3A0xe510a56247c1f8d4!2sShmuel%20Mohilever%2010%2C%20Bnei%20Brak!5e0!3m2!1sen!2sil!4v1700000000000!5m2!1sen!2sil" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <!-- חלונית גוגל מאפס ממוקדת ומדויקת על רחוב שמואל מוהליבר 10, בני ברק -->
+        <iframe src="https://maps.google.com/maps?q=%D7%A9%D7%9E%D7%95%D7%90%D7%9C%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&t=&z=17&ie=UTF8&iwloc=&output=embed" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
     </div>
 
-    <a href="https://waze.com/ul?ll=32.0772428,34.8271731&navigate=yes" class="waze-btn" target="_blank">
+    <!-- כפתור ניווט בוויז -->
+    <a href="https://waze.com/ul?q=%D7%A9%D7%9E%D7%95%D7%90%D7%9C%20%D7%9E%D7%95%D7%94%D7%9C%D7%99%D7%91%D7%A8%2010%20%D7%91%D7%A0%D7%99%20%D7%91%D7%A8%D7%A7&navigate=yes" class="waze-btn" target="_blank">
         ניווט באמצעות Waze 🚗
     </a>
 
+    <!-- 4. טקסט באנגלית קטן למטה למטה -->
     <div class="footer-credits">
         The Central Synagogue of Mohiliver, headed by Rabbi Ehud Shapira, Shlita
     </div>
