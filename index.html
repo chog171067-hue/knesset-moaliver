@@ -29,7 +29,7 @@
             z-index: 1;
         }
 
-        /* סרגל ניווט עליון מיושר לאמצע */
+        /* סרגל ניווט עליון מיושר */
         header {
             background-color: rgba(26, 54, 93, 0.95);
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
@@ -90,7 +90,7 @@
             color: white;
         }
 
-        /* תפריט נפתח (Dropdown) לזמני תפילות */
+        /* תפריט נפתח (Dropdown) */
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -140,7 +140,7 @@
             transition: 0.3s;
         }
 
-        /* תוכן מרכזי */
+        /* תוכן מרכזי מקורי של דף הבית */
         .main-content {
             position: relative;
             z-index: 2;
@@ -152,56 +152,54 @@
             padding: 40px 20px;
             text-align: center;
         }
-        .hero-container {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px 30px;
-            border-radius: 20px;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-            max-width: 700px;
-            width: 90%;
-            box-sizing: border-box;
-        }
         .logo {
-            max-width: 180px;
+            max-width: 240px;
             height: auto;
             margin-bottom: 25px;
         }
         h1 {
             color: #1a365d;
             margin-bottom: 15px;
-            font-size: 32px;
+            font-size: 36px;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
         }
         .welcome-text {
-            font-size: 18px;
+            font-size: 19px;
             line-height: 1.6;
-            color: #4a5568;
-            margin-bottom: 30px;
+            color: #2d3748;
+            max-width: 600px;
+            margin: 0 auto 40px auto;
+            font-weight: 500;
         }
-        .btn-group {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
+
+        /* סקשן ניווט תחתון מקורי (כרטיסיות) */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 600px;
+            width: 100%;
         }
-        .btn {
-            padding: 12px 28px;
-            background: #1a365d;
-            color: white;
+        .grid-item {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             text-decoration: none;
-            border-radius: 8px;
+            color: #1a365d;
             font-weight: bold;
-            font-size: 16px;
-            transition: background 0.2s, transform 0.1s;
+            font-size: 20px;
+            transition: transform 0.2s, background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            border: 2px solid transparent;
         }
-        .btn:hover {
-            background: #2a4365;
-            transform: translateY(-1px);
-        }
-        .btn-secondary {
-            background: #2b6cb0;
-        }
-        .btn-secondary:hover {
-            background: #2b6cb0;
+        .grid-item:hover {
+            transform: translateY(-5px);
+            background-color: #fff;
+            border-color: #2b6cb0;
         }
 
         @media (max-width: 768px) {
@@ -246,6 +244,9 @@
             .nav-item.open-dropdown .dropdown-menu {
                 display: block;
             }
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -281,19 +282,13 @@
 </header>
 
 <main class="main-content">
-    <div class="hero-container">
-        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
-        <h1>ברוכים הבאים לבית הכנסת מוהליבר</h1>
-        <p class="welcome-text">
-            אתר הקהילה הרשמי של בית הכנסת מוהליבר. 
-            כאן תוכלו להתעדכן בזמני התפילות, לקרוא חדשות ועדכונים מהמתרחש בקהילה, 
-            ולצפות בפרטי הוראת הקבע שלכם ובאזור האישי המאובטח.
-        </p>
-        
-        <div class="btn-group">
-            <a href="personal.html" class="btn">לאזור האישי והוראות קבע ➔</a>
-            <a href="yemothachol.html" class="btn btn-secondary">לוח זמני תפילות</a>
-        </div>
+    <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
+    <h1>בית הכנסת מוהליבר</h1>
+    <p class="welcome-text">שלום וברוכים הבאים לאתר האינטרנט של בית כנסת מוהליבר.</p>
+    
+    <div class="grid-container">
+        <a href="yemothachol.html" class="grid-item">זמני תפילות</a>
+        <a href="news.html" class="grid-item">מהנעשה ונשמע</a>
     </div>
 </main>
 
@@ -314,15 +309,12 @@
     // מאזין אישור הרשמה והתחברות של Netlify Identity
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
-            // מאזין לטעינת הספרייה
             netlifyIdentity.on('init', user => {
                 if (user) {
-                    // אם המשתמש כבר מחובר או הרגע אישר את המייל, נעביר אותו מיד לאזור האישי
                     window.location.href = "personal.html";
                 }
             });
 
-            // מאזין להתחברות מוצלחת (למשל אחרי לחיצה על קישור אישור במייל)
             netlifyIdentity.on('login', user => {
                 window.location.href = "personal.html";
             });
