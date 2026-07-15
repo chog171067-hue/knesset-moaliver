@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בית הכנסת המרכזי מוהליבר</title>
+    <title>דף הבית</title>
     <link rel="icon" type="image/png" href="logo.png">
     <style>
         /* הגדרות כלליות */
@@ -31,8 +31,7 @@
         header {
             background-color: rgba(26, 54, 93, 0.95); /* כחול כהה עמוק */
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            position: sticky;
-            top: 0;
+            position: relative;
             z-index: 100;
         }
         .nav-container {
@@ -97,7 +96,7 @@
             transition: 0.3s;
         }
 
-        /* תוכן מרכזי של דף הבית */
+        /* תוכן מרכזי */
         .main-content {
             position: relative;
             z-index: 2;
@@ -162,3 +161,58 @@
                 width: 100%;
             }
             .nav-item a {
+                padding: 12px 0;
+                border-radius: 0;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            .welcome-subtitle {
+                font-size: 16px;
+            }
+            .main-logo {
+                max-width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="nav-container">
+        <a href="index.html" class="nav-logo-link">
+            <img src="logo.png" alt="לוגו" class="nav-logo">
+        </a>
+        
+        <button class="hamburger" onclick="toggleMenu()" aria-label="תפריט ניווט">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        
+        <ul class="nav-menu" id="navMenu">
+            <li class="nav-item active"><a href="index.html">דף הבית</a></li>
+            <li class="nav-item"><a href="prayers.html">זמני התפילות</a></li>
+            <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
+            <li class="nav-item"><a href="personal.html">אזור אישי לתורמים</a></li>
+        </ul>
+    </div>
+</header>
+
+<main class="main-content">
+    <div class="welcome-card">
+        <img src="logo.png" alt="לוגו" class="main-logo">
+        <h1>ברוכים הבאים לדף המידע של ביהכנ"ס המרכזי 'מוהליבר'</h1>
+        <p class="welcome-subtitle">מגדלור של תורה ותפילה בשכונת מוהליבר</p>
+    </div>
+</main>
+
+<script>
+    function toggleMenu() {
+        const menu = document.getElementById('navMenu');
+        menu.classList.toggle('open');
+    }
+</script>
+
+</body>
+</html>
