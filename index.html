@@ -3,194 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בית כנסת מואליבר</title>
+    <title>בית הכנסת המרכזי מוהליבר</title>
     <link rel="icon" type="image/png" href="logo.png">
     <style>
+        /* הגדרות כלליות */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
             color: #333;
             position: relative;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
         }
         body::before {
             content: "";
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: url('background.jpg') no-repeat center center fixed;
-            background-size: cover;
-            opacity: 0.3;
-            z-index: -1;
+            background: rgba(255, 255, 255, 0.45); /* הבהרת הרקע */
+            z-index: 1;
         }
 
-        .container {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 50px 40px;
-            border-radius: 20px;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-            text-align: center;
-            max-width: 600px;
-            width: 90%;
-            margin-top: 12vh;
+        /* סרגל ניווט עליון (Header) */
+        header {
+            background-color: rgba(26, 54, 93, 0.95); /* כחול כהה עמוק */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        .logo {
-            max-width: 300px; 
-            height: auto;
-            margin-bottom: 35px;
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
         }
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 20px;
-            margin: 12px 0;
-            background: #1a365d;
-            color: white;
+        .nav-logo-link {
+            display: flex;
+            align-items: center;
             text-decoration: none;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 22px;
-            box-sizing: border-box;
-            border: none;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
         }
-        .btn:hover {
-            background: #2a4365;
-            transform: scale(1.02);
+        .nav-logo {
+            height: 45px;
+            width: auto;
         }
-
-        /* סגנון מיוחד לכפתור האזור האישי כדי להבדיל אותו במעט */
-        .btn-secondary {
-            background: #2c5282;
-            font-size: 18px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        .btn-secondary:hover {
-            background: #3182ce;
-        }
-
-        .dropdown {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            background-color: #f9f9f9;
-            min-width: 100%;
-            box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.25);
-            z-index: 10;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-top: -8px;
-        }
-        .dropdown-content a {
-            color: #333;
-            padding: 18px 16px;
-            text-decoration: none;
-            display: block;
-            font-weight: bold;
-            font-size: 18px;
-            border-bottom: 1px solid #eee;
-            background: #fdfdfd;
-        }
-        .dropdown-content a:last-child {
-            border-bottom: none;
-        }
-        .dropdown-content a:hover {
-            background-color: #1a365d;
-            color: white;
-        }
-        .show {
-            display: block;
-        }
-
-        .bottom-section {
-            width: 100%;
-            max-width: 460px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px 15px 0 0;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-            padding: 15px;
-            box-sizing: border-box;
-            text-align: center;
-            margin-top: 300px;
-            margin-bottom: 0;
-        }
-        .map-container {
-            width: 100%;
-            height: 150px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #ddd;
-            margin-bottom: 12px;
-        }
-        .map-container iframe {
-            width: 100%;
-            height: 100%;
-            border: 0;
-        }
-        .waze-btn {
-            background: #007dff;
+        .nav-menu {
+            display: flex;
+            list-style: none;
             margin: 0;
+            padding: 0;
+            gap: 15px;
+        }
+        .nav-item a {
+            color: #f7fafc;
+            text-decoration: none;
             font-size: 16px;
-            padding: 12px;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: block;
         }
-        .waze-btn:hover {
-            background: #005ec3;
+        .nav-item a:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
         }
-    </style>
-</head>
-<body>
+        .nav-item.active a {
+            background-color: #2b6cb0; /* כפתור בולט לדף הנוכחי */
+            color: white;
+        }
 
-<div class="container">
-    <img src="logo.png" alt="לוגו בית כנסת מואליבר" class="logo">
+        /* כפתור המבורגר לטלפונים ניידים */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px;
+        }
+        .hamburger span {
+            display: block;
+            width: 28px;
+            height: 3px;
+            background-color: white;
+            border-radius: 2px;
+            transition: 0.3s;
+        }
 
-    <div class="dropdown">
-        <button onclick="toggleDropdown()" class="btn">זמני התפילות ▾</button>
-        <div id="timesDropdown" class="dropdown-content">
-            <a href="shabbat.html">שבתות</a>
-            <a href="yemothachol.html">ימות החול</a>
-        </div>
-    </div>
+        /* תוכן מרכזי של דף הבית */
+        .main-content {
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .welcome-card {
+            background: rgba(255, 255, 255, 0.92);
+            padding: 50px 30px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+            max-width: 650px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .main-logo {
+            max-width: 250px;
+            height: auto;
+            margin-bottom: 25px;
+        }
+        h1 {
+            color: #1a365d;
+            font-size: 28px;
+            margin: 0 0 15px 0;
+            line-height: 1.3;
+        }
+        .welcome-subtitle {
+            font-size: 19px;
+            color: #2b6cb0;
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.4;
+        }
 
-    <a href="personal.html" class="btn btn-secondary">אזור אישי לתורמים 👤</a>
-</div>
-
-<div class="bottom-section">
-    <div class="map-container">
-        <iframe 
-            src="https://maps.google.com/maps?q=מוהליבר%2010,%20בני%20ברק&t=&z=16&ie=UTF8&iwloc=&output=embed" 
-            allowfullscreen="" 
-            loading="lazy">
-        </iframe>
-    </div>
-    <a href="https://waze.com/ul?q=מוהליבר+10+בני+ברק" target="_blank" class="btn waze-btn">ניווט ב-Waze</a>
-</div>
-
-<script>
-    function toggleDropdown() {
-        document.getElementById("timesDropdown").classList.toggle("show");
-    }
-
-    window.onclick = function(event) {
-        if (!event.target.matches('.btn')) {
-            var dropdowns = document.getElementsByClassName("dropdown-content");
-            for (var i = 0; i < dropdowns.length; i++) {
-                var openDropdown = dropdowns[i];
-                if (openDropdown.classList.contains('show')) {
-                    openDropdown.classList.remove('show');
-                }
+        /* התאמה לניידים */
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
             }
-        }
-    }
-</script>
-
-</body>
-</html>
+            .nav-menu {
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                position: absolute;
+                top: 65px;
+                left: 0;
+                background-color: #1a365d;
+                padding: 15px 0;
+                box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            }
+            .nav-menu.open {
+                display: flex;
+            }
+            .nav-item {
+                text-align: center;
+                width: 100%;
+            }
+            .nav-item a {
