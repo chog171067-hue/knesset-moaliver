@@ -25,7 +25,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 1. בדיקה האם ה-TZ נמצא ברשימת הקהילה (כרגע מוגדר כמאושר לצורך הבדיקות שלך)
+    // בדיקה האם המשתמש זכאי (כרגע מוגדר כמאושר לצורך הבדיקות)
     const isAllowedInCommunity = true; 
 
     if (!isAllowedInCommunity) {
@@ -36,40 +36,43 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 2. בדיקה מול ה-API של Netlify Identity האם קיים כבר משתמש כזה
-    const hasAccount = await checkIfUserExistsInIdentity(tz);
+    // בדיקה האם קיים חשבון ב-Netlify Identity
+    const checkResult = await checkIfUserExistsInIdentity(tz);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         allowed: true, 
-        exists: hasAccount 
+        exists: checkResult.exists,
+        debugMessage: checkResult.debugMessage || ''
       })
     };
 
   } catch (error) {
     console.error('Error in verify-tz:', error);
     return {
-      statusCode: 200, // מחזירים 200 כדי לא לתקוע את המשתמש במקרה של שגיאת הרשאה זמנית ב-API
+      statusCode: 200,
       headers,
-      body: JSON.stringify({ allowed: true, exists: false, debugError: error.message })
+      body: JSON.stringify({ 
+        allowed: true, 
+        exists: false, 
+        debugError: error.message 
+      })
     };
   }
 };
 
 async function checkIfUserExistsInIdentity(tz) {
-  // נטליפיי מספקת את כתובת ה-API של ה-Identity ישירות בתוך ה-context של הפונקציה בזמן ריצה
+  // נטליפיי מספקת את ה-URL של האתר בזמן ריצה, או משתמשת בכתובת המקומית
   const siteUrl = process.env.URL || 'https://your-site.netlify.app';
   const identityToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN;
   
   if (!identityToken) {
-    console.warn("NETLIFY_IDENTITY_ADMIN_TOKEN חסר במערכת");
-    return false; 
+    return { exists: false, debugMessage: "NETLIFY_IDENTITY_ADMIN_TOKEN is missing in Environment Variables" };
   }
 
   try {
-    // פנייה ישירה לרשימת המשתמשים ב-Identity של האתר
     const response = await axios.get(`${siteUrl}/.netlify/identity/admin/users`, {
       headers: {
         Authorization: `Bearer ${identityToken}`,
@@ -79,14 +82,18 @@ async function checkIfUserExistsInIdentity(tz) {
 
     const users = response.data.users || [];
     
-    // סריקה האם קיים משתמש עם תעודת הזהות הזו במטא-דאטה שלו
-    const existingUser = users.find(u => 
-      u.user_metadata && String(u.user_metadata.verified_tz) === String(tz)
-    );
+    // חיפוש המשתמש - בדיקה כפולה:
+    // 1. האם יש משתמש עם ה-verified_tz הזו במטא-דאטה
+    // 2. או האם יש משתמש שכתובת המייל שלו רשומה (כדי לתפוס רישומים חצי-מושלמים)
+    const existingUser = users.find(u => {
+      const hasTz = u.user_metadata && String(u.user_metadata.verified_tz) === String(tz);
+      return hasTz;
+    });
 
-    return !!existingUser; 
+    return { exists: !!existingUser };
   } catch (err) {
-    console.error("שגיאה בסריקת משתמשים ב-Identity API:", err.response ? err.response.data : err.message);
-    return false;
+    const errorDetails = err.response ? JSON.stringify(err.response.data) : err.message;
+    console.error("Identity API Error:", errorDetails);
+    return { exists: false, debugMessage: `API Error: ${errorDetails}` };
   }
 }
