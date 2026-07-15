@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>בית כנסת מוהליבר - אזור אישי</title>
     <link rel="icon" type="image/png" href="logo.png">
+    <!-- ספרית הנתונים הבסיסית של Netlify Identity -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <style>
         body {
@@ -27,7 +28,7 @@
             z-index: 1;
         }
 
-        /* סרגל ניווט עליון מיושר לאמצע */
+        /* סרגל ניווט עליון */
         header {
             background-color: rgba(26, 54, 93, 0.95);
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
@@ -88,7 +89,7 @@
             color: white;
         }
 
-        /* תפריט נפתח (Dropdown) לזמני תפילות */
+        /* תפריט נפתח (Dropdown) */
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -117,25 +118,6 @@
         }
         .nav-item:hover .dropdown-menu {
             display: block;
-        }
-
-        /* המבורגר */
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 6px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 5px;
-        }
-        .hamburger span {
-            display: block;
-            width: 28px;
-            height: 3px;
-            background-color: white;
-            border-radius: 2px;
-            transition: 0.3s;
         }
 
         /* תוכן מרכזי */
@@ -399,9 +381,6 @@
                 flex-direction: row;
                 justify-content: space-between;
             }
-            .hamburger {
-                display: flex;
-            }
             .nav-menu {
                 display: none;
                 flex-direction: column;
@@ -426,16 +405,6 @@
                 width: 100%;
                 text-align: center;
             }
-            .dropdown-menu {
-                position: static;
-                display: none;
-                width: 100%;
-                background-color: rgba(0, 0, 0, 0.2);
-                box-shadow: none;
-            }
-            .nav-item.open-dropdown .dropdown-menu {
-                display: block;
-            }
         }
     </style>
 </head>
@@ -446,16 +415,8 @@
         <a href="index.html" class="nav-logo-link">
             <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
         </a>
-        
-        <button class="hamburger" onclick="toggleMenu()">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-        
         <ul class="nav-menu" id="navMenu">
             <li class="nav-item"><a href="index.html">דף הבית</a></li>
-            
             <li class="nav-item" id="prayersDropdown">
                 <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>
                 <ul class="dropdown-menu">
@@ -463,7 +424,6 @@
                     <li><a href="shabbat.html">שבתות וחגים</a></li>
                 </ul>
             </li>
-            
             <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
             <li class="nav-item active"><a href="personal.html">אזור אישי</a></li>
         </ul>
@@ -474,16 +434,18 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
+        <!-- שלב א': אימות והרשמה בעברית מלאה -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             
-            <div class="instructions-box">
+            <div class="instructions-box" id="infoBox">
                 ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
                 במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
             </div>
             
             <div id="errorMessage" class="error-msg"></div>
             
+            <!-- טופס בדיקה ראשוני (תעודת זהות) -->
             <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
                 <div class="form-group">
                     <label for="verificationTz">הזן מספר תעודת זהות:</label>
@@ -492,8 +454,9 @@
                 <button type="submit" class="btn">המשך</button>
             </form>
             
+            <!-- טופס התחברות והרשמה דינמי בעברית (מוצג רק לאחר אימות ת"ז) -->
             <div id="identityAuthBox" class="identity-auth-box">
-                <p style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
+                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
                 
                 <h3 id="authTitle" style="color: #1a365d; margin-bottom: 20px; text-align: center;">התחברות לחשבון</h3>
                 
@@ -522,6 +485,7 @@
             <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
         </div>
 
+        <!-- שלב ב': תצוגת נתונים לאחר התחברות מוצלחת -->
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
             <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
@@ -535,7 +499,8 @@
 
 <script>
     let verifiedTz = null;
-    let authMode = "login"; // מצב ברירת מחדל: התחברות. יכול להשתנות ל-"signup"
+    let authMode = "login"; 
+    let hasExistingAccount = false; 
 
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
@@ -557,11 +522,6 @@
         }
     });
 
-    function toggleMenu() {
-        const menu = document.getElementById('navMenu');
-        menu.classList.toggle('open');
-    }
-
     function toggleDropdown(event) {
         if (window.innerWidth <= 768) {
             event.preventDefault();
@@ -570,8 +530,9 @@
         }
     }
 
-    // מעבר דינמי בעברית בין מצב כניסה למצב הרשמה
     function toggleAuthMode() {
+        if (hasExistingAccount) return; // מניעת מעבר למצב הרשמה אם קיים כבר חשבון במערכת
+
         const title = document.getElementById('authTitle');
         const submitBtn = document.getElementById('authSubmitBtn');
         const toggleBtn = document.getElementById('toggleAuthBtn');
@@ -591,7 +552,7 @@
         }
     }
 
-    // שלב 1: אימות ת"ז מול פונקציית השרת המאובטחת
+    // שלב 1: אימות ת"ז מול פונקציית השרת המאובטחת + בדיקת קיום חשבון
     async function verifyWhitelist(event) {
         event.preventDefault();
         const tz = document.getElementById('verificationTz').value;
@@ -599,6 +560,7 @@
         const loadingDiv = document.getElementById('loadingSpinner');
         const whitelistForm = document.getElementById('whitelistForm');
         const authBox = document.getElementById('identityAuthBox');
+        const toggleBtn = document.getElementById('toggleAuthBtn');
 
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
@@ -617,6 +579,22 @@
                 verifiedTz = tz;
                 whitelistForm.style.display = 'none';
                 authBox.style.display = 'block';
+                
+                // בדיקת סטטוס קיום חשבון קיים
+                if (result.exists) {
+                    hasExistingAccount = true;
+                    authMode = "login";
+                    document.getElementById('authTitle').innerText = "התחברות לחשבון קיים";
+                    document.getElementById('authSubmitBtn').innerText = "התחבר";
+                    toggleBtn.style.display = 'none'; // הסתרת קישור הרישום
+                } else {
+                    hasExistingAccount = false;
+                    authMode = "signup"; // ברירת מחדל לפעם ראשונה: הרשמה
+                    document.getElementById('authTitle').innerText = "הרשמה ויצירת חשבון חדש";
+                    document.getElementById('authSubmitBtn').innerText = "צור חשבון";
+                    toggleBtn.style.display = 'block';
+                    toggleBtn.innerText = "כבר יש לך חשבון? להתחברות לחץ כאן";
+                }
             } else {
                 throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
             }
@@ -627,7 +605,7 @@
         }
     }
 
-    // שלב 2: ניהול הרשמה וכניסה מול ה-API בעברית
+    // שלב 2: ניהול הרשמה וכניסה מול ה-API
     async function handleCustomAuth(event) {
         event.preventDefault();
         const email = document.getElementById('authEmail').value;
@@ -640,21 +618,20 @@
 
         try {
             if (authMode === "signup") {
-                // תהליך הרשמה מאובטח בעברית
                 await netlifyIdentity.gotrue.signup(email, password, { verified_tz: verifiedTz });
                 loadingDiv.style.display = 'none';
-                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו כדי להתחבר.");
-                authMode = "signup";
-                toggleAuthMode(); // החזרה למצב התחברות
+                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
+                authMode = "login";
+                document.getElementById('authTitle').innerText = "התחברות לחשבון";
+                document.getElementById('authSubmitBtn').innerText = "התחבר";
             } else {
-                // תהליך התחברות
                 await netlifyIdentity.gotrue.login(email, password, true);
             }
         } catch (err) {
             loadingDiv.style.display = 'none';
             let friendlyError = err.message;
             if (err.message.includes("Email not confirmed")) {
-                friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך ואשר את הקישור שנשלח אליך.";
+                friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור שנשלח אליך.";
             } else if (err.message.includes("Invalid login")) {
                 friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים.";
             }
@@ -663,14 +640,13 @@
         }
     }
 
-    // כניסה מהירה עם גוגל
     function loginWithGoogle() {
         if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.loginExternal('google');
+            netlifyIdentity.gotrue.loginExternal('google');
         }
     }
 
-    // שלב 3: שליפת נתוני התרומות מנדרים פלוס
+    // שלב 3: שליפת נתוני התרומות
     async function fetchDonorData(user) {
         const errorDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loadingSpinner');
