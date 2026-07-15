@@ -1,816 +1,99 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בית כנסת מוהליבר - אזור אישי</title>
-    <link rel="icon" type="image/png" href="logo.png">
-    <!-- ספרית הנתונים הבסיסית של Netlify Identity -->
-    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            color: #333;
-            position: relative;
-            background: url('background.jpg') no-repeat center center fixed;
-            background-size: cover;
-        }
-        body::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.45);
-            z-index: 1;
-        }
+const axios = require('axios');
 
-        /* סרגל ניווט עליון */
-        header {
-            background-color: rgba(26, 54, 93, 0.95);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            position: relative;
-            z-index: 100;
-        }
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 20px;
-            gap: 10px;
-        }
-        .nav-logo-link {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-        }
-        .nav-logo {
-            height: 45px;
-            width: auto;
-        }
-        .nav-menu {
-            display: flex;
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            gap: 15px;
-            justify-content: center;
-            align-items: center;
-        }
-        .nav-item {
-            position: relative;
-        }
-        .nav-item a, .dropdown-toggle {
-            color: #f7fafc;
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 600;
-            padding: 10px 18px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            display: block;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
-        }
-        .nav-item a:hover, .dropdown-toggle:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-            color: #fff;
-        }
-        .nav-item.active a {
-            background-color: #2b6cb0;
-            color: white;
-        }
+exports.handler = async (event, context) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
 
-        /* תפריט נפתח (Dropdown) */
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background-color: #1a365d;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            border-radius: 8px;
-            min-width: 160px;
-            z-index: 1000;
-            margin: 0;
-            padding: 5px 0;
-            list-style: none;
-        }
-        .dropdown-menu li a {
-            color: #f7fafc;
-            padding: 10px 15px;
-            text-decoration: none;
-            display: block;
-            font-size: 15px;
-            text-align: right;
-            border-radius: 0;
-        }
-        .dropdown-menu li a:hover {
-            background-color: #2b6cb0;
-        }
-        .nav-item:hover .dropdown-menu {
-            display: block;
-        }
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
 
-        /* תוכן מרכזי */
-        .main-content {
-            position: relative;
-            z-index: 2;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px 30px;
-            border-radius: 20px;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-            text-align: center;
-            max-width: 550px;
-            width: 90%;
-            box-sizing: border-box;
-        }
-        .logo {
-            max-width: 150px;
-            height: auto;
-            margin-bottom: 20px;
-        }
-        h2 {
-            color: #1a365d;
-            margin-bottom: 10px;
-            font-size: 24px;
-        }
-        .subtitle {
-            font-size: 15px;
-            color: #555;
-            margin-bottom: 25px;
-            line-height: 1.5;
-        }
-        .instructions-box {
-            background-color: #ebf8ff;
-            border-right: 4px solid #2b6cb0;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: right;
-            font-size: 14px;
-            color: #2b6cb0;
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-        .form-group {
-            margin-bottom: 20px;
-            text-align: right;
-        }
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #1a365d;
-            font-size: 15px;
-        }
-        input {
-            width: 100%;
-            padding: 14px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 18px;
-            text-align: center;
-            box-sizing: border-box;
-            transition: border-color 0.2s;
-        }
-        input:focus {
-            border-color: #1a365d;
-            outline: none;
-        }
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 15px;
-            background: #1a365d;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 18px;
-            border: none;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn:hover {
-            background: #2a4365;
-        }
-        .google-btn {
-            background-color: #ffffff;
-            color: #757575;
-            border: 1px solid #ddd;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .google-btn:hover {
-            background-color: #f7fafc;
-        }
-        .google-icon {
-            width: 18px;
-            height: 18px;
-        }
-        .error-msg {
-            color: #c53030;
-            background: #fff5f5;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: bold;
-            display: none;
-            text-align: right;
-            line-height: 1.5;
-        }
-        .loading {
-            display: none;
-            font-weight: bold;
-            color: #1a365d;
-            margin: 20px 0;
-        }
-        .results-container {
-            display: none;
-            text-align: right;
-            margin-top: 20px;
-        }
-        .mosad-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #2b6cb0;
-            margin-top: 25px;
-            margin-bottom: 8px;
-            border-right: 4px solid #2b6cb0;
-            padding-right: 10px;
-        }
-        .keva-card {
-            background: #f7fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            text-align: right;
-        }
-        .keva-header {
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-            font-weight: bold;
-            color: #1a365d;
-        }
-        .keva-row {
-            margin: 8px 0;
-            font-size: 15px;
-        }
-        .status-active { color: #38a169; font-weight: bold; }
-        .status-inactive { color: #e53e3e; font-weight: bold; }
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: 'Method Not Allowed' };
+  }
 
-        .denial-warning {
-            background-color: #fff5f5;
-            border: 1px solid #feb2b2;
-            color: #9b2c2c;
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 10px;
-            font-size: 14px;
-            font-weight: bold;
-        }
+  try {
+    const { tz } = JSON.parse(event.body);
+    if (!tz) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ allowed: false, error: 'תעודת זהות חסרה' })
+      };
+    }
 
-        .history-btn {
-            background: #edf2f7;
-            color: #4a5568;
-            border: 1px solid #cbd5e0;
-            padding: 8px 15px;
-            font-size: 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 15px;
-            font-weight: bold;
-            transition: background 0.2s;
-            width: auto;
-            display: inline-block;
-        }
-        .history-btn:hover {
-            background: #e2e8f0;
-        }
-        .history-section {
-            display: none;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px dashed #cbd5e0;
-        }
-        .history-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-        .history-table th, .history-table td {
-            border: 1px solid #e2e8f0;
-            padding: 8px;
-            text-align: center;
-        }
-        .history-table th {
-            background-color: #ebf8ff;
-            color: #2b6cb0;
-        }
-        .badge-success {
-            background-color: #c6f6d5;
-            color: #22543d;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-        }
-        .badge-danger {
-            background-color: #fed7d7;
-            color: #742a2a;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-        }
-        .summary-info {
-            background: #ebf8ff;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 14px;
-            color: #2b6cb0;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
+    // בדיקת הרשאה (מאושר תמיד לצורך הבדיקות כרגע)
+    const isAllowedInCommunity = true; 
 
-        /* קבוצת הרשמה/כניסה מאובטחת */
-        .identity-auth-box {
-            display: none;
-            margin-top: 25px;
-            padding-top: 25px;
-            border-top: 2px dashed #e2e8f0;
-            text-align: right;
-        }
+    if (!isAllowedInCommunity) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ allowed: false, exists: false })
+      };
+    }
 
-        @media (max-width: 768px) {
-            .nav-container {
-                flex-direction: row;
-                justify-content: space-between;
-            }
-            .nav-menu {
-                display: none;
-                flex-direction: column;
-                width: 100%;
-                position: absolute;
-                top: 70px;
-                left: 0;
-                background-color: #1a365d;
-                padding: 15px 0;
-                box-shadow: 0 8px 15px rgba(0,0,0,0.2);
-            }
-            .nav-menu.open {
-                display: flex;
-            }
-            .nav-item {
-                text-align: center;
-                width: 100%;
-            }
-            .nav-item a, .dropdown-toggle {
-                padding: 12px 0;
-                border-radius: 0;
-                width: 100%;
-                text-align: center;
-            }
-        }
-    </style>
-</head>
-<body>
+    // פנייה ל-API המרכזי של נטליפיי לבדיקת קיום החשבון
+    const checkResult = await checkIfUserExistsInIdentity(tz);
 
-<header>
-    <div class="nav-container">
-        <a href="index.html" class="nav-logo-link">
-            <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
-        </a>
-        <ul class="nav-menu" id="navMenu">
-            <li class="nav-item"><a href="index.html">דף הבית</a></li>
-            <li class="nav-item" id="prayersDropdown">
-                <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>
-                <ul class="dropdown-menu">
-                    <li><a href="yemothachol.html">ימות החול</a></li>
-                    <li><a href="shabbat.html">שבתות וחגים</a></li>
-                </ul>
-            </li>
-            <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
-            <li class="nav-item active"><a href="personal.html">אזור אישי</a></li>
-        </ul>
-    </div>
-</header>
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ 
+        allowed: true, 
+        exists: checkResult.exists,
+        debugMessage: checkResult.debugMessage || ''
+      })
+    };
 
-<main class="main-content">
-    <div class="container">
-        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
-        
-        <!-- שלב א': אימות והרשמה -->
-        <div id="loginSection">
-            <h2>אזור אישי</h2>
-            
-            <div class="instructions-box" id="infoBox">
-                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
-                במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
-            </div>
-            
-            <div id="errorMessage" class="error-msg"></div>
-            
-            <!-- טופס בדיקה ראשוני (תעודת זהות) -->
-            <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
-                <div class="form-group">
-                    <label for="verificationTz">הזן מספר תעודת זהות:</label>
-                    <input type="text" id="verificationTz" required pattern="[0-9]{4,9}" placeholder="אנא הקלד ת.ז.">
-                </div>
-                <button type="submit" class="btn">המשך</button>
-            </form>
-            
-            <!-- טופס התחברות והרשמה דינמי (מוצג רק לאחר אימות ת"ז) -->
-            <div id="identityAuthBox" class="identity-auth-box">
-                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
-                
-                <h3 id="authTitle" style="color: #1a365d; margin-bottom: 20px; text-align: center;">התחברות לחשבון</h3>
-                
-                <form id="customAuthForm" onsubmit="handleCustomAuth(event)">
-                    <div class="form-group">
-                        <label for="authEmail">כתובת אימייל:</label>
-                        <input type="email" id="authEmail" required placeholder="name@example.com">
-                    </div>
-                    <div class="form-group">
-                        <label for="authPassword">סיסמה:</label>
-                        <input type="password" id="authPassword" required minlength="6" placeholder="לפחות 6 תווים">
-                    </div>
-                    <button type="submit" id="authSubmitBtn" class="btn">המשך</button>
-                </form>
+  } catch (error) {
+    console.error('Error in verify-tz:', error);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ 
+        allowed: true, 
+        exists: false, 
+        debugError: error.message 
+      })
+    };
+  }
+};
 
-                <button class="btn google-btn" onclick="loginWithGoogle()">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" class="google-icon">
-                    התחברות מהירה באמצעות Google
-                </button>
-            </div>
-            
-            <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
-        </div>
+async function checkIfUserExistsInIdentity(tz) {
+  const identityToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN;
+  const siteId = process.env.SITE_ID; // נטליפיי מספקת את מזהה האתר אוטומטית לשרת
+  
+  if (!identityToken) {
+    return { exists: false, debugMessage: "NETLIFY_IDENTITY_ADMIN_TOKEN defines are missing" };
+  }
+  if (!siteId) {
+    return { exists: false, debugMessage: "SITE_ID environment variable is missing" };
+  }
 
-        <!-- שלב ב': תצוגת נתונים לאחר התחברות מוצלחת -->
-        <div id="resultsSection" class="results-container">
-            <h2>שלום, <span id="donorName"></span></h2>
-            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
-            
-            <div id="kevaList"></div>
-            
-            <button onclick="handleLogout()" class="btn" style="background:#718096; margin-top:20px; padding:10px; font-size:15px;">יציאה מהמערכת</button>
-        </div>
-    </div>
-</main>
-
-<script>
-    let verifiedTz = null;
-    let authMode = "login"; 
-
-    window.addEventListener('load', () => {
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.on('init', user => {
-                // בדיקת הימצאות טוקן אימות (confirmation_token) בכתובת ה-URL
-                const hash = window.location.hash;
-                if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
-                    netlifyIdentity.open();
-                    return;
-                }
-
-                if (user && user.user_metadata && user.user_metadata.verified_tz) {
-                    fetchDonorData(user);
-                } else if (user) {
-                    netlifyIdentity.logout();
-                }
-            });
-
-            netlifyIdentity.on('login', user => {
-                netlifyIdentity.close(); 
-                fetchDonorData(user);
-            });
-
-            netlifyIdentity.on('logout', () => {
-                handleLogout();
-            });
-        }
+  try {
+    // פנייה ישירה ומאובטחת ל-API המרכזי של Netlify בעזרת האסימון הראשי שלך
+    const response = await axios.get(`https://api.netlify.com/api/v1/sites/${siteId}/identity/users`, {
+      headers: {
+        Authorization: `Bearer ${identityToken}`,
+        'Content-Type': 'application/json'
+      }
     });
 
-    function toggleDropdown(event) {
-        if (window.innerWidth <= 768) {
-            event.preventDefault();
-            const dropdown = document.getElementById('prayersDropdown');
-            dropdown.classList.toggle('open-dropdown');
-        }
-    }
+    const users = response.data.users || [];
+    
+    // חיפוש משתמש קיים עם תעודת הזהות הזו
+    const existingUser = users.find(u => {
+      return u.user_metadata && String(u.user_metadata.verified_tz) === String(tz);
+    });
 
-    // שלב 1: אימות ת"ז מול פונקציית השרת המאובטחת + הגדרה אוטומטית של המצב
-    async function verifyWhitelist(event) {
-        event.preventDefault();
-        const tz = document.getElementById('verificationTz').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-        const whitelistForm = document.getElementById('whitelistForm');
-        const authBox = document.getElementById('identityAuthBox');
-
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
-
-        try {
-            const response = await fetch('/.netlify/functions/verify-tz', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tz })
-            });
-
-            const result = await response.json();
-            loadingDiv.style.display = 'none';
-
-            // אם השרת החזיר הודעת דיבאג - נציג אותה בקונסול
-            if (result.debugMessage) {
-                console.warn("שרת ה-Identity החזיר אזהרה:", result.debugMessage);
-            }
-            if (result.debugError) {
-                console.error("שרת ה-Identity נתקל בשגיאה פנימית:", result.debugError);
-            }
-
-            if (result.allowed) {
-                verifiedTz = tz;
-                whitelistForm.style.display = 'none';
-                authBox.style.display = 'block';
-                
-                // הגדרת מצב לפי קיום החשבון בפועל בשרת
-                if (result.exists) {
-                    authMode = "login";
-                    document.getElementById('authTitle').innerText = "התחברות לחשבון";
-                    document.getElementById('authSubmitBtn').innerText = "התחבר";
-                } else {
-                    authMode = "signup";
-                    document.getElementById('authTitle').innerText = "הרשמה ויצירת חשבון חדש";
-                    document.getElementById('authSubmitBtn').innerText = "צור חשבון והמשך";
-                }
-            } else {
-                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
-            }
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            errorDiv.innerHTML = err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    // שלב 2: ניהול הרשמה וכניסה מול ה-API
-    async function handleCustomAuth(event) {
-        event.preventDefault();
-        const email = document.getElementById('authEmail').value;
-        const password = document.getElementById('authPassword').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
-
-        try {
-            if (authMode === "signup") {
-                await netlifyIdentity.gotrue.signup(email, password, { verified_tz: verifiedTz });
-                loadingDiv.style.display = 'none';
-                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
-                authMode = "login";
-                document.getElementById('authTitle').innerText = "התחברות לחשבון";
-                document.getElementById('authSubmitBtn').innerText = "התחבר";
-            } else {
-                await netlifyIdentity.gotrue.login(email, password, true);
-            }
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            let friendlyError = err.message;
-            if (err.message.includes("Email not confirmed")) {
-                friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור שנשלח אליך.";
-            } else if (err.message.includes("Invalid login")) {
-                friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים.";
-            }
-            errorDiv.innerHTML = friendlyError;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    function loginWithGoogle() {
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.gotrue.loginExternal('google');
-        }
-    }
-
-    // שלב 3: שליפת נתוני התרומות
-    async function fetchDonorData(user) {
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-        const loginSection = document.getElementById('loginSection');
-        const resultsSection = document.getElementById('resultsSection');
-
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
-
-        try {
-            const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz);
-
-            if (!tzToSearch) {
-                throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
-            }
-
-            if (verifiedTz && typeof netlifyIdentity !== 'undefined') {
-                const currentUser = netlifyIdentity.currentUser();
-                if (currentUser) {
-                    await currentUser.update({ data: { verified_tz: verifiedTz } });
-                }
-            }
-
-            const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tz: tzToSearch })
-            });
-
-            const result = await response.json();
-            loadingDiv.style.display = 'none';
-
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || "לא נמצאו נתונים תואמים במערכת.");
-            }
-
-            loginSection.style.display = 'none';
-            resultsSection.style.display = 'block';
-            document.getElementById('donorName').innerText = result.data[0].name;
-
-            const kevaListDiv = document.getElementById('kevaList');
-            kevaListDiv.innerHTML = '';
-
-            const groups = {};
-            result.data.forEach(keva => {
-                const groupName = keva.mosadName || "אחר";
-                if (!groups[groupName]) {
-                    groups[groupName] = [];
-                }
-                groups[groupName].push(keva);
-            });
-
-            for (const [mosadName, kevaArray] of Object.entries(groups)) {
-                const mTitle = document.createElement('div');
-                mTitle.className = 'mosad-title';
-                mTitle.innerText = mosadName;
-                kevaListDiv.appendChild(mTitle);
-
-                kevaArray.forEach(keva => {
-                    const card = document.createElement('div');
-                    card.className = 'keva-card';
-
-                    const hasError = keva.errorText && keva.errorText.trim().length > 0;
-                    const errorBadge = hasError ? `
-                        <div class="denial-warning">
-                            ⚠️ תשומת לב: החיוב האחרון לא צלח עקב סירוב מהבנק/אשראי. 
-                            <br>פירוט: ${keva.errorText}
-                        </div>
-                    ` : '';
-
-                    card.innerHTML = `
-                        <div class="keva-header">
-                            <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
-                            <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
-                                ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
-                            </div>
-                        </div>
-                        <div class="keva-row"><strong>סכום חודשי:</strong> ${keva.amount} ₪</div>
-                        <div class="keva-row"><strong>תאריך חיוב קרוב:</strong> ${keva.nextDate}</div>
-                        <div class="keva-row"><strong>אמצעי תשלום:</strong> כרטיס המסתיים ב-${keva.lastNum}</div>
-                        ${keva.comments ? `<div class="keva-row"><strong>הערות:</strong> ${keva.comments}</div>` : ''}
-                        
-                        ${errorBadge}
-                        
-                        <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
-                        
-                        <div id="history_${keva.kevaId}" class="history-section">
-                            <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
-                        </div>
-                    `;
-                    kevaListDiv.appendChild(card);
-                });
-            }
-
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            errorDiv.innerHTML = err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    async function toggleHistory(kevaId, buttonElement) {
-        const historyDiv = document.getElementById(`history_${kevaId}`);
-        
-        if (historyDiv.style.display === 'block') {
-            historyDiv.style.display = 'none';
-            buttonElement.innerText = "הצג היסטוריית חיובים ▾";
-            return;
-        }
-        
-        historyDiv.style.display = 'block';
-        buttonElement.innerText = "סגור היסטוריית חיובים ▴";
-        
-        try {
-            const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kevaId })
-            });
-            
-            const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-                throw new Error("כשל בטעינת ההיסטוריה");
-            }
-            
-            let historyHTML = `
-                <div class="summary-info">
-                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ נתרם בפועל: ${result.totalAmount} ₪
-                </div>
-            `;
-            
-            if (result.history.length === 0) {
-                historyHTML += `<div style="text-align:center; font-size:14px; color:#718096; padding:10px;">טרם בוצעו ניסיונות חיוב עבור הוראה זו.</div>`;
-            } else {
-                historyHTML += `
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th>תאריך</th>
-                                <th>סכום</th>
-                                <th>סטטוס</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-                
-                result.history.forEach(row => {
-                    let statusBadge = "";
-                    if (row.status === "1") {
-                        statusBadge = `<span class="badge-success">הצליח</span>`;
-                    } else if (row.status === "2") {
-                        statusBadge = `<span class="badge-danger">סירוב</span>`;
-                    } else {
-                        statusBadge = `<span class="badge-danger">בוטל</span>`;
-                    }
-                    
-                    historyHTML += `
-                        <tr>
-                            <td>${row.date}</td>
-                            <td>${row.amount ? row.amount + ' ₪' : '-'}</td>
-                            <td>${statusBadge}</td>
-                        </tr>
-                    `;
-                });
-                
-                historyHTML += `
-                        </tbody>
-                    </table>
-                `;
-            }
-            
-            historyDiv.innerHTML = historyHTML;
-            
-        } catch (err) {
-            historyDiv.innerHTML = `<div style="color:#c53030; text-align:center; font-size:14px;">${err.message}</div>`;
-        }
-    }
-
-    function handleLogout() {
-        verifiedTz = null;
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.logout();
-        }
-        document.getElementById('verificationTz').value = '';
-        document.getElementById('resultsSection').style.display = 'none';
-        document.getElementById('identityAuthBox').style.display = 'none';
-        document.getElementById('whitelistForm').style.display = 'block';
-        document.getElementById('loginSection').style.display = 'block';
-    }
-</script>
-
-</body>
-</html>
+    return { exists: !!existingUser };
+  } catch (err) {
+    const errorDetails = err.response ? JSON.stringify(err.response.data) : err.message;
+    console.error("Netlify Central API Error:", errorDetails);
+    return { exists: false, debugMessage: `API Error: ${errorDetails}` };
+  }
+}
