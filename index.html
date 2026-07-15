@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="logo.png">
     
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-
+    
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -28,6 +28,89 @@
             background: rgba(255, 255, 255, 0.45);
             z-index: 1;
         }
+
+        /* 1. סרגל כלים עליון */
+        header {
+            background-color: rgba(26, 54, 93, 0.95);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            position: relative;
+            z-index: 100;
+        }
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 12px 20px;
+        }
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+        .nav-item {
+            position: relative;
+        }
+        .nav-item a, .dropdown-toggle {
+            color: #f7fafc;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: block;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .nav-item a:hover, .dropdown-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+        .nav-item.active a {
+            background-color: #2b6cb0;
+            color: white;
+        }
+
+        /* תפריט נפתח (Dropdown) לזמני תפילות */
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: #1a365d;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            min-width: 160px;
+            z-index: 1000;
+            margin: 0;
+            padding: 5px 0;
+            list-style: none;
+        }
+        .dropdown-menu li a {
+            color: #f7fafc;
+            padding: 10px 15px;
+            text-decoration: none;
+            display: block;
+            font-size: 15px;
+            text-align: right;
+            border-radius: 0;
+        }
+        .dropdown-menu li a:hover {
+            background-color: #2b6cb0;
+        }
+        .nav-item:hover .dropdown-menu {
+            display: block;
+        }
+
+        /* 2. מרכז הדף - סטריפ לבן חצי שקוף עם לוגו וטקסט */
         .main-content {
             position: relative;
             z-index: 2;
@@ -39,72 +122,160 @@
             padding: 40px 20px;
             text-align: center;
         }
+        .center-strip {
+            background: rgba(255, 255, 255, 0.75); /* סטריפ לבן חצי שקוף */
+            width: 100%;
+            max-width: 800px;
+            padding: 40px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         .logo {
-            max-width: 240px;
+            max-width: 280px; /* לוגו גדול */
             height: auto;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         h1 {
             color: #1a365d;
-            margin-bottom: 15px;
-            font-size: 36px;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.4;
         }
-        .welcome-text {
-            font-size: 19px;
-            line-height: 1.6;
-            color: #2d3748;
-            max-width: 600px;
-            margin: 0 auto 40px auto;
-            font-weight: 500;
-        }
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            max-width: 600px;
-            width: 100%;
-        }
-        .grid-item {
+
+        /* 3. תחתית העמוד - אזור הניווט ומפות */
+        .bottom-nav-section {
+            position: relative;
+            z-index: 2;
             background: rgba(255, 255, 255, 0.9);
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            text-decoration: none;
-            color: #1a365d;
-            font-weight: bold;
-            font-size: 20px;
-            transition: transform 0.2s, background-color 0.2s;
+            border-top: 1px solid #e2e8f0;
+            padding: 25px 20px;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 80px;
-            border: 2px solid transparent;
+            gap: 15px;
+            text-align: center;
         }
-        .grid-item:hover {
-            transform: translateY(-5px);
-            background-color: #fff;
-            border-color: #2b6cb0;
+        .address-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a365d;
         }
+        .map-container {
+            width: 100%;
+            max-width: 450px;
+            height: 180px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .waze-btn {
+            background-color: #2ec4b6;
+            color: white;
+            text-decoration: none;
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 15px;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .waze-btn:hover {
+            background-color: #0f9f90;
+        }
+
+        /* 4. הערת קרדיט/רב בתחתית הדף */
+        .footer-credits {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 10px;
+            text-align: center;
+            direction: ltr; /* אנגלית לשמאל */
+        }
+
+        /* התאמה למובייל */
         @media (max-width: 768px) {
-            .grid-container {
-                grid-template-columns: 1fr;
+            .nav-container {
+                padding: 8px 10px;
+            }
+            .nav-menu {
+                gap: 5px;
+            }
+            .nav-item a, .dropdown-toggle {
+                font-size: 14px;
+                padding: 8px 10px;
+            }
+            .center-strip {
+                width: 95%;
+                padding: 25px 15px;
+            }
+            .logo {
+                max-width: 200px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            .map-container {
+                height: 140px;
             }
         }
     </style>
 </head>
 <body>
 
+<header>
+    <nav class="nav-container">
+        <ul class="nav-menu">
+            <li class="nav-item active"><a href="index.html">דף הבית</a></li>
+            <li class="nav-item">
+                <button class="dropdown-toggle">זמני התפילות ▾</button>
+                <ul class="dropdown-menu">
+                    <li><a href="shabbat.html">שבתות</a></li>
+                    <li><a href="yemothachol.html">ימות החול</a></li>
+                </ul>
+            </li>
+            <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
+            <li class="nav-item"><a href="personal.html">אזור אישי</a></li>
+        </ul>
+    </nav>
+</header>
+
 <main class="main-content">
-    <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
-    <h1>בית הכנסת מוהליבר</h1>
-    <p class="welcome-text">שלום וברוכים הבאים לאתר האינטרנט של בית כנסת מוהליבר.</p>
-    
-    <div class="grid-container">
-        <a href="yemothachol.html" class="grid-item">זמני תפילות</a>
-        <a href="news.html" class="grid-item">מהנעשה ונשמע</a>
+    <div class="center-strip">
+        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
+        <h1>
+            דף המידע של<br>
+            בית הכנסת המרכזי מוהליבר
+        </h1>
     </div>
 </main>
+
+<section class="bottom-nav-section">
+    <div class="address-text">כתובת: מוהליבר 10 בני ברק</div>
+    
+    <div class="map-container">
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3380.706173468822!2d34.8271731!3d32.0772428!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x151d4b9bf8e71861%3A0xe510a56247c1f8d4!2sShmuel%20Mohilever%2010%2C%20Bnei%20Brak!5e0!3m2!1sen!2sil!4v1700000000000!5m2!1sen!2sil" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+
+    <a href="https://waze.com/ul?ll=32.0772428,34.8271731&navigate=yes" class="waze-btn" target="_blank">
+        ניווט באמצעות Waze 🚗
+    </a>
+
+    <div class="footer-credits">
+        The Central Synagogue of Mohiliver, headed by Rabbi Ehud Shapira, Shlita
+    </div>
+</section>
 
 <script>
     // מאזין אישור הרשמה והתחברות של Netlify Identity ברקע
