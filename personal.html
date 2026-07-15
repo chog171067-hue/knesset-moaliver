@@ -493,7 +493,6 @@
                 // בדיקת הימצאות טוקן אימות (confirmation_token) בכתובת ה-URL
                 const hash = window.location.hash;
                 if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
-                    // פתיחת חלונית Identity באופן שקט כדי שנטליפיי תבצע אישור עצמי של הטוקן
                     netlifyIdentity.open();
                     return;
                 }
@@ -505,9 +504,8 @@
                 }
             });
 
-            // הפעלה ברגע שהאימות/התחברות הושלמה
             netlifyIdentity.on('login', user => {
-                netlifyIdentity.close(); // סגירת החלונית אם הייתה פתוחה
+                netlifyIdentity.close(); 
                 fetchDonorData(user);
             });
 
@@ -547,12 +545,20 @@
             const result = await response.json();
             loadingDiv.style.display = 'none';
 
+            // אם השרת החזיר הודעת דיבאג - נציג אותה בקונסול
+            if (result.debugMessage) {
+                console.warn("שרת ה-Identity החזיר אזהרה:", result.debugMessage);
+            }
+            if (result.debugError) {
+                console.error("שרת ה-Identity נתקל בשגיאה פנימית:", result.debugError);
+            }
+
             if (result.allowed) {
                 verifiedTz = tz;
                 whitelistForm.style.display = 'none';
                 authBox.style.display = 'block';
                 
-                // התאמת ממשק המשתמש באופן מוחלט ואוטומטי לפי קיום החשבון
+                // הגדרת מצב לפי קיום החשבון בפועל בשרת
                 if (result.exists) {
                     authMode = "login";
                     document.getElementById('authTitle').innerText = "התחברות לחשבון";
