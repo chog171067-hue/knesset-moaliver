@@ -1,7 +1,6 @@
 const axios = require('axios');
 
 exports.handler = async (event, context) => {
-  // הגדרת כותרות חובה למניעת בעיות דפדפן (CORS)
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -26,9 +25,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // --- שלב א': בדיקת זכאות ברשימת הקהילה (ה-Whitelist) ---
-    // כרגע מוגדר כ-true קבוע כדי שתוכל לבדוק את עצמך. 
-    // בהמשך, כאן נחבר את רשימת חברי הקהילה האמיתית שלך.
+    // בדיקת זכאות (פתוח לכולם כרגע לצורך בדיקות)
     const isAllowedInCommunity = true; 
 
     if (!isAllowedInCommunity) {
@@ -39,7 +36,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // --- שלב ב': בדיקה מול ה-API הרשמי האם לת"ז זו כבר יש חשבון קיים ---
+    // בדיקה מול ה-API של Netlify
     const hasAccount = await checkIfUserExistsInIdentity(tz);
 
     return {
@@ -63,15 +60,14 @@ exports.handler = async (event, context) => {
 
 async function checkIfUserExistsInIdentity(tz) {
   const identityToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN;
-  const siteId = process.env.SITE_ID; // נטליפיי מזריקה את זה אוטומטית
+  const siteId = process.env.SITE_ID; 
 
   if (!identityToken || !siteId) {
-    console.error("Missing system tokens. Token state:", !!identityToken, "SiteID state:", !!siteId);
+    console.error("Missing tokens. IdentityToken:", !!identityToken, "SiteID:", !!siteId);
     return false; 
   }
 
   try {
-    // פנייה מאובטחת לשרת הניהול המרכזי של נטליפיי
     const response = await axios.get(`https://api.netlify.com/api/v1/sites/${siteId}/identity/users`, {
       headers: {
         Authorization: `Bearer ${identityToken}`,
@@ -81,14 +77,20 @@ async function checkIfUserExistsInIdentity(tz) {
 
     const users = response.data.users || [];
     
-    // סריקה מדויקת: האם לאחד המשתמשים יש את הת"ז הזו בשדה הנתונים המאומת שלו
-    const existingUser = users.find(u => 
-      u.user_metadata && 
-      u.user_metadata.data && 
-      String(u.user_metadata.data.verified_tz) === String(tz)
-    );
+    // סריקה חכמה הבודקת את שני המיקומים האפשריים של תעודת הזהות במטא-דאטה
+    const existingUser = users.find(u => {
+      if (!u.user_metadata) return false;
+      
+      // בדיקה 1: האם שמור בצורה שטוחה ישירה (הסטנדרט של נטליפיי ב-API)
+      const flatTz = u.user_metadata.verified_tz;
+      
+      // בדיקה 2: האם שמור תחת אובייקט data פנימי
+      const nestedTz = u.user_metadata.data ? u.user_metadata.data.verified_tz : null;
+      
+      return String(flatTz) === String(tz) || String(nestedTz) === String(tz);
+    });
 
-    return !!existingUser; // מחזיר true אם נמצא, false אם לא
+    return !!existingUser; 
   } catch (err) {
     console.error("Netlify API Call failed:", err.message);
     return false;
