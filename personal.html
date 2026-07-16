@@ -423,6 +423,7 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
+        <!-- שלב א': אימות והרשמה -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             
@@ -433,6 +434,7 @@
             
             <div id="errorMessage" class="error-msg"></div>
             
+            <!-- טופס בדיקה ראשוני (תעודת זהות) -->
             <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
                 <div class="form-group">
                     <label for="verificationTz">הזן מספר תעודת זהות:</label>
@@ -441,6 +443,7 @@
                 <button type="submit" class="btn">המשך</button>
             </form>
             
+            <!-- טופס התחברות והרשמה דינמי (מוצג רק לאחר אימות ת"ז) -->
             <div id="identityAuthBox" class="identity-auth-box">
                 <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
                 
@@ -467,6 +470,7 @@
             <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
         </div>
 
+        <!-- שלב ב': תצוגת נתונים לאחר התחברות מוצלחת -->
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
             <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
@@ -492,10 +496,17 @@
                     return;
                 }
 
-                if (user && user.user_metadata && user.user_metadata.verified_tz) {
-                    fetchDonorData(user);
-                } else if (user) {
-                    netlifyIdentity.logout();
+                if (user) {
+                    // קורא את הת"ז מכל מיקום אפשרי במטא-דאטה (כולל הגיבוי המקומי)
+                    const tz = (user.user_metadata && user.user_metadata.verified_tz) || 
+                               (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz) ||
+                               localStorage.getItem('pending_verified_tz');
+                    
+                    if (tz) {
+                        fetchDonorData(user);
+                    } else {
+                        netlifyIdentity.logout();
+                    }
                 }
             });
 
@@ -542,6 +553,9 @@
 
             if (result.allowed) {
                 verifiedTz = tz;
+                // שמירת גיבוי מקומי בדפדפן כדי שהשיוך לא יילך לאיבוד לעולם
+                localStorage.setItem('pending_verified_tz', tz);
+                
                 whitelistForm.style.display = 'none';
                 authBox.style.display = 'block';
                 
@@ -577,7 +591,6 @@
         loadingDiv.style.display = 'block';
 
         if (authMode === "login") {
-            // התחברות נקייה וישירה
             try {
                 await netlifyIdentity.gotrue.login(email, password, true);
             } catch (err) {
@@ -592,8 +605,8 @@
                 errorDiv.style.display = 'block';
             }
         } else {
-            // הרשמה ראשונית - שמירת הנתון תחת מפתח data המדויק של נטליפיי
             try {
+                // הרשמה ראשונית - שמירת הנתון תחת מפתח data המדויק של נטליפיי
                 await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
                 loadingDiv.style.display = 'none';
                 alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
@@ -632,17 +645,21 @@
         loadingDiv.style.display = 'block';
 
         try {
-            const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz) || (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz);
+            // שליפת הת"ז מכל מקור אפשרי (כולל הגיבוי מהזיכרון המקומי)
+            const tzToSearch = verifiedTz || 
+                               localStorage.getItem('pending_verified_tz') ||
+                               (user.user_metadata && user.user_metadata.verified_tz) || 
+                               (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz);
 
             if (!tzToSearch) {
                 throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
             }
 
             // עדכון מטא דאטה רטרואקטיבית במידת הצורך
-            if (verifiedTz && typeof netlifyIdentity !== 'undefined') {
+            if (tzToSearch && typeof netlifyIdentity !== 'undefined') {
                 const currentUser = netlifyIdentity.currentUser();
                 if (currentUser) {
-                    await currentUser.update({ data: { verified_tz: verifiedTz } });
+                    await currentUser.update({ data: { verified_tz: tzToSearch } });
                 }
             }
 
