@@ -32,9 +32,9 @@ Site settings → Environment variables:
 | שם המשתנה | ערך |
 |---|---|
 | `SHEET_CSV_URL` | הקישור מסעיף 1 |
-| `NETLIFY_IDENTITY_ADMIN_TOKEN` | Personal Access Token (User settings → Applications → New access token) |
-| `SITE_ID` | כבר אמור להיות מוגדר אצלך (נבדק בקובץ הישן) |
 | `NEDARIM_API_PASSWORD` / `NEDARIM_API_PASSWORD_2` | כבר קיימים אצלך |
+
+⚠️ **עדכון**: `NETLIFY_IDENTITY_ADMIN_TOKEN` ו-`SITE_ID` **אינם נחוצים יותר** ואפשר למחוק אותם (אם כבר הגדרת) - הקוד עבר לשימוש ב-`context.clientContext.identity`, שנטליפיי מספקת אוטומטית לכל Function באתר שבו Identity מופעל. זו הדרך הרשמית והאמינה יותר (הגישה הקודמת דרך `api.netlify.com` עם טוקן אישי הניבה שגיאות 404 לא עקביות).
 
 ## שלב 3: הפעלת identity-signup כ-Event Function
 
