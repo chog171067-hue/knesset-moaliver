@@ -46,7 +46,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const existingOwner = await findUserByBoundTz(claimedTz);
+    const identity = context.clientContext && context.clientContext.identity;
+    const existingOwner = await findUserByBoundTz(identity, claimedTz);
     if (existingOwner) {
       console.warn(`[identity-signup] הרשמה נדחתה - ת"ז ${claimedTz} כבר משויכת לחשבון קיים (${user.email})`);
       return {
