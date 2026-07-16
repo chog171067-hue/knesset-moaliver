@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>אזור אישי - הארגון שלנו</title>
+    <title>בית כנסת מוהליבר - אזור אישי</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <style>
@@ -27,7 +27,6 @@
             z-index: 1;
         }
 
-        /* סרגל ניווט עליון */
         header {
             background-color: rgba(26, 54, 93, 0.95);
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
@@ -88,7 +87,6 @@
             color: white;
         }
 
-        /* תפריט נפתח (Dropdown) */
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -119,7 +117,6 @@
             display: block;
         }
 
-        /* תוכן מרכזי */
         .main-content {
             position: relative;
             z-index: 2;
@@ -356,13 +353,19 @@
             font-weight: bold;
         }
 
-        /* קבוצת הרשמה/כניסה מאובטחת */
         .identity-auth-box {
             display: none;
             margin-top: 25px;
             padding-top: 25px;
             border-top: 2px dashed #e2e8f0;
             text-align: right;
+        }
+
+        /* ספינר התחלתי מונע קפיצות מסך */
+        #initialLoader {
+            font-weight: bold;
+            color: #1a365d;
+            padding: 30px 0;
         }
 
         @media (max-width: 768px) {
@@ -402,18 +405,18 @@
 <header>
     <div class="nav-container">
         <a href="index.html" class="nav-logo-link">
-            <img src="logo.png" alt="לוגו הארגון" class="nav-logo">
+            <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
         </a>
         <ul class="nav-menu" id="navMenu">
             <li class="nav-item"><a href="index.html">דף הבית</a></li>
             <li class="nav-item" id="prayersDropdown">
-                <button class="dropdown-toggle" onclick="toggleDropdown(event)">לוח זמנים ▾</button>
+                <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>
                 <ul class="dropdown-menu">
-                    <li><a href="yemothachol.html">ימי השבוע</a></li>
-                    <li><a href="shabbat.html">ימים מיוחדים</a></li>
+                    <li><a href="yemothachol.html">ימות החול</a></li>
+                    <li><a href="shabbat.html">שבתות וחגים</a></li>
                 </ul>
             </li>
-            <li class="nav-item"><a href="news.html">חדשות ועדכונים</a></li>
+            <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
             <li class="nav-item active"><a href="personal.html">אזור אישי</a></li>
         </ul>
     </div>
@@ -421,14 +424,16 @@
 
 <main class="main-content">
     <div class="container">
-        <img src="logo.png" alt="לוגו הארגון" class="logo">
+        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
-        <div id="loginSection">
+        <div id="initialLoader">אנא המתן, בודק מצב חיבור למערכת...</div>
+
+        <div id="loginSection" style="display: none;">
             <h2>אזור אישי</h2>
             
             <div class="instructions-box" id="infoBox">
-                ההרשמה והגישה לאזור האישי מיועדות עבור חברים בעלי הוראת קבע פעילה.<br>
-                במידה והינך חבר ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
+                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
+                במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
             </div>
             
             <div id="errorMessage" class="error-msg"></div>
@@ -442,7 +447,7 @@
             </form>
             
             <div id="identityAuthBox" class="identity-auth-box">
-                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימה!</p>
+                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
                 
                 <h3 id="authTitle" style="color: #1a365d; margin-bottom: 20px; text-align: center;">התחברות לחשבון</h3>
                 
@@ -469,7 +474,7 @@
 
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
-            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור הארגון שלנו:</p>
+            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
             
             <div id="kevaList"></div>
             
@@ -485,13 +490,25 @@
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
-                // הוסר netlifyIdentity.open() כדי לא להקפיץ חלונות מבלבלים, הכל יעבוד שקוף ברקע
+                document.getElementById('initialLoader').style.display = 'none';
+
+                const hash = window.location.hash;
+                if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
+                    // המשתמש הגיע הרגע מהאישור במייל - נפתח לו ישירות את נתוניו
+                    netlifyIdentity.open();
+                    return;
+                }
+
                 if (user) {
                     checkUserAndFetch(user);
+                } else {
+                    // רק אם הוא באמת לא מחובר, נחשוף את טופס תעודת הזהות הרגיל
+                    document.getElementById('loginSection').style.display = 'block';
                 }
             });
 
             netlifyIdentity.on('login', user => {
+                document.getElementById('initialLoader').style.display = 'none';
                 netlifyIdentity.close(); 
                 checkUserAndFetch(user);
             });
@@ -511,9 +528,11 @@
         if (tz) {
             verifiedTz = tz;
             fetchDonorData(user);
+        } else {
+            // אם הוא מחובר אבל איבדנו את הת"ז, נבקש ממנו להקליד אותה פעם אחת בטופס
+            document.getElementById('initialLoader').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block';
         }
-        // אם המערכת איבדה את הת"ז, היא פשוט תשאיר את הטופס פתוח. 
-        // ברגע שהמשתמש יזין שוב ת"ז, פונקציית verifyWhitelist תזהה אותו ותכניס אותו ישירות!
     }
 
     function toggleDropdown(event) {
@@ -549,7 +568,6 @@
                 verifiedTz = tz;
                 localStorage.setItem('pending_verified_tz', tz);
 
-                // טיפול במצב שבו המשתמש חזר מהמייל והמערכת איבדה זמנית את הת"ז שלו
                 const currentUser = netlifyIdentity.currentUser();
                 if (currentUser) {
                     await currentUser.update({ data: { verified_tz: tz } });
@@ -570,7 +588,7 @@
                     document.getElementById('authSubmitBtn').innerText = "צור חשבון והמשך";
                 }
             } else {
-                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימה המאושרת.<br>במידה והינך חבר ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
+                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
             }
         } catch (err) {
             loadingDiv.style.display = 'none';
@@ -594,7 +612,7 @@
                 await netlifyIdentity.gotrue.login(email, password, true);
             } catch (err) {
                 loadingDiv.style.display = 'none';
-                let friendlyError = "פרטי ההתחברות שגויים או שהחשבון טרם אומת. אנא נסה שוב.";
+                let friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים, או שהחשבון טרם אומת.";
                 errorDiv.innerHTML = friendlyError;
                 errorDiv.style.display = 'block';
             }
@@ -602,19 +620,18 @@
             try {
                 await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
                 loadingDiv.style.display = 'none';
-                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל.");
+                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
                 authMode = "login";
                 document.getElementById('authTitle').innerText = "התחברות לחשבון";
                 document.getElementById('authSubmitBtn').innerText = "התחבר";
             } catch (err) {
-                // תיקון סופי למלכוד: אם המערכת טוענת שהמשתמש כבר קיים - ננסה פשוט לחבר אותו מיד עם הסיסמה שהקליד!
                 if (err.message.includes("already exists") || err.message.includes("already registered")) {
                     try {
                         await netlifyIdentity.gotrue.login(email, password, true);
-                        return; // התחברות הצליחה! האירוע 'login' יופעל.
+                        return;
                     } catch (loginErr) {
                         loadingDiv.style.display = 'none';
-                        errorDiv.innerHTML = "חשבון זה כבר קיים, אך הסיסמה שהזנת כעת שגויה. אנא התחבר עם הסיסמה הנכונה.";
+                        errorDiv.innerHTML = "חשבון זה כבר קיים, אך הסיסמה שהזנת שגויה. נסה שוב.";
                         errorDiv.style.display = 'block';
                         authMode = "login";
                         document.getElementById('authTitle').innerText = "התחברות לחשבון";
@@ -643,6 +660,7 @@
 
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
+        document.getElementById('initialLoader').style.display = 'none';
 
         try {
             const tzToSearch = verifiedTz || 
@@ -651,7 +669,7 @@
                                (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz);
 
             if (!tzToSearch) {
-                throw new Error("לא נמצאה תעודת זהות בחשבון. רענן והזן תעודת זהות מחדש.");
+                throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
             }
 
             if (tzToSearch && typeof netlifyIdentity !== 'undefined') {
@@ -701,14 +719,14 @@
                     const hasError = keva.errorText && keva.errorText.trim().length > 0;
                     const errorBadge = hasError ? `
                         <div class="denial-warning">
-                            ⚠️ תשומת לב: התשלום האחרון לא צלח עקב סירוב מהבנק/אשראי. 
+                            ⚠️ תשומת לב: החיוב האחרון לא צלח עקב סירוב מהבנק/אשראי. 
                             <br>פירוט: ${keva.errorText}
                         </div>
                     ` : '';
 
                     card.innerHTML = `
                         <div class="keva-header">
-                            <div>מטרת התשלום: ${keva.category || 'כללי'}</div>
+                            <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
                             <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
                                 ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
                             </div>
@@ -762,7 +780,7 @@
             
             let historyHTML = `
                 <div class="summary-info">
-                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ שולם בפועל: ${result.totalAmount} ₪
+                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ נתרם בפועל: ${result.totalAmount} ₪
                 </div>
             `;
             
@@ -804,6 +822,7 @@
 
     function handleLogout() {
         verifiedTz = null;
+        localStorage.removeItem('pending_verified_tz');
         if (typeof netlifyIdentity !== 'undefined') netlifyIdentity.logout();
         document.getElementById('verificationTz').value = '';
         document.getElementById('resultsSection').style.display = 'none';
