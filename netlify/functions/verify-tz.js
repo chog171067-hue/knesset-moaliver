@@ -38,7 +38,8 @@ exports.handler = async (event, context) => {
     // בדיקה האם כבר יש חשבון המקושר לת"ז הזו (לפי app_metadata המוגן, לא user_metadata)
     let hasAccount = false;
     try {
-      const existingUser = await findUserByBoundTz(tz);
+      const identity = context.clientContext && context.clientContext.identity;
+      const existingUser = await findUserByBoundTz(identity, tz);
       hasAccount = !!existingUser;
     } catch (adminErr) {
       console.error('שגיאה בבדיקת חשבון קיים מול Identity Admin API:', adminErr.message);
