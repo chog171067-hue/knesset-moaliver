@@ -38,12 +38,13 @@ exports.handler = async (event, context) => {
       return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'תעודת הזהות אינה מופיעה ברשימת חברי הקהילה' }) };
     }
 
-    const existingOwner = await findUserByBoundTz(tz);
+    const identity = context.clientContext && context.clientContext.identity;
+    const existingOwner = await findUserByBoundTz(identity, tz);
     if (existingOwner && existingOwner.id !== userId) {
       return { statusCode: 409, headers, body: JSON.stringify({ success: false, error: 'תעודת הזהות הזו כבר משויכת לחשבון קיים אחר' }) };
     }
 
-    await setUserVerifiedTz(userId, record.tz, record.phone);
+    await setUserVerifiedTz(identity, userId, record.tz, record.phone);
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } catch (err) {
