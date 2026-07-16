@@ -1,4 +1,5 @@
-const axios = require('axios');
+const { getCommunityRecord } = require('./lib/community');
+const { findUserByBoundTz } = require('./lib/identity-admin');
 
 exports.handler = async (event, context) => {
   const headers = {
@@ -10,13 +11,12 @@ exports.handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
-
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: 'Method Not Allowed' };
   }
 
   try {
-    const { tz } = JSON.parse(event.body);
+    const { tz } = JSON.parse(event.body || '{}');
     if (!tz) {
       return {
         statusCode: 400,
@@ -25,10 +25,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // בדיקת זכאות (פתוח לכולם כרגע לצורך בדיקות)
-    const isAllowedInCommunity = true; 
-
-    if (!isAllowedInCommunity) {
+    // בדיקת זכאות אמיתית מול הגיליון - זה החלק שהיה חסר לגמרי בגרסה הקודמת
+    const record = await getCommunityRecord(tz);
+    if (!record) {
       return {
         statusCode: 200,
         headers,
@@ -36,63 +35,29 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // בדיקה מול ה-API של Netlify
-    const hasAccount = await checkIfUserExistsInIdentity(tz);
+    // בדיקה האם כבר יש חשבון המקושר לת"ז הזו (לפי app_metadata המוגן, לא user_metadata)
+    let hasAccount = false;
+    try {
+      const existingUser = await findUserByBoundTz(tz);
+      hasAccount = !!existingUser;
+    } catch (adminErr) {
+      console.error('שגיאה בבדיקת חשבון קיים מול Identity Admin API:', adminErr.message);
+      // אם בדיקת ה-Admin API נכשלת מסיבה טכנית, עדיף להציג טופס הרשמה/כניסה מאוחד
+      // בצד הלקוח (ראה personal.html) ולא לחסום את המשתמש לגמרי.
+      hasAccount = null;
+    }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ 
-        allowed: true, 
-        exists: hasAccount 
-      })
+      body: JSON.stringify({ allowed: true, exists: hasAccount })
     };
-
   } catch (error) {
-    console.error('Error in verify-tz:', error);
+    console.error('Error in verify-tz:', error.message);
     return {
-      statusCode: 200,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ allowed: true, exists: false, error: error.message })
+      body: JSON.stringify({ allowed: false, error: 'שגיאת שרת, נסה שוב מאוחר יותר' })
     };
   }
 };
-
-async function checkIfUserExistsInIdentity(tz) {
-  const identityToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN;
-  const siteId = process.env.SITE_ID; 
-
-  if (!identityToken || !siteId) {
-    console.error("Missing tokens. IdentityToken:", !!identityToken, "SiteID:", !!siteId);
-    return false; 
-  }
-
-  try {
-    const response = await axios.get(`https://api.netlify.com/api/v1/sites/${siteId}/identity/users`, {
-      headers: {
-        Authorization: `Bearer ${identityToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const users = response.data.users || [];
-    
-    // סריקה חכמה הבודקת את שני המיקומים האפשריים של תעודת הזהות במטא-דאטה
-    const existingUser = users.find(u => {
-      if (!u.user_metadata) return false;
-      
-      // בדיקה 1: האם שמור בצורה שטוחה ישירה (הסטנדרט של נטליפיי ב-API)
-      const flatTz = u.user_metadata.verified_tz;
-      
-      // בדיקה 2: האם שמור תחת אובייקט data פנימי
-      const nestedTz = u.user_metadata.data ? u.user_metadata.data.verified_tz : null;
-      
-      return String(flatTz) === String(tz) || String(nestedTz) === String(tz);
-    });
-
-    return !!existingUser; 
-  } catch (err) {
-    console.error("Netlify API Call failed:", err.message);
-    return false;
-  }
-}
