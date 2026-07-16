@@ -27,6 +27,7 @@
             z-index: 1;
         }
 
+        /* סרגל ניווט עליון */
         header {
             background-color: rgba(26, 54, 93, 0.95);
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
@@ -87,6 +88,7 @@
             color: white;
         }
 
+        /* תפריט נפתח (Dropdown) */
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -117,6 +119,7 @@
             display: block;
         }
 
+        /* תוכן מרכזי */
         .main-content {
             position: relative;
             z-index: 2;
@@ -426,13 +429,13 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
-        <div id="initialLoader">אנא המתן, בודק מצב חיבור למערכת...</div>
+        <div id="initialLoader">אנא המתן, מוודא חיבור למערכת...</div>
 
         <div id="loginSection" style="display: none;">
             <h2>אזור אישי</h2>
             
             <div class="instructions-box" id="infoBox">
-                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
+                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע פעילה.<br>
                 במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
             </div>
             
@@ -449,9 +452,10 @@
             <div id="identityAuthBox" class="identity-auth-box">
                 <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
                 
-                <h3 id="authTitle" style="color: #1a365d; margin-bottom: 20px; text-align: center;">התחברות לחשבון</h3>
+                <h3 style="color: #1a365d; margin-bottom: 10px; text-align: center;">התחברות / הרשמה</h3>
+                <p style="font-size:14px; color:#555; text-align:center; margin-bottom:20px;">הזן את המייל והסיסמה שלך. במידה ואין לך חשבון, המערכת תיצור אחד עבורך אוטומטית.</p>
                 
-                <form id="customAuthForm" onsubmit="handleCustomAuth(event)">
+                <form id="customAuthForm" onsubmit="handleUnifiedAuth(event)">
                     <div class="form-group">
                         <label for="authEmail">כתובת אימייל:</label>
                         <input type="email" id="authEmail" required placeholder="name@example.com">
@@ -460,16 +464,16 @@
                         <label for="authPassword">סיסמה:</label>
                         <input type="password" id="authPassword" required minlength="6" placeholder="לפחות 6 תווים">
                     </div>
-                    <button type="submit" id="authSubmitBtn" class="btn">המשך</button>
+                    <button type="submit" class="btn">המשך</button>
                 </form>
 
                 <button class="btn google-btn" onclick="loginWithGoogle()">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" class="google-icon">
-                    התחברות מהירה באמצעות Google
+                    המשך באמצעות Google
                 </button>
             </div>
             
-            <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
+            <div id="loadingSpinner" class="loading">מבצע פעולה...</div>
         </div>
 
         <div id="resultsSection" class="results-container">
@@ -485,24 +489,14 @@
 
 <script>
     let verifiedTz = null;
-    let authMode = "login"; 
 
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
                 document.getElementById('initialLoader').style.display = 'none';
-
-                const hash = window.location.hash;
-                if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
-                    // המשתמש הגיע הרגע מהאישור במייל - נפתח לו ישירות את נתוניו
-                    netlifyIdentity.open();
-                    return;
-                }
-
                 if (user) {
                     checkUserAndFetch(user);
                 } else {
-                    // רק אם הוא באמת לא מחובר, נחשוף את טופס תעודת הזהות הרגיל
                     document.getElementById('loginSection').style.display = 'block';
                 }
             });
@@ -527,11 +521,15 @@
         
         if (tz) {
             verifiedTz = tz;
+            localStorage.setItem('pending_verified_tz', tz);
             fetchDonorData(user);
         } else {
-            // אם הוא מחובר אבל איבדנו את הת"ז, נבקש ממנו להקליד אותה פעם אחת בטופס
+            // אם המערכת זיהתה חיבור קיים אבל איבדה את הת"ז (למשל ממעבר בין מכשירים)
             document.getElementById('initialLoader').style.display = 'none';
             document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('whitelistForm').style.display = 'block';
+            document.getElementById('identityAuthBox').style.display = 'none';
+            document.getElementById('infoBox').innerHTML = "<b>החשבון אומת בהצלחה!</b><br>כדי לקשר את הנתונים שלך, אנא הזן את תעודת הזהות שלך פעם אחת אחרונה:";
         }
     }
 
@@ -543,6 +541,7 @@
         }
     }
 
+    // בדיקת הת"ז והתחלת תהליך ההזדהות
     async function verifyWhitelist(event) {
         event.preventDefault();
         const tz = document.getElementById('verificationTz').value;
@@ -568,8 +567,10 @@
                 verifiedTz = tz;
                 localStorage.setItem('pending_verified_tz', tz);
 
+                // מנגנון תיקון אוטומטי למשתמש שכבר מחובר ממקודם
                 const currentUser = netlifyIdentity.currentUser();
                 if (currentUser) {
+                    loadingDiv.style.display = 'block';
                     await currentUser.update({ data: { verified_tz: tz } });
                     fetchDonorData(currentUser);
                     return;
@@ -577,18 +578,8 @@
 
                 whitelistForm.style.display = 'none';
                 authBox.style.display = 'block';
-                
-                if (result.exists) {
-                    authMode = "login";
-                    document.getElementById('authTitle').innerText = "התחברות לחשבון";
-                    document.getElementById('authSubmitBtn').innerText = "התחבר";
-                } else {
-                    authMode = "signup";
-                    document.getElementById('authTitle').innerText = "הרשמה ויצירת חשבון חדש";
-                    document.getElementById('authSubmitBtn').innerText = "צור חשבון והמשך";
-                }
             } else {
-                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
+                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה.");
             }
         } catch (err) {
             loadingDiv.style.display = 'none';
@@ -597,7 +588,8 @@
         }
     }
 
-    async function handleCustomAuth(event) {
+    // תהליך הרשמה/התחברות מאוחד, פותר לחלוטין את לולאת ההרשמות והשגיאות
+    async function handleUnifiedAuth(event) {
         event.preventDefault();
         const email = document.getElementById('authEmail').value;
         const password = document.getElementById('authPassword').value;
@@ -607,41 +599,36 @@
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
 
-        if (authMode === "login") {
-            try {
-                await netlifyIdentity.gotrue.login(email, password, true);
-            } catch (err) {
+        // המערכת תנסה תמיד קודם כל להתחבר
+        try {
+            await netlifyIdentity.gotrue.login(email, password, true);
+            // אם ההתחברות הצליחה, האירוע 'login' יופעל אוטומטית וימשוך את הנתונים
+        } catch (loginErr) {
+            const msg = loginErr.message ? loginErr.message.toLowerCase() : "";
+            
+            // אם החשבון קיים אך טרם אומת דרך המייל
+            if (msg.includes("email not confirmed")) {
                 loadingDiv.style.display = 'none';
-                let friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים, או שהחשבון טרם אומת.";
-                errorDiv.innerHTML = friendlyError;
+                errorDiv.innerHTML = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור.";
                 errorDiv.style.display = 'block';
+                return;
             }
-        } else {
+
+            // אם ההתחברות נכשלה מסיבות אחרות, נניח שהחשבון עדיין לא קיים וננסה ליצור אותו הרגע
             try {
                 await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
                 loadingDiv.style.display = 'none';
-                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
-                authMode = "login";
-                document.getElementById('authTitle').innerText = "התחברות לחשבון";
-                document.getElementById('authSubmitBtn').innerText = "התחבר";
-            } catch (err) {
-                if (err.message.includes("already exists") || err.message.includes("already registered")) {
-                    try {
-                        await netlifyIdentity.gotrue.login(email, password, true);
-                        return;
-                    } catch (loginErr) {
-                        loadingDiv.style.display = 'none';
-                        errorDiv.innerHTML = "חשבון זה כבר קיים, אך הסיסמה שהזנת שגויה. נסה שוב.";
-                        errorDiv.style.display = 'block';
-                        authMode = "login";
-                        document.getElementById('authTitle').innerText = "התחברות לחשבון";
-                        document.getElementById('authSubmitBtn').innerText = "התחבר";
-                    }
+                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל.");
+            } catch (signupErr) {
+                loadingDiv.style.display = 'none';
+                const sMsg = signupErr.message ? signupErr.message.toLowerCase() : "";
+                // אם פתאום קיבלנו שגיאה שהחשבון כן קיים, סימן שהסיסמה שהוזנה קודם הייתה פשוט שגויה!
+                if (sMsg.includes("already exists") || sMsg.includes("registered")) {
+                    errorDiv.innerHTML = "חשבון תחת אימייל זה כבר קיים, אך הסיסמה שהזנת שגויה. אנא נסה שוב.";
                 } else {
-                    loadingDiv.style.display = 'none';
-                    errorDiv.innerHTML = err.message;
-                    errorDiv.style.display = 'block';
+                    errorDiv.innerHTML = "שגיאה: " + signupErr.message;
                 }
+                errorDiv.style.display = 'block';
             }
         }
     }
@@ -652,6 +639,7 @@
         }
     }
 
+    // שליפת הנתונים בפועל
     async function fetchDonorData(user) {
         const errorDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loadingSpinner');
@@ -672,6 +660,7 @@
                 throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
             }
 
+            // גיבוי למאגר כדי שזה ישמר קבוע גם עבור מכשירים אחרים
             if (tzToSearch && typeof netlifyIdentity !== 'undefined') {
                 const currentUser = netlifyIdentity.currentUser();
                 if (currentUser) {
