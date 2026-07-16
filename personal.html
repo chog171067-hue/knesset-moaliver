@@ -132,6 +132,32 @@
         .summary-info { background: #ebf8ff; padding: 10px; border-radius: 6px; font-size: 14px; color: #2b6cb0; margin-bottom: 10px; font-weight: bold; }
         .identity-auth-box { display: none; margin-top: 25px; padding-top: 25px; border-top: 2px dashed #e2e8f0; text-align: right; }
         #initialLoader { font-weight: bold; color: #1a365d; padding: 30px 0; }
+
+        .account-menu { position: absolute; top: 14px; left: 20px; z-index: 200; }
+        .account-toggle {
+            background: rgba(255,255,255,0.12); color: #f7fafc; border: none;
+            padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+        }
+        .account-toggle:hover { background: rgba(255,255,255,0.22); }
+        .account-dropdown {
+            display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
+            background: #ffffff; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            min-width: 200px; overflow: hidden;
+        }
+        .account-dropdown.open { display: block; }
+        .account-dropdown button {
+            display: block; width: 100%; text-align: right; padding: 12px 16px;
+            background: none; border: none; font-size: 14px; color: #1a365d; cursor: pointer;
+        }
+        .account-dropdown button:hover { background: #f7fafc; }
+
+        .settings-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 500; align-items: center; justify-content: center;
+        }
+        .settings-overlay.open { display: flex; }
+        .settings-box { background: #fff; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; text-align: right; }
         @media (max-width: 768px) {
             .nav-container { flex-direction: row; justify-content: space-between; }
             .nav-menu {
@@ -147,6 +173,15 @@
 <body>
 
 <header>
+    <div class="account-menu" id="accountMenu" style="display:none;">
+        <button class="account-toggle" onclick="toggleAccountMenu()">
+            <span id="accountGreeting">שלום</span> ▾
+        </button>
+        <div class="account-dropdown" id="accountDropdown">
+            <button onclick="openAccountSettings()">הגדרות חשבון</button>
+            <button onclick="handleLogout()">יציאה מהמערכת</button>
+        </div>
+    </div>
     <div class="nav-container">
         <a href="index.html" class="nav-logo-link">
             <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
@@ -197,6 +232,10 @@
                 <p id="authSubtitle" style="font-size:14px; color:#555; text-align:center; margin-bottom:20px;"></p>
 
                 <form id="customAuthForm" onsubmit="handleUnifiedAuth(event)">
+                    <div class="form-group" id="fullNameGroup" style="display:none;">
+                        <label for="authFullName">שם מלא:</label>
+                        <input type="text" id="authFullName" placeholder="שם פרטי ומשפחה">
+                    </div>
                     <div class="form-group">
                         <label for="authEmail">כתובת אימייל:</label>
                         <input type="email" id="authEmail" required placeholder="name@example.com">
@@ -227,6 +266,34 @@
         </div>
     </div>
 </main>
+
+<div class="settings-overlay" id="settingsOverlay">
+    <div class="settings-box">
+        <h3 style="color:#1a365d; margin-top:0;">הגדרות חשבון</h3>
+        <div id="settingsError" class="error-msg"></div>
+        <div id="settingsSuccess" style="display:none; color:#38a169; font-weight:bold; margin-bottom:15px; text-align:center;"></div>
+        <form id="settingsForm" onsubmit="handleAccountUpdate(event)">
+            <div class="form-group">
+                <label for="newEmail">כתובת אימייל:</label>
+                <input type="email" id="newEmail" required>
+            </div>
+            <div class="form-group">
+                <label for="newPassword">סיסמה חדשה:</label>
+                <input type="password" id="newPassword" minlength="6" placeholder="השאר ריק אם לא רוצים לשנות">
+            </div>
+            <button type="submit" class="btn">שמור שינויים</button>
+            <button type="button" class="btn" style="background:#718096; margin-top:10px;" onclick="closeAccountSettings()">ביטול</button>
+        </form>
+    </div>
+</div>
+
+<div class="settings-overlay" id="inactivityOverlay">
+    <div class="settings-box" style="text-align:center;">
+        <h3 style="color:#1a365d; margin-top:0;">עדיין שם?</h3>
+        <p style="color:#555;">בשל חוסר פעילות, תנותק אוטומטית מהמערכת בעוד <span id="inactivityCountdown">60</span> שניות.</p>
+        <button class="btn" onclick="stayLoggedIn()">המשך להישאר מחובר</button>
+    </div>
+</div>
 
 <script>
     // verifiedTz: הת"ז שאומתה מול הרשימה בסבב הנוכחי (in-memory + גיבוי ב-localStorage
@@ -279,6 +346,8 @@
 
         if (boundTz) {
             // החשבון כבר מקושר לת"ז - שולפים נתונים ישירות, בלי לסמוך על שום דבר מהלקוח
+            const savedName = user.user_metadata && user.user_metadata.full_name;
+            showAccountMenu(savedName || user.email);
             fetchDonorData();
             return;
         }
@@ -383,6 +452,8 @@
                 document.getElementById('authSubtitle').textContent = 'הזן את המייל והסיסמה שאיתם נרשמת בעבר.';
                 document.getElementById('authSubmitBtn').textContent = 'התחבר';
                 document.getElementById('googleBtnLabel').textContent = 'התחבר עם Google';
+                document.getElementById('fullNameGroup').style.display = 'none';
+                document.getElementById('authFullName').required = false;
             } else {
                 currentMode = 'signup';
                 document.getElementById('successMessage').textContent = '✓ נמצאת זכאי ברשימת חברי הקהילה!';
@@ -390,6 +461,8 @@
                 document.getElementById('authSubtitle').textContent = 'בחר מייל וסיסמה לחשבון החדש שלך.';
                 document.getElementById('authSubmitBtn').textContent = 'הרשם';
                 document.getElementById('googleBtnLabel').textContent = 'הרשם עם Google';
+                document.getElementById('fullNameGroup').style.display = 'block';
+                document.getElementById('authFullName').required = true;
             }
         } catch (err) {
             loadingDiv.style.display = 'none';
@@ -418,7 +491,8 @@
                 // עוקפת את שכבת ה-widget ולפעמים לא מנפיקה את האירוע הזה בכלל.
                 handleAuthenticated(user);
             } else {
-                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
+                const fullName = document.getElementById('authFullName').value.trim();
+                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz, full_name: fullName } });
                 loadingDiv.style.display = 'none';
                 alert('נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל ולאחר מכן חזור לכאן להתחבר.');
             }
@@ -482,6 +556,9 @@
             loginSection.style.display = 'none';
             resultsSection.style.display = 'block';
             document.getElementById('donorName').innerText = (result.data[0] && result.data[0].name) || '';
+            if (result.data[0] && result.data[0].name) {
+                showAccountMenu(result.data[0].name);
+            }
 
             const kevaListDiv = document.getElementById('kevaList');
             kevaListDiv.innerHTML = '';
@@ -602,6 +679,59 @@
         }
     }
 
+    // === ניתוק אוטומטי לאחר 10 דקות של חוסר פעילות ===
+    const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 דקות
+    const INACTIVITY_WARNING_MS = 60 * 1000;     // אזהרה דקה לפני הניתוק
+
+    let inactivityWarnTimer = null;
+    let inactivityLogoutTimer = null;
+    let inactivityCountdownInterval = null;
+
+    function isUserAuthenticated() {
+        return document.getElementById('accountMenu').style.display !== 'none';
+    }
+
+    function resetInactivityTimer() {
+        clearTimeout(inactivityWarnTimer);
+        clearTimeout(inactivityLogoutTimer);
+        clearInterval(inactivityCountdownInterval);
+        document.getElementById('inactivityOverlay').classList.remove('open');
+
+        if (!isUserAuthenticated()) return;
+
+        inactivityWarnTimer = setTimeout(showInactivityWarning, INACTIVITY_LIMIT_MS - INACTIVITY_WARNING_MS);
+    }
+
+    function showInactivityWarning() {
+        let secondsLeft = INACTIVITY_WARNING_MS / 1000;
+        document.getElementById('inactivityCountdown').textContent = secondsLeft;
+        document.getElementById('inactivityOverlay').classList.add('open');
+
+        inactivityCountdownInterval = setInterval(() => {
+            secondsLeft--;
+            document.getElementById('inactivityCountdown').textContent = Math.max(secondsLeft, 0);
+            if (secondsLeft <= 0) clearInterval(inactivityCountdownInterval);
+        }, 1000);
+
+        inactivityLogoutTimer = setTimeout(() => {
+            document.getElementById('inactivityOverlay').classList.remove('open');
+            handleLogout();
+        }, INACTIVITY_WARNING_MS);
+    }
+
+    function stayLoggedIn() {
+        resetInactivityTimer();
+    }
+
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, () => {
+            // לא מאפסים תוך כדי שהאזהרה מוצגת - כדי שתזוזת עכבר מקרית לא "תבטל" אותה בשקט
+            if (isUserAuthenticated() && !document.getElementById('inactivityOverlay').classList.contains('open')) {
+                resetInactivityTimer();
+            }
+        }, { passive: true });
+    });
+
     function handleLogout() {
         verifiedTz = null;
         currentMode = null;
@@ -612,6 +742,85 @@
         document.getElementById('identityAuthBox').style.display = 'none';
         document.getElementById('whitelistForm').style.display = 'block';
         document.getElementById('loginSection').style.display = 'block';
+        hideAccountMenu();
+        clearTimeout(inactivityWarnTimer);
+        clearTimeout(inactivityLogoutTimer);
+        clearInterval(inactivityCountdownInterval);
+        document.getElementById('inactivityOverlay').classList.remove('open');
+    }
+
+    // === תפריט חשבון (שלום, X ▾) ===
+    function showAccountMenu(displayName) {
+        document.getElementById('accountGreeting').textContent = `שלום, ${displayName}`;
+        document.getElementById('accountMenu').style.display = 'block';
+        resetInactivityTimer();
+    }
+
+    function hideAccountMenu() {
+        document.getElementById('accountMenu').style.display = 'none';
+        document.getElementById('accountDropdown').classList.remove('open');
+    }
+
+    function toggleAccountMenu() {
+        document.getElementById('accountDropdown').classList.toggle('open');
+    }
+
+    // סגירת התפריט בלחיצה מחוץ לו
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('accountMenu');
+        if (menu && !menu.contains(e.target)) {
+            document.getElementById('accountDropdown').classList.remove('open');
+        }
+    });
+
+    // === חלון הגדרות חשבון (שינוי מייל/סיסמה) ===
+    function openAccountSettings() {
+        document.getElementById('accountDropdown').classList.remove('open');
+        const currentUser = netlifyIdentity.currentUser();
+        document.getElementById('newEmail').value = currentUser ? currentUser.email : '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('settingsError').style.display = 'none';
+        document.getElementById('settingsSuccess').style.display = 'none';
+        document.getElementById('settingsOverlay').classList.add('open');
+    }
+
+    function closeAccountSettings() {
+        document.getElementById('settingsOverlay').classList.remove('open');
+    }
+
+    async function handleAccountUpdate(event) {
+        event.preventDefault();
+        const newEmail = document.getElementById('newEmail').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const errorDiv = document.getElementById('settingsError');
+        const successDiv = document.getElementById('settingsSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            if (!currentUser) throw new Error('יש להתחבר מחדש');
+
+            const updates = {};
+            if (newEmail && newEmail !== currentUser.email) updates.email = newEmail;
+            if (newPassword) updates.password = newPassword;
+
+            if (Object.keys(updates).length === 0) {
+                closeAccountSettings();
+                return;
+            }
+
+            await currentUser.update(updates);
+
+            successDiv.textContent = updates.email
+                ? 'העדכון בוצע. אם שינית את כתובת המייל, נשלח אליה מייל אימות - יש לאשר אותו כדי שהשינוי ייכנס לתוקף.'
+                : 'הסיסמה עודכנה בהצלחה.';
+            successDiv.style.display = 'block';
+            document.getElementById('newPassword').value = '';
+        } catch (err) {
+            errorDiv.innerHTML = 'שגיאה בעדכון: ' + err.message;
+            errorDiv.style.display = 'block';
+        }
     }
 </script>
 </body>
