@@ -1,6 +1,7 @@
 const axios = require('axios');
 
 exports.handler = async (event, context) => {
+  // הגדרת כותרות חובה למניעת בעיות דפדפן (CORS)
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -25,7 +26,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // בדיקה האם המשתמש זכאי (כרגע מוגדר כמאושר לצורך הבדיקות)
+    // --- שלב א': בדיקת זכאות ברשימת הקהילה (ה-Whitelist) ---
+    // כרגע מוגדר כ-true קבוע כדי שתוכל לבדוק את עצמך. 
+    // בהמשך, כאן נחבר את רשימת חברי הקהילה האמיתית שלך.
     const isAllowedInCommunity = true; 
 
     if (!isAllowedInCommunity) {
@@ -36,16 +39,15 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // בדיקה האם קיים חשבון ב-Netlify Identity
-    const checkResult = await checkIfUserExistsInIdentity(tz);
+    // --- שלב ב': בדיקה מול ה-API הרשמי האם לת"ז זו כבר יש חשבון קיים ---
+    const hasAccount = await checkIfUserExistsInIdentity(tz);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         allowed: true, 
-        exists: checkResult.exists,
-        debugMessage: checkResult.debugMessage || ''
+        exists: hasAccount 
       })
     };
 
@@ -54,26 +56,23 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ 
-        allowed: true, 
-        exists: false, 
-        debugError: error.message 
-      })
+      body: JSON.stringify({ allowed: true, exists: false, error: error.message })
     };
   }
 };
 
 async function checkIfUserExistsInIdentity(tz) {
-  // נטליפיי מספקת את ה-URL של האתר בזמן ריצה, או משתמשת בכתובת המקומית
-  const siteUrl = process.env.URL || 'https://your-site.netlify.app';
   const identityToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN;
-  
-  if (!identityToken) {
-    return { exists: false, debugMessage: "NETLIFY_IDENTITY_ADMIN_TOKEN is missing in Environment Variables" };
+  const siteId = process.env.SITE_ID; // נטליפיי מזריקה את זה אוטומטית
+
+  if (!identityToken || !siteId) {
+    console.error("Missing system tokens. Token state:", !!identityToken, "SiteID state:", !!siteId);
+    return false; 
   }
 
   try {
-    const response = await axios.get(`${siteUrl}/.netlify/identity/admin/users`, {
+    // פנייה מאובטחת לשרת הניהול המרכזי של נטליפיי
+    const response = await axios.get(`https://api.netlify.com/api/v1/sites/${siteId}/identity/users`, {
       headers: {
         Authorization: `Bearer ${identityToken}`,
         'Content-Type': 'application/json'
@@ -82,18 +81,16 @@ async function checkIfUserExistsInIdentity(tz) {
 
     const users = response.data.users || [];
     
-    // חיפוש המשתמש - בדיקה כפולה:
-    // 1. האם יש משתמש עם ה-verified_tz הזו במטא-דאטה
-    // 2. או האם יש משתמש שכתובת המייל שלו רשומה (כדי לתפוס רישומים חצי-מושלמים)
-    const existingUser = users.find(u => {
-      const hasTz = u.user_metadata && String(u.user_metadata.verified_tz) === String(tz);
-      return hasTz;
-    });
+    // סריקה מדויקת: האם לאחד המשתמשים יש את הת"ז הזו בשדה הנתונים המאומת שלו
+    const existingUser = users.find(u => 
+      u.user_metadata && 
+      u.user_metadata.data && 
+      String(u.user_metadata.data.verified_tz) === String(tz)
+    );
 
-    return { exists: !!existingUser };
+    return !!existingUser; // מחזיר true אם נמצא, false אם לא
   } catch (err) {
-    const errorDetails = err.response ? JSON.stringify(err.response.data) : err.message;
-    console.error("Identity API Error:", errorDetails);
-    return { exists: false, debugMessage: `API Error: ${errorDetails}` };
+    console.error("Netlify API Call failed:", err.message);
+    return false;
   }
 }
