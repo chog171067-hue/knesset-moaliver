@@ -412,8 +412,11 @@
 
         try {
             if (currentMode === 'login') {
-                await netlifyIdentity.gotrue.login(email, password, true);
-                // אירוע 'login' יטופל אוטומטית ע"י handleAuthenticated
+                const user = await netlifyIdentity.gotrue.login(email, password, true);
+                loadingDiv.style.display = 'none';
+                // לא מסתמכים על אירוע ה-'login' של ה-widget - קריאה ישירה ל-.gotrue.login
+                // עוקפת את שכבת ה-widget ולפעמים לא מנפיקה את האירוע הזה בכלל.
+                handleAuthenticated(user);
             } else {
                 await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
                 loadingDiv.style.display = 'none';
