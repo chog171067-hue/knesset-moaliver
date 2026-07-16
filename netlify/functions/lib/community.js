@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 // שכבת גישה יחידה לרשימת חברי הקהילה הזכאים.
 // כל פונקציה אחרת (verify-tz, identity-signup, bind-tz) חייבת להשתמש בקובץ הזה
 // ולא לממש בדיקה משלה - כך יש מקור אמת אחד בלבד.
@@ -26,8 +24,11 @@ async function fetchCommunityList() {
     throw new Error('חסר משתנה סביבה SHEET_CSV_URL - יש להגדיר אותו בהגדרות האתר בנטליפיי');
   }
 
-  const response = await axios.get(csvUrl, { responseType: 'text' });
-  const csvText = response.data;
+  const response = await fetch(csvUrl);
+  if (!response.ok) {
+    throw new Error(`כשל בשליפת גיליון הקהילה: ${response.status}`);
+  }
+  const csvText = await response.text();
   const lines = String(csvText).split('\n').map(l => l.trim()).filter(Boolean);
 
   // מניחים שהשורה הראשונה היא כותרות: תז,טלפון
