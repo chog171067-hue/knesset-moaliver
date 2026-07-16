@@ -234,21 +234,27 @@
     // הבלעדית לגבי איזה ת"ז שייכת לאיזה חשבון נשמרת בשרת ב-app_metadata ולא כאן).
     let verifiedTz = null;
     let currentMode = null; // 'login' | 'signup'
+    let initHandled = false;
 
-    window.addEventListener('load', () => {
-        if (typeof netlifyIdentity === 'undefined') return;
+    // נקודת כניסה בטוחה למצב ההתחלתי - יכולה להיקרא פעם אחת בלבד, בין אם דרך
+    // אירוע ה-init של ה-widget ובין אם דרך רשת הביטחון למטה.
+    function safeHandleInit(user) {
+        if (initHandled) return;
+        initHandled = true;
+        document.getElementById('initialLoader').style.display = 'none';
+        if (user) {
+            handleAuthenticated(user);
+        } else {
+            document.getElementById('loginSection').style.display = 'block';
+        }
+    }
 
-        netlifyIdentity.on('init', user => {
-            document.getElementById('initialLoader').style.display = 'none';
-            if (user) {
-                handleAuthenticated(user);
-            } else {
-                document.getElementById('loginSection').style.display = 'block';
-            }
-        });
+    if (typeof netlifyIdentity !== 'undefined') {
+        // חשוב: לא מחכים ל-window 'load' - זה נורה מאוחר מדי (אחרי טעינת כל
+        // התמונות), ועד אז אירוע ה-init של ה-widget כבר קרה ואבד.
+        netlifyIdentity.on('init', safeHandleInit);
 
         netlifyIdentity.on('login', user => {
-            document.getElementById('initialLoader').style.display = 'none';
             netlifyIdentity.close();
             handleAuthenticated(user);
         });
@@ -256,7 +262,15 @@
         netlifyIdentity.on('logout', () => {
             handleLogout();
         });
-    });
+
+        // רשת ביטחון: אם מסיבה כלשהי אירוע ה-init לא נתפס בזמן, בודקים ישירות
+        // אחרי שנייה וחצי אם המשתמש כבר ידוע ל-widget, וממשיכים בכל מקרה.
+        setTimeout(() => {
+            if (!initHandled) {
+                safeHandleInit(netlifyIdentity.currentUser());
+            }
+        }, 1500);
+    }
 
     // נקודת כניסה יחידה לכל מקרה של "יש לנו משתמש מחובר" - בין אם דרך סיסמה,
     // Google, או session קיים מרענון דף.
