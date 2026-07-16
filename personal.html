@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>בית כנסת מוהליבר - אזור אישי</title>
     <link rel="icon" type="image/png" href="logo.png">
-    <!-- ספרית הנתונים הבסיסית של Netlify Identity -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <style>
         body {
@@ -424,7 +423,6 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
         
-        <!-- שלב א': אימות והרשמה -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             
@@ -435,7 +433,6 @@
             
             <div id="errorMessage" class="error-msg"></div>
             
-            <!-- טופס בדיקה ראשוני (תעודת זהות) -->
             <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
                 <div class="form-group">
                     <label for="verificationTz">הזן מספר תעודת זהות:</label>
@@ -444,7 +441,6 @@
                 <button type="submit" class="btn">המשך</button>
             </form>
             
-            <!-- טופס התחברות והרשמה דינמי (מוצג רק לאחר אימות ת"ז) -->
             <div id="identityAuthBox" class="identity-auth-box">
                 <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
                 
@@ -471,7 +467,6 @@
             <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
         </div>
 
-        <!-- שלב ב': תצוגת נתונים לאחר התחברות מוצלחת -->
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
             <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
@@ -490,7 +485,7 @@
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
-                // בדיקת הימצאות טוקן אימות (confirmation_token) בכתובת ה-URL
+                // מנגנון זיהוי וקליטת אישור אוטומטי מהמייל
                 const hash = window.location.hash;
                 if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
                     netlifyIdentity.open();
@@ -523,7 +518,7 @@
         }
     }
 
-    // שלב 1: אימות ת"ז מול פונקציית השרת המאובטחת
+    // שלב 1: פנייה ל"מוח" המאובטח לבדיקת זכאות וקיום חשבון לפי ת"ז
     async function verifyWhitelist(event) {
         event.preventDefault();
         const tz = document.getElementById('verificationTz').value;
@@ -545,19 +540,20 @@
             const result = await response.json();
             loadingDiv.style.display = 'none';
 
-            if (result.debugMessage) console.warn("Identity Warning:", result.debugMessage);
-            if (result.debugError) console.error("Identity Error:", result.debugError);
-
             if (result.allowed) {
                 verifiedTz = tz;
                 whitelistForm.style.display = 'none';
                 authBox.style.display = 'block';
                 
-                // בדיקה אם קיים חשבון מאומת במערכת
+                // קביעת ממשק הטופס בצורה חד-משמעית ומוחלטת לפי הנתונים בשרת
                 if (result.exists) {
-                    switchToLoginMode();
+                    authMode = "login";
+                    document.getElementById('authTitle').innerText = "התחברות לחשבון";
+                    document.getElementById('authSubmitBtn').innerText = "התחבר";
                 } else {
-                    switchToSignupMode();
+                    authMode = "signup";
+                    document.getElementById('authTitle').innerText = "הרשמה ויצירת חשבון חדש";
+                    document.getElementById('authSubmitBtn').innerText = "צור חשבון והמשך";
                 }
             } else {
                 throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
@@ -569,19 +565,7 @@
         }
     }
 
-    function switchToLoginMode() {
-        authMode = "login";
-        document.getElementById('authTitle').innerText = "התחברות לחשבון";
-        document.getElementById('authSubmitBtn').innerText = "התחבר";
-    }
-
-    function switchToSignupMode() {
-        authMode = "signup";
-        document.getElementById('authTitle').innerText = "הרשמה ויצירת חשבון חדש";
-        document.getElementById('authSubmitBtn').innerText = "צור חשבון והמשך";
-    }
-
-    // שלב 2: ניהול הרשמה וכניסה מול ה-API של GoTrue
+    // שלב 2: טיפול מבוקר ברישום וכניסה למניעת חסימות כפולות
     async function handleCustomAuth(event) {
         event.preventDefault();
         const email = document.getElementById('authEmail').value;
@@ -592,38 +576,42 @@
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
 
-        // ניסיון התחברות ישיר תחילה (ללא קשר למצב שנבחר) כדי לעקוף שגיאות הרשמה כפולות
-        try {
-            await netlifyIdentity.gotrue.login(email, password, true);
-            return; // התחברות הצליחה, נעצור כאן
-        } catch (loginErr) {
-            // אם ההתחברות נכשלה בגלל שהמשתמש באמת לא קיים (ולא בגלל סיסמה שגויה) ורצינו להירשם:
-            if (authMode === "signup" && loginErr.message.includes("not found")) {
-                try {
-                    // שמירת המטא-דאטה במבנה המדויק של Netlify (תחת מפתח data)
-                    await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
-                    loadingDiv.style.display = 'none';
-                    alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
-                    switchToLoginMode();
-                    return;
-                } catch (signupErr) {
-                    loadingDiv.style.display = 'none';
-                    errorDiv.innerHTML = "שגיאה ברישום החשבון: " + signupErr.message;
-                    errorDiv.style.display = 'block';
-                    return;
+        if (authMode === "login") {
+            // התחברות נקייה וישירה
+            try {
+                await netlifyIdentity.gotrue.login(email, password, true);
+            } catch (err) {
+                loadingDiv.style.display = 'none';
+                let friendlyError = err.message;
+                if (err.message.includes("Email not confirmed")) {
+                    friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור שנשלח אליך.";
+                } else if (err.message.includes("Invalid login")) {
+                    friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים.";
                 }
+                errorDiv.innerHTML = friendlyError;
+                errorDiv.style.display = 'block';
             }
-            
-            // הצגת שגיאה מתאימה למשתמש
-            loadingDiv.style.display = 'none';
-            let friendlyError = loginErr.message;
-            if (loginErr.message.includes("Email not confirmed")) {
-                friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור שנשלח אליך.";
-            } else if (loginErr.message.includes("Invalid login")) {
-                friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים.";
+        } else {
+            // הרשמה ראשונית - שמירת הנתון תחת מפתח data המדויק של נטליפיי
+            try {
+                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
+                loadingDiv.style.display = 'none';
+                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
+                authMode = "login";
+                document.getElementById('authTitle').innerText = "התחברות לחשבון";
+                document.getElementById('authSubmitBtn').innerText = "התחבר";
+            } catch (err) {
+                loadingDiv.style.display = 'none';
+                let friendlyError = err.message;
+                if (err.message.includes("already exists") || err.message.includes("already registered")) {
+                    friendlyError = "חשבון תחת אימייל זה כבר קיים במערכת! המערכת הועברה למצב חיבור. אנא הקלד את הסיסמה ולחץ 'התחבר'.";
+                    authMode = "login";
+                    document.getElementById('authTitle').innerText = "התחברות לחשבון";
+                    document.getElementById('authSubmitBtn').innerText = "התחבר";
+                }
+                errorDiv.innerHTML = friendlyError;
+                errorDiv.style.display = 'block';
             }
-            errorDiv.innerHTML = friendlyError;
-            errorDiv.style.display = 'block';
         }
     }
 
@@ -633,7 +621,7 @@
         }
     }
 
-    // שלב 3: שליפת נתוני התרומות
+    // שלב 3: טעינת נתוני הוראות הקבע
     async function fetchDonorData(user) {
         const errorDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loadingSpinner');
@@ -644,12 +632,13 @@
         loadingDiv.style.display = 'block';
 
         try {
-            const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz);
+            const tzToSearch = verifiedTz || (user.user_metadata && user.user_metadata.verified_tz) || (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz);
 
             if (!tzToSearch) {
                 throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
             }
 
+            // עדכון מטא דאטה רטרואקטיבית במידת הצורך
             if (verifiedTz && typeof netlifyIdentity !== 'undefined') {
                 const currentUser = netlifyIdentity.currentUser();
                 if (currentUser) {
@@ -680,9 +669,7 @@
             const groups = {};
             result.data.forEach(keva => {
                 const groupName = keva.mosadName || "אחר";
-                if (!groups[groupName]) {
-                    groups[groupName] = [];
-                }
+                if (!groups[groupName]) groups[groupName] = [];
                 groups[groupName].push(keva);
             });
 
@@ -756,9 +743,7 @@
             
             const result = await response.json();
             
-            if (!response.ok || !result.success) {
-                throw new Error("כשל בטעינת ההיסטוריה");
-            }
+            if (!response.ok || !result.success) throw new Error("כשל בטעינת ההיסטוריה");
             
             let historyHTML = `
                 <div class="summary-info">
@@ -782,15 +767,7 @@
                 `;
                 
                 result.history.forEach(row => {
-                    let statusBadge = "";
-                    if (row.status === "1") {
-                        statusBadge = `<span class="badge-success">הצליח</span>`;
-                    } else if (row.status === "2") {
-                        statusBadge = `<span class="badge-danger">סירוב</span>`;
-                    } else {
-                        statusBadge = `<span class="badge-danger">בוטל</span>`;
-                    }
-                    
+                    let statusBadge = row.status === "1" ? `<span class="badge-success">הצליח</span>` : `<span class="badge-danger">סירוב</span>`;
                     historyHTML += `
                         <tr>
                             <td>${row.date}</td>
@@ -800,10 +777,7 @@
                     `;
                 });
                 
-                historyHTML += `
-                        </tbody>
-                    </table>
-                `;
+                historyHTML += `</tbody></table>`;
             }
             
             historyDiv.innerHTML = historyHTML;
@@ -815,9 +789,7 @@
 
     function handleLogout() {
         verifiedTz = null;
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.logout();
-        }
+        if (typeof netlifyIdentity !== 'undefined') netlifyIdentity.logout();
         document.getElementById('verificationTz').value = '';
         document.getElementById('resultsSection').style.display = 'none';
         document.getElementById('identityAuthBox').style.display = 'none';
@@ -825,6 +797,5 @@
         document.getElementById('loginSection').style.display = 'block';
     }
 </script>
-
 </body>
 </html>
