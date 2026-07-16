@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בית כנסת מוהליבר - אזור אישי</title>
+    <title>אזור אישי - הארגון שלנו</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <style>
@@ -402,18 +402,18 @@
 <header>
     <div class="nav-container">
         <a href="index.html" class="nav-logo-link">
-            <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
+            <img src="logo.png" alt="לוגו הארגון" class="nav-logo">
         </a>
         <ul class="nav-menu" id="navMenu">
             <li class="nav-item"><a href="index.html">דף הבית</a></li>
             <li class="nav-item" id="prayersDropdown">
-                <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>
+                <button class="dropdown-toggle" onclick="toggleDropdown(event)">לוח זמנים ▾</button>
                 <ul class="dropdown-menu">
-                    <li><a href="yemothachol.html">ימות החול</a></li>
-                    <li><a href="shabbat.html">שבתות וחגים</a></li>
+                    <li><a href="yemothachol.html">ימי השבוע</a></li>
+                    <li><a href="shabbat.html">ימים מיוחדים</a></li>
                 </ul>
             </li>
-            <li class="nav-item"><a href="news.html">מהנעשה ונשמע</a></li>
+            <li class="nav-item"><a href="news.html">חדשות ועדכונים</a></li>
             <li class="nav-item active"><a href="personal.html">אזור אישי</a></li>
         </ul>
     </div>
@@ -421,20 +421,18 @@
 
 <main class="main-content">
     <div class="container">
-        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
+        <img src="logo.png" alt="לוגו הארגון" class="logo">
         
-        <!-- שלב א': אימות והרשמה -->
         <div id="loginSection">
             <h2>אזור אישי</h2>
             
             <div class="instructions-box" id="infoBox">
-                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע (הו"ק) פעילה.<br>
-                במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
+                ההרשמה והגישה לאזור האישי מיועדות עבור חברים בעלי הוראת קבע פעילה.<br>
+                במידה והינך חבר ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
             </div>
             
             <div id="errorMessage" class="error-msg"></div>
             
-            <!-- טופס בדיקה ראשוני (תעודת זהות) -->
             <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
                 <div class="form-group">
                     <label for="verificationTz">הזן מספר תעודת זהות:</label>
@@ -443,9 +441,8 @@
                 <button type="submit" class="btn">המשך</button>
             </form>
             
-            <!-- טופס התחברות והרשמה דינמי (מוצג רק לאחר אימות ת"ז) -->
             <div id="identityAuthBox" class="identity-auth-box">
-                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימת חברי הקהילה!</p>
+                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;">✓ נמצאת זכאי ברשימה!</p>
                 
                 <h3 id="authTitle" style="color: #1a365d; margin-bottom: 20px; text-align: center;">התחברות לחשבון</h3>
                 
@@ -470,10 +467,9 @@
             <div id="loadingSpinner" class="loading">מבצע בדיקה במערכת...</div>
         </div>
 
-        <!-- שלב ב': תצוגת נתונים לאחר התחברות מוצלחת -->
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
-            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
+            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור הארגון שלנו:</p>
             
             <div id="kevaList"></div>
             
@@ -489,30 +485,15 @@
     window.addEventListener('load', () => {
         if (typeof netlifyIdentity !== 'undefined') {
             netlifyIdentity.on('init', user => {
-                // מנגנון זיהוי וקליטת אישור אוטומטי מהמייל
-                const hash = window.location.hash;
-                if (hash && (hash.includes("confirmation_token") || hash.includes("recovery_token"))) {
-                    netlifyIdentity.open();
-                    return;
-                }
-
+                // הוסר netlifyIdentity.open() כדי לא להקפיץ חלונות מבלבלים, הכל יעבוד שקוף ברקע
                 if (user) {
-                    // קורא את הת"ז מכל מיקום אפשרי במטא-דאטה (כולל הגיבוי המקומי)
-                    const tz = (user.user_metadata && user.user_metadata.verified_tz) || 
-                               (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz) ||
-                               localStorage.getItem('pending_verified_tz');
-                    
-                    if (tz) {
-                        fetchDonorData(user);
-                    } else {
-                        netlifyIdentity.logout();
-                    }
+                    checkUserAndFetch(user);
                 }
             });
 
             netlifyIdentity.on('login', user => {
                 netlifyIdentity.close(); 
-                fetchDonorData(user);
+                checkUserAndFetch(user);
             });
 
             netlifyIdentity.on('logout', () => {
@@ -520,6 +501,20 @@
             });
         }
     });
+
+    async function checkUserAndFetch(user) {
+        let tz = verifiedTz || 
+                 localStorage.getItem('pending_verified_tz') ||
+                 (user.user_metadata && user.user_metadata.verified_tz) || 
+                 (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz);
+        
+        if (tz) {
+            verifiedTz = tz;
+            fetchDonorData(user);
+        }
+        // אם המערכת איבדה את הת"ז, היא פשוט תשאיר את הטופס פתוח. 
+        // ברגע שהמשתמש יזין שוב ת"ז, פונקציית verifyWhitelist תזהה אותו ותכניס אותו ישירות!
+    }
 
     function toggleDropdown(event) {
         if (window.innerWidth <= 768) {
@@ -529,7 +524,6 @@
         }
     }
 
-    // שלב 1: פנייה ל"מוח" המאובטח לבדיקת זכאות וקיום חשבון לפי ת"ז
     async function verifyWhitelist(event) {
         event.preventDefault();
         const tz = document.getElementById('verificationTz').value;
@@ -553,13 +547,19 @@
 
             if (result.allowed) {
                 verifiedTz = tz;
-                // שמירת גיבוי מקומי בדפדפן כדי שהשיוך לא יילך לאיבוד לעולם
                 localStorage.setItem('pending_verified_tz', tz);
-                
+
+                // טיפול במצב שבו המשתמש חזר מהמייל והמערכת איבדה זמנית את הת"ז שלו
+                const currentUser = netlifyIdentity.currentUser();
+                if (currentUser) {
+                    await currentUser.update({ data: { verified_tz: tz } });
+                    fetchDonorData(currentUser);
+                    return;
+                }
+
                 whitelistForm.style.display = 'none';
                 authBox.style.display = 'block';
                 
-                // קביעת ממשק הטופס בצורה חד-משמעית ומוחלטת לפי הנתונים בשרת
                 if (result.exists) {
                     authMode = "login";
                     document.getElementById('authTitle').innerText = "התחברות לחשבון";
@@ -570,7 +570,7 @@
                     document.getElementById('authSubmitBtn').innerText = "צור חשבון והמשך";
                 }
             } else {
-                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
+                throw new Error("תעודת הזהות שהזנת אינה מופיעה ברשימה המאושרת.<br>במידה והינך חבר ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה: b0799186827@gmail.com");
             }
         } catch (err) {
             loadingDiv.style.display = 'none';
@@ -579,7 +579,6 @@
         }
     }
 
-    // שלב 2: טיפול מבוקר ברישום וכניסה למניעת חסימות כפולות
     async function handleCustomAuth(event) {
         event.preventDefault();
         const email = document.getElementById('authEmail').value;
@@ -595,35 +594,37 @@
                 await netlifyIdentity.gotrue.login(email, password, true);
             } catch (err) {
                 loadingDiv.style.display = 'none';
-                let friendlyError = err.message;
-                if (err.message.includes("Email not confirmed")) {
-                    friendlyError = "חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור שנשלח אליך.";
-                } else if (err.message.includes("Invalid login")) {
-                    friendlyError = "כתובת המייל או הסיסמה שהזנת אינם נכונים.";
-                }
+                let friendlyError = "פרטי ההתחברות שגויים או שהחשבון טרם אומת. אנא נסה שוב.";
                 errorDiv.innerHTML = friendlyError;
                 errorDiv.style.display = 'block';
             }
         } else {
             try {
-                // הרשמה ראשונית - שמירת הנתון תחת מפתח data המדויק של נטליפיי
                 await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz } });
                 loadingDiv.style.display = 'none';
-                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל כדי להשלים את הכניסה.");
+                alert("נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל.");
                 authMode = "login";
                 document.getElementById('authTitle').innerText = "התחברות לחשבון";
                 document.getElementById('authSubmitBtn').innerText = "התחבר";
             } catch (err) {
-                loadingDiv.style.display = 'none';
-                let friendlyError = err.message;
+                // תיקון סופי למלכוד: אם המערכת טוענת שהמשתמש כבר קיים - ננסה פשוט לחבר אותו מיד עם הסיסמה שהקליד!
                 if (err.message.includes("already exists") || err.message.includes("already registered")) {
-                    friendlyError = "חשבון תחת אימייל זה כבר קיים במערכת! המערכת הועברה למצב חיבור. אנא הקלד את הסיסמה ולחץ 'התחבר'.";
-                    authMode = "login";
-                    document.getElementById('authTitle').innerText = "התחברות לחשבון";
-                    document.getElementById('authSubmitBtn').innerText = "התחבר";
+                    try {
+                        await netlifyIdentity.gotrue.login(email, password, true);
+                        return; // התחברות הצליחה! האירוע 'login' יופעל.
+                    } catch (loginErr) {
+                        loadingDiv.style.display = 'none';
+                        errorDiv.innerHTML = "חשבון זה כבר קיים, אך הסיסמה שהזנת כעת שגויה. אנא התחבר עם הסיסמה הנכונה.";
+                        errorDiv.style.display = 'block';
+                        authMode = "login";
+                        document.getElementById('authTitle').innerText = "התחברות לחשבון";
+                        document.getElementById('authSubmitBtn').innerText = "התחבר";
+                    }
+                } else {
+                    loadingDiv.style.display = 'none';
+                    errorDiv.innerHTML = err.message;
+                    errorDiv.style.display = 'block';
                 }
-                errorDiv.innerHTML = friendlyError;
-                errorDiv.style.display = 'block';
             }
         }
     }
@@ -634,7 +635,6 @@
         }
     }
 
-    // שלב 3: טעינת נתוני הוראות הקבע
     async function fetchDonorData(user) {
         const errorDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loadingSpinner');
@@ -645,17 +645,15 @@
         loadingDiv.style.display = 'block';
 
         try {
-            // שליפת הת"ז מכל מקור אפשרי (כולל הגיבוי מהזיכרון המקומי)
             const tzToSearch = verifiedTz || 
                                localStorage.getItem('pending_verified_tz') ||
                                (user.user_metadata && user.user_metadata.verified_tz) || 
                                (user.user_metadata && user.user_metadata.data && user.user_metadata.data.verified_tz);
 
             if (!tzToSearch) {
-                throw new Error("לא נמצאה תעודת זהות מאומתת בחשבון. אנא בצע בדיקת זכאות מחדש.");
+                throw new Error("לא נמצאה תעודת זהות בחשבון. רענן והזן תעודת זהות מחדש.");
             }
 
-            // עדכון מטא דאטה רטרואקטיבית במידת הצורך
             if (tzToSearch && typeof netlifyIdentity !== 'undefined') {
                 const currentUser = netlifyIdentity.currentUser();
                 if (currentUser) {
@@ -703,14 +701,14 @@
                     const hasError = keva.errorText && keva.errorText.trim().length > 0;
                     const errorBadge = hasError ? `
                         <div class="denial-warning">
-                            ⚠️ תשומת לב: החיוב האחרון לא צלח עקב סירוב מהבנק/אשראי. 
+                            ⚠️ תשומת לב: התשלום האחרון לא צלח עקב סירוב מהבנק/אשראי. 
                             <br>פירוט: ${keva.errorText}
                         </div>
                     ` : '';
 
                     card.innerHTML = `
                         <div class="keva-header">
-                            <div>מטרת התרומה: ${keva.category || 'כללי'}</div>
+                            <div>מטרת התשלום: ${keva.category || 'כללי'}</div>
                             <div class="${keva.enabled ? 'status-active' : 'status-inactive'}">
                                 ${keva.enabled ? '● פעילה' : '● מוקפאת/לא פעילה'}
                             </div>
@@ -764,7 +762,7 @@
             
             let historyHTML = `
                 <div class="summary-info">
-                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ נתרם בפועל: ${result.totalAmount} ₪
+                    סה"כ חיובים שבוצעו בהצלחה: ${result.successCount} | סה"כ שולם בפועל: ${result.totalAmount} ₪
                 </div>
             `;
             
