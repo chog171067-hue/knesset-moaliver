@@ -256,6 +256,31 @@
             <div id="loadingSpinner" class="loading">מבצע פעולה...</div>
         </div>
 
+        <div id="emailConfirmedSection" style="display:none; text-align:center;">
+            <h2 style="color:#38a169;">✓ האימייל אומת בהצלחה!</h2>
+            <p class="subtitle">החשבון שלך פעיל כעת. לחץ כדי להיכנס לאזור האישי.</p>
+            <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
+        </div>
+
+        <div id="emailChangedSection" style="display:none; text-align:center;">
+            <h2 style="color:#38a169;">✓ כתובת המייל עודכנה בהצלחה!</h2>
+            <p class="subtitle">מעכשיו תוכל להתחבר עם כתובת המייל החדשה. לחץ כדי להיכנס לאזור האישי.</p>
+            <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
+        </div>
+
+        <div id="newPasswordSection" style="display:none;">
+            <h2 style="text-align:center; color:#1a365d;">בחירת סיסמה חדשה</h2>
+            <p class="subtitle" style="text-align:center;">הזן סיסמה חדשה לחשבון שלך.</p>
+            <div id="newPasswordError" class="error-msg"></div>
+            <form id="newPasswordForm" onsubmit="handleSetNewPassword(event)">
+                <div class="form-group">
+                    <label for="newPasswordInput">סיסמה חדשה:</label>
+                    <input type="password" id="newPasswordInput" required minlength="6" placeholder="לפחות 6 תווים">
+                </div>
+                <button type="submit" class="btn">שמור סיסמה והמשך</button>
+            </form>
+        </div>
+
         <div id="resultsSection" class="results-container">
             <h2>שלום, <span id="donorName"></span></h2>
             <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
@@ -302,6 +327,83 @@
     let verifiedTz = null;
     let currentMode = null; // 'login' | 'signup'
     let initHandled = false;
+    let confirmationHandled = false;
+
+    // זיהוי הגעה מקישור שנשלח במייל (הרשמה / שינוי מייל / איפוס סיסמה) - תבניות
+    // המייל בנויות כך שמובילות לכאן עם הטוקן המתאים בכתובת - ר' ARCHITECTURE.md
+    const _hash = window.location.hash;
+    const authTokenType = _hash.includes('confirmation_token') ? 'signup'
+        : _hash.includes('email_change_token') ? 'email_change'
+        : _hash.includes('recovery_token') ? 'recovery'
+        : null;
+
+    function routeAuthTokenUser(user) {
+        if (authTokenType === 'signup') {
+            showInfoScreen('emailConfirmedSection', user);
+        } else if (authTokenType === 'email_change') {
+            showInfoScreen('emailChangedSection', user);
+        } else if (authTokenType === 'recovery') {
+            showNewPasswordScreen(user);
+        } else {
+            handleAuthenticated(user);
+        }
+    }
+
+    function hideAllTopLevelSections() {
+        document.getElementById('initialLoader').style.display = 'none';
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('emailConfirmedSection').style.display = 'none';
+        document.getElementById('emailChangedSection').style.display = 'none';
+        document.getElementById('newPasswordSection').style.display = 'none';
+    }
+
+    function showInfoScreen(sectionId, user) {
+        if (confirmationHandled) return;
+        confirmationHandled = true;
+        window.__confirmedUser = user;
+        // מנקים את הטוקן משורת הכתובת - אין סיבה שיישאר חשוף שם
+        history.replaceState(null, '', window.location.pathname);
+        hideAllTopLevelSections();
+        document.getElementById('loginSection').style.display = 'block'; // מכיל את שאר האזור, נשאיר גלוי כ"מסגרת"
+        document.getElementById(sectionId).style.display = 'block';
+    }
+
+    function continueAfterConfirmation() {
+        document.getElementById('emailConfirmedSection').style.display = 'none';
+        document.getElementById('emailChangedSection').style.display = 'none';
+        if (window.__confirmedUser) {
+            handleAuthenticated(window.__confirmedUser);
+        }
+    }
+
+    function showNewPasswordScreen(user) {
+        if (confirmationHandled) return;
+        confirmationHandled = true;
+        window.__confirmedUser = user;
+        history.replaceState(null, '', window.location.pathname);
+        hideAllTopLevelSections();
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('newPasswordSection').style.display = 'block';
+    }
+
+    async function handleSetNewPassword(event) {
+        event.preventDefault();
+        const newPassword = document.getElementById('newPasswordInput').value;
+        const errorDiv = document.getElementById('newPasswordError');
+        errorDiv.style.display = 'none';
+
+        try {
+            const user = window.__confirmedUser || netlifyIdentity.currentUser();
+            if (!user) throw new Error('פג תוקף הקישור - יש לבצע את תהליך איפוס הסיסמה מחדש');
+            await user.update({ password: newPassword });
+            document.getElementById('newPasswordSection').style.display = 'none';
+            handleAuthenticated(user);
+        } catch (err) {
+            errorDiv.innerHTML = 'שגיאה בשמירת הסיסמה: ' + err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
 
     // נקודת כניסה בטוחה למצב ההתחלתי - יכולה להיקרא פעם אחת בלבד, בין אם דרך
     // אירוע ה-init של ה-widget ובין אם דרך רשת הביטחון למטה.
@@ -310,7 +412,7 @@
         initHandled = true;
         document.getElementById('initialLoader').style.display = 'none';
         if (user) {
-            handleAuthenticated(user);
+            routeAuthTokenUser(user);
         } else {
             document.getElementById('loginSection').style.display = 'block';
         }
@@ -323,7 +425,7 @@
 
         netlifyIdentity.on('login', user => {
             netlifyIdentity.close();
-            handleAuthenticated(user);
+            routeAuthTokenUser(user);
         });
 
         netlifyIdentity.on('logout', () => {
