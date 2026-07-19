@@ -247,6 +247,10 @@
                     <button type="submit" class="btn" id="authSubmitBtn">המשך</button>
                 </form>
 
+                <div id="forgotPasswordLink" style="display:none; text-align:center; margin-top:12px;">
+                    <a href="#" onclick="handleForgotPassword(event)" style="color:#2b6cb0; font-size:14px; text-decoration:underline;">שכחתי סיסמה</a>
+                </div>
+
                 <button class="btn google-btn" onclick="loginWithGoogle()">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" class="google-icon">
                     <span id="googleBtnLabel">המשך באמצעות Google</span>
@@ -254,31 +258,6 @@
             </div>
 
             <div id="loadingSpinner" class="loading">מבצע פעולה...</div>
-        </div>
-
-        <div id="emailConfirmedSection" style="display:none; text-align:center;">
-            <h2 style="color:#38a169;">✓ האימייל אומת בהצלחה!</h2>
-            <p class="subtitle">החשבון שלך פעיל כעת. לחץ כדי להיכנס לאזור האישי.</p>
-            <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
-        </div>
-
-        <div id="emailChangedSection" style="display:none; text-align:center;">
-            <h2 style="color:#38a169;">✓ כתובת המייל עודכנה בהצלחה!</h2>
-            <p class="subtitle">מעכשיו תוכל להתחבר עם כתובת המייל החדשה. לחץ כדי להיכנס לאזור האישי.</p>
-            <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
-        </div>
-
-        <div id="newPasswordSection" style="display:none;">
-            <h2 style="text-align:center; color:#1a365d;">בחירת סיסמה חדשה</h2>
-            <p class="subtitle" style="text-align:center;">הזן סיסמה חדשה לחשבון שלך.</p>
-            <div id="newPasswordError" class="error-msg"></div>
-            <form id="newPasswordForm" onsubmit="handleSetNewPassword(event)">
-                <div class="form-group">
-                    <label for="newPasswordInput">סיסמה חדשה:</label>
-                    <input type="password" id="newPasswordInput" required minlength="6" placeholder="לפחות 6 תווים">
-                </div>
-                <button type="submit" class="btn">שמור סיסמה והמשך</button>
-            </form>
         </div>
 
         <div id="resultsSection" class="results-container">
@@ -320,6 +299,37 @@
     </div>
 </div>
 
+<div class="settings-overlay" id="emailConfirmedOverlay">
+    <div class="settings-box" style="text-align:center;">
+        <h2 style="color:#38a169; margin-top:0;">✓ האימייל אומת בהצלחה!</h2>
+        <p class="subtitle">החשבון שלך פעיל כעת. לחץ כדי להיכנס לאזור האישי.</p>
+        <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
+    </div>
+</div>
+
+<div class="settings-overlay" id="emailChangedOverlay">
+    <div class="settings-box" style="text-align:center;">
+        <h2 style="color:#38a169; margin-top:0;">✓ כתובת המייל עודכנה בהצלחה!</h2>
+        <p class="subtitle">מעכשיו תוכל להתחבר עם כתובת המייל החדשה. לחץ כדי להיכנס לאזור האישי.</p>
+        <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
+    </div>
+</div>
+
+<div class="settings-overlay" id="newPasswordOverlay">
+    <div class="settings-box">
+        <h2 style="text-align:center; color:#1a365d; margin-top:0;">בחירת סיסמה חדשה</h2>
+        <p class="subtitle" style="text-align:center;">הזן סיסמה חדשה לחשבון שלך.</p>
+        <div id="newPasswordError" class="error-msg"></div>
+        <form id="newPasswordForm" onsubmit="handleSetNewPassword(event)">
+            <div class="form-group">
+                <label for="newPasswordInput">סיסמה חדשה:</label>
+                <input type="password" id="newPasswordInput" required minlength="6" placeholder="לפחות 6 תווים">
+            </div>
+            <button type="submit" class="btn">שמור סיסמה והמשך</button>
+        </form>
+    </div>
+</div>
+
 <script>
     // verifiedTz: הת"ז שאומתה מול הרשימה בסבב הנוכחי (in-memory + גיבוי ב-localStorage
     // רק כדי לשרוד ריענון/חזרה מ-OAuth של גוגל - זהו רק "כרטיס כניסה זמני", האמת
@@ -339,9 +349,9 @@
 
     function routeAuthTokenUser(user) {
         if (authTokenType === 'signup') {
-            showInfoScreen('emailConfirmedSection', user);
+            showInfoScreen('emailConfirmedOverlay', user);
         } else if (authTokenType === 'email_change') {
-            showInfoScreen('emailChangedSection', user);
+            showInfoScreen('emailChangedOverlay', user);
         } else if (authTokenType === 'recovery') {
             showNewPasswordScreen(user);
         } else {
@@ -351,27 +361,23 @@
 
     function hideAllTopLevelSections() {
         document.getElementById('initialLoader').style.display = 'none';
-        document.getElementById('loginSection').style.display = 'none';
         document.getElementById('resultsSection').style.display = 'none';
-        document.getElementById('emailConfirmedSection').style.display = 'none';
-        document.getElementById('emailChangedSection').style.display = 'none';
-        document.getElementById('newPasswordSection').style.display = 'none';
     }
 
-    function showInfoScreen(sectionId, user) {
+    function showInfoScreen(overlayId, user) {
         if (confirmationHandled) return;
         confirmationHandled = true;
         window.__confirmedUser = user;
         // מנקים את הטוקן משורת הכתובת - אין סיבה שיישאר חשוף שם
         history.replaceState(null, '', window.location.pathname);
         hideAllTopLevelSections();
-        document.getElementById('loginSection').style.display = 'block'; // מכיל את שאר האזור, נשאיר גלוי כ"מסגרת"
-        document.getElementById(sectionId).style.display = 'block';
+        document.getElementById('loginSection').style.display = 'block'; // הדף הרגיל נשאר ברקע מאחורי הפופאפ
+        document.getElementById(overlayId).classList.add('open');
     }
 
     function continueAfterConfirmation() {
-        document.getElementById('emailConfirmedSection').style.display = 'none';
-        document.getElementById('emailChangedSection').style.display = 'none';
+        document.getElementById('emailConfirmedOverlay').classList.remove('open');
+        document.getElementById('emailChangedOverlay').classList.remove('open');
         if (window.__confirmedUser) {
             handleAuthenticated(window.__confirmedUser);
         }
@@ -384,7 +390,7 @@
         history.replaceState(null, '', window.location.pathname);
         hideAllTopLevelSections();
         document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('newPasswordSection').style.display = 'block';
+        document.getElementById('newPasswordOverlay').classList.add('open');
     }
 
     async function handleSetNewPassword(event) {
@@ -397,7 +403,7 @@
             const user = window.__confirmedUser || netlifyIdentity.currentUser();
             if (!user) throw new Error('פג תוקף הקישור - יש לבצע את תהליך איפוס הסיסמה מחדש');
             await user.update({ password: newPassword });
-            document.getElementById('newPasswordSection').style.display = 'none';
+            document.getElementById('newPasswordOverlay').classList.remove('open');
             handleAuthenticated(user);
         } catch (err) {
             errorDiv.innerHTML = 'שגיאה בשמירת הסיסמה: ' + err.message;
@@ -556,6 +562,7 @@
                 document.getElementById('googleBtnLabel').textContent = 'התחבר עם Google';
                 document.getElementById('fullNameGroup').style.display = 'none';
                 document.getElementById('authFullName').required = false;
+                document.getElementById('forgotPasswordLink').style.display = 'block';
             } else {
                 currentMode = 'signup';
                 document.getElementById('successMessage').textContent = '✓ נמצאת זכאי ברשימת חברי הקהילה!';
@@ -565,6 +572,7 @@
                 document.getElementById('googleBtnLabel').textContent = 'הרשם עם Google';
                 document.getElementById('fullNameGroup').style.display = 'block';
                 document.getElementById('authFullName').required = true;
+                document.getElementById('forgotPasswordLink').style.display = 'none';
             }
         } catch (err) {
             loadingDiv.style.display = 'none';
@@ -613,6 +621,31 @@
                     ? 'שם המשתמש או הסיסמה שגויים.'
                     : ('שגיאה בהרשמה: ' + err.message);
             }
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function handleForgotPassword(event) {
+        event.preventDefault();
+        const email = document.getElementById('authEmail').value;
+        const errorDiv = document.getElementById('errorMessage');
+        const loadingDiv = document.getElementById('loadingSpinner');
+        errorDiv.style.display = 'none';
+
+        if (!email) {
+            errorDiv.innerHTML = 'יש להזין קודם את כתובת המייל בשדה למעלה, ואז ללחוץ שוב על "שכחתי סיסמה".';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        loadingDiv.style.display = 'block';
+        try {
+            await netlifyIdentity.gotrue.requestPasswordRecovery(email);
+            loadingDiv.style.display = 'none';
+            alert('נשלח מייל לאיפוס סיסמה לכתובת ' + email + '. יש לבדוק את תיבת הדואר (כולל ספאם).');
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerHTML = 'שגיאה בשליחת מייל איפוס: ' + err.message;
             errorDiv.style.display = 'block';
         }
     }
@@ -844,6 +877,7 @@
         document.getElementById('identityAuthBox').style.display = 'none';
         document.getElementById('whitelistForm').style.display = 'block';
         document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('forgotPasswordLink').style.display = 'none';
         hideAccountMenu();
         clearTimeout(inactivityWarnTimer);
         clearTimeout(inactivityLogoutTimer);
