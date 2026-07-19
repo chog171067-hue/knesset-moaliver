@@ -331,7 +331,7 @@
                 handleAuthenticated(user);
             } else {
                 const fullName = $('mawAuthFullName').value.trim();
-                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz, full_name: fullName } });
+                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz, full_name: fullName, name: fullName } });
                 loadingDiv.style.display = 'none';
                 alert('נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל ולאחר מכן חזור לכאן להתחבר.');
                 closeAuthModal();
@@ -438,7 +438,8 @@
         const boundTz = user.app_metadata && user.app_metadata.verified_tz;
 
         if (boundTz) {
-            const savedName = user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name);
+            const cachedName = localStorage.getItem('mohliver_display_name');
+            const savedName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || cachedName;
             renderCornerLoggedIn(savedName || user.email);
             resetInactivityTimer();
             document.dispatchEvent(new CustomEvent('mohliver:authenticated', { detail: { user } }));
@@ -482,6 +483,7 @@
         verifiedTz = null;
         currentMode = null;
         localStorage.removeItem('pending_verified_tz');
+        localStorage.removeItem('mohliver_display_name');
         if (typeof netlifyIdentity !== 'undefined') netlifyIdentity.logout();
         renderCornerLoggedOut();
         clearTimeout(inactivityWarnTimer);
@@ -603,4 +605,16 @@
     } else {
         console.error('auth-widget.js: netlify-identity-widget.js לא נטען - יש לוודא שהוא כלול לפני קובץ זה');
     }
+
+    // ===== API ציבורי =====
+    // מאפשר לדפים אחרים (כמו personal.html) לעדכן את השם המוצג בפינה, למשל
+    // ברגע שהתקבל שם אמיתי ממקור אחר (נתוני תרומות) עבור חשבונות ישנים/ללא שם שמור.
+    window.MohliverAuth = {
+        updateDisplayName: function (name) {
+            if (name && isCurrentlyAuthenticated()) {
+                localStorage.setItem('mohliver_display_name', name);
+                renderCornerLoggedIn(name);
+            }
+        }
+    };
 })();
