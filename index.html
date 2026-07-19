@@ -299,22 +299,7 @@
     </div>
 </section>
 
-<script>
-    // מאזין אישור הרשמה והתחברות של Netlify Identity ברקע
-    window.addEventListener('load', () => {
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.on('init', user => {
-                if (user) {
-                    window.location.href = "personal.html";
-                }
-            });
-
-            netlifyIdentity.on('login', user => {
-                window.location.href = "personal.html";
-            });
-        }
-    });
-</script>
+<script src="assets/auth-widget.js"></script>
 
 </body>
 </html>
