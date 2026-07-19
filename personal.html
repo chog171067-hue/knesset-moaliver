@@ -9,39 +9,16 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            color: #333;
-            position: relative;
-            background: url('background.jpg') no-repeat center center fixed;
-            background-size: cover;
+            margin: 0; padding: 0; display: flex; flex-direction: column; min-height: 100vh;
+            color: #333; position: relative;
+            background: url('background.jpg') no-repeat center center fixed; background-size: cover;
         }
         body::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.45);
-            z-index: 1;
+            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.45); z-index: 1;
         }
-        header {
-            background-color: rgba(26, 54, 93, 0.95);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            position: relative;
-            z-index: 100;
-        }
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 20px;
-            gap: 10px;
-        }
+        header { background-color: rgba(26, 54, 93, 0.95); box-shadow: 0 4px 15px rgba(0,0,0,0.15); position: relative; z-index: 100; }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 20px; gap: 10px; }
         .nav-logo-link { display: flex; align-items: center; text-decoration: none; }
         .nav-logo { height: 45px; width: auto; }
         .nav-menu { display: flex; list-style: none; margin: 0; padding: 0; gap: 15px; justify-content: center; align-items: center; }
@@ -54,9 +31,9 @@
         .nav-item a:hover, .dropdown-toggle:hover { background-color: rgba(255, 255, 255, 0.15); color: #fff; }
         .nav-item.active a { background-color: #2b6cb0; color: white; }
         .dropdown-menu {
-            display: none; position: absolute; top: 100%; right: 0;
-            background-color: #1a365d; box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            border-radius: 8px; min-width: 160px; z-index: 1000; margin: 0; padding: 5px 0; list-style: none;
+            display: none; position: absolute; top: 100%; right: 0; background-color: #1a365d;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2); border-radius: 8px; min-width: 160px; z-index: 1000;
+            margin: 0; padding: 5px 0; list-style: none;
         }
         .dropdown-menu li a { color: #f7fafc; padding: 10px 15px; text-decoration: none; display: block; font-size: 15px; text-align: right; border-radius: 0; }
         .dropdown-menu li a:hover { background-color: #2b6cb0; }
@@ -69,58 +46,22 @@
         .logo { max-width: 150px; height: auto; margin-bottom: 20px; }
         h2 { color: #1a365d; margin-bottom: 10px; font-size: 24px; }
         .subtitle { font-size: 15px; color: #555; margin-bottom: 25px; line-height: 1.5; }
-        .instructions-box {
-            background-color: #ebf8ff; border-right: 4px solid #2b6cb0; padding: 15px; border-radius: 6px;
-            text-align: right; font-size: 14px; color: #2b6cb0; margin-bottom: 25px; line-height: 1.6;
-        }
-        .form-group { margin-bottom: 20px; text-align: right; }
-        label { display: block; font-weight: bold; margin-bottom: 8px; color: #1a365d; font-size: 15px; }
-        input {
-            width: 100%; padding: 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px;
-            text-align: center; box-sizing: border-box; transition: border-color 0.2s;
-        }
-        input:focus { border-color: #1a365d; outline: none; }
         .btn {
-            display: block; width: 100%; padding: 15px; background: #1a365d; color: white;
-            text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px;
-            border: none; cursor: pointer; transition: background 0.2s;
+            display: block; width: 100%; padding: 15px; background: #1a365d; color: white; text-decoration: none;
+            border-radius: 8px; font-weight: bold; font-size: 18px; border: none; cursor: pointer; transition: background 0.2s;
         }
         .btn:hover { background: #2a4365; }
-        .google-btn {
-            background-color: #ffffff; color: #757575; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px;
-        }
-        .google-btn:hover { background-color: #f7fafc; }
-        .google-icon { width: 18px; height: 18px; }
-        .error-msg {
-            color: #c53030; background: #fff5f5; padding: 12px; border-radius: 8px; margin-bottom: 20px;
-            font-weight: bold; display: none; text-align: right; line-height: 1.5;
-        }
-        .loading { display: none; font-weight: bold; color: #1a365d; margin: 20px 0; }
-        .results-container { display: none; text-align: right; margin-top: 20px; }
-        .mosad-title {
-            font-size: 16px; font-weight: bold; color: #2b6cb0; margin-top: 25px; margin-bottom: 8px;
-            border-right: 4px solid #2b6cb0; padding-right: 10px;
-        }
-        .keva-card {
-            background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;
-            margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: right;
-        }
-        .keva-header {
-            display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 10px; margin-bottom: 10px; font-weight: bold; color: #1a365d;
-        }
+        .results-container { display: none; text-align: right; }
+        .mosad-title { font-size: 16px; font-weight: bold; color: #2b6cb0; margin-top: 25px; margin-bottom: 8px; border-right: 4px solid #2b6cb0; padding-right: 10px; }
+        .keva-card { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: right; }
+        .keva-header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; font-weight: bold; color: #1a365d; }
         .keva-row { margin: 8px 0; font-size: 15px; }
         .status-active { color: #38a169; font-weight: bold; }
         .status-inactive { color: #e53e3e; font-weight: bold; }
-        .denial-warning {
-            background-color: #fff5f5; border: 1px solid #feb2b2; color: #9b2c2c; padding: 12px;
-            border-radius: 6px; margin-top: 10px; font-size: 14px; font-weight: bold;
-        }
+        .denial-warning { background-color: #fff5f5; border: 1px solid #feb2b2; color: #9b2c2c; padding: 12px; border-radius: 6px; margin-top: 10px; font-size: 14px; font-weight: bold; }
         .history-btn {
             background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; padding: 8px 15px; font-size: 14px;
-            border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; transition: background 0.2s;
-            width: auto; display: inline-block;
+            border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; transition: background 0.2s; width: auto; display: inline-block;
         }
         .history-btn:hover { background: #e2e8f0; }
         .history-section { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e0; }
@@ -130,34 +71,8 @@
         .badge-success { background-color: #c6f6d5; color: #22543d; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-danger { background-color: #fed7d7; color: #742a2a; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .summary-info { background: #ebf8ff; padding: 10px; border-radius: 6px; font-size: 14px; color: #2b6cb0; margin-bottom: 10px; font-weight: bold; }
-        .identity-auth-box { display: none; margin-top: 25px; padding-top: 25px; border-top: 2px dashed #e2e8f0; text-align: right; }
-        #initialLoader { font-weight: bold; color: #1a365d; padding: 30px 0; }
-
-        .account-menu { position: absolute; top: 14px; left: 20px; z-index: 200; }
-        .account-toggle {
-            background: rgba(255,255,255,0.12); color: #f7fafc; border: none;
-            padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
-            cursor: pointer; display: flex; align-items: center; gap: 6px;
-        }
-        .account-toggle:hover { background: rgba(255,255,255,0.22); }
-        .account-dropdown {
-            display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
-            background: #ffffff; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            min-width: 200px; overflow: hidden;
-        }
-        .account-dropdown.open { display: block; }
-        .account-dropdown button {
-            display: block; width: 100%; text-align: right; padding: 12px 16px;
-            background: none; border: none; font-size: 14px; color: #1a365d; cursor: pointer;
-        }
-        .account-dropdown button:hover { background: #f7fafc; }
-
-        .settings-overlay {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-            z-index: 500; align-items: center; justify-content: center;
-        }
-        .settings-overlay.open { display: flex; }
-        .settings-box { background: #fff; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; text-align: right; }
+        .error-msg { color: #c53030; background: #fff5f5; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; display: none; text-align: right; line-height: 1.5; }
+        .loading { font-weight: bold; color: #1a365d; padding: 20px 0; }
         @media (max-width: 768px) {
             .nav-container { flex-direction: row; justify-content: space-between; }
             .nav-menu {
@@ -173,15 +88,6 @@
 <body>
 
 <header>
-    <div class="account-menu" id="accountMenu" style="display:none;">
-        <button class="account-toggle" onclick="toggleAccountMenu()">
-            <span id="accountGreeting">שלום</span> ▾
-        </button>
-        <div class="account-dropdown" id="accountDropdown">
-            <button onclick="openAccountSettings()">הגדרות חשבון</button>
-            <button onclick="handleLogout()">יציאה מהמערכת</button>
-        </div>
-    </div>
     <div class="nav-container">
         <a href="index.html" class="nav-logo-link">
             <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
@@ -205,312 +111,27 @@
     <div class="container">
         <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
 
-        <div id="initialLoader">אנא המתן, מוודא חיבור למערכת...</div>
-
-        <div id="loginSection" style="display: none;">
+        <div id="notLoggedInMessage">
             <h2>אזור אישי</h2>
-
-            <div class="instructions-box" id="infoBox">
-                ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע פעילה.<br>
-                במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: <a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>
-            </div>
-
-            <div id="errorMessage" class="error-msg"></div>
-
-            <form id="whitelistForm" onsubmit="verifyWhitelist(event)">
-                <div class="form-group">
-                    <label for="verificationTz">הזן מספר תעודת זהות:</label>
-                    <input type="text" id="verificationTz" required pattern="[0-9]{4,9}" placeholder="אנא הקלד ת.ז.">
-                </div>
-                <button type="submit" class="btn">המשך</button>
-            </form>
-
-            <div id="identityAuthBox" class="identity-auth-box">
-                <p id="successMessage" style="font-weight: bold; color: #38a169; font-size: 16px; margin-bottom: 15px; text-align: center;"></p>
-
-                <h3 id="authTitle" style="color: #1a365d; margin-bottom: 10px; text-align: center;"></h3>
-                <p id="authSubtitle" style="font-size:14px; color:#555; text-align:center; margin-bottom:20px;"></p>
-
-                <form id="customAuthForm" onsubmit="handleUnifiedAuth(event)">
-                    <div class="form-group" id="fullNameGroup" style="display:none;">
-                        <label for="authFullName">שם מלא:</label>
-                        <input type="text" id="authFullName" placeholder="שם פרטי ומשפחה">
-                    </div>
-                    <div class="form-group">
-                        <label for="authEmail">כתובת אימייל:</label>
-                        <input type="email" id="authEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="authPassword">סיסמה:</label>
-                        <input type="password" id="authPassword" required minlength="6">
-                    </div>
-                    <button type="submit" class="btn" id="authSubmitBtn">המשך</button>
-                </form>
-
-                <div id="forgotPasswordLink" style="display:none; text-align:center; margin-top:12px;">
-                    <a href="#" onclick="handleForgotPassword(event)" style="color:#2b6cb0; font-size:14px; text-decoration:underline;">שכחתי סיסמה</a>
-                </div>
-
-                <button class="btn google-btn" onclick="loginWithGoogle()">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" class="google-icon">
-                    <span id="googleBtnLabel">המשך באמצעות Google</span>
-                </button>
-            </div>
-
-            <div id="loadingSpinner" class="loading">מבצע פעולה...</div>
+            <p class="subtitle">כדי לצפות בפרטי הוראות הקבע שלך, יש להתחבר או להירשם דרך הכפתור בפינה השמאלית העליונה.</p>
         </div>
 
+        <div id="errorMessage" class="error-msg"></div>
+        <div id="loadingSpinner" class="loading" style="display:none;">טוען נתונים...</div>
+
         <div id="resultsSection" class="results-container">
-            <h2>שלום, <span id="donorName"></span></h2>
-            <p class="subtitle">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
+            <h2 style="text-align:center;">שלום, <span id="donorName"></span></h2>
+            <p class="subtitle" style="text-align:center;">להלן פרטי הוראות הקבע הפעילות שלכם עבור בית כנסת מוהליבר:</p>
 
             <div id="kevaList"></div>
 
-            <button onclick="handleLogout()" class="btn" style="background:#718096; margin-top:20px; padding:10px; font-size:15px;">יציאה מהמערכת</button>
+            <button onclick="netlifyIdentity.logout()" class="btn" style="background:#718096; margin-top:20px; padding:10px; font-size:15px;">יציאה מהמערכת</button>
         </div>
     </div>
 </main>
 
-<div class="settings-overlay" id="settingsOverlay">
-    <div class="settings-box">
-        <h3 style="color:#1a365d; margin-top:0;">הגדרות חשבון</h3>
-        <div id="settingsError" class="error-msg"></div>
-        <div id="settingsSuccess" style="display:none; color:#38a169; font-weight:bold; margin-bottom:15px; text-align:center;"></div>
-        <form id="settingsForm" onsubmit="handleAccountUpdate(event)">
-            <div class="form-group">
-                <label for="newEmail">כתובת אימייל:</label>
-                <input type="email" id="newEmail" required>
-            </div>
-            <div class="form-group">
-                <label for="newPassword">סיסמה חדשה:</label>
-                <input type="password" id="newPassword" minlength="6" placeholder="השאר ריק אם לא רוצים לשנות">
-            </div>
-            <button type="submit" class="btn">שמור שינויים</button>
-            <button type="button" class="btn" style="background:#718096; margin-top:10px;" onclick="closeAccountSettings()">ביטול</button>
-        </form>
-    </div>
-</div>
-
-<div class="settings-overlay" id="inactivityOverlay">
-    <div class="settings-box" style="text-align:center;">
-        <h3 style="color:#1a365d; margin-top:0;">עדיין שם?</h3>
-        <p style="color:#555;">בשל חוסר פעילות, תנותק אוטומטית מהמערכת בעוד <span id="inactivityCountdown">60</span> שניות.</p>
-        <button class="btn" onclick="stayLoggedIn()">המשך להישאר מחובר</button>
-    </div>
-</div>
-
-<div class="settings-overlay" id="emailConfirmedOverlay">
-    <div class="settings-box" style="text-align:center;">
-        <h2 style="color:#38a169; margin-top:0;">✓ האימייל אומת בהצלחה!</h2>
-        <p class="subtitle">החשבון שלך פעיל כעת. לחץ כדי להיכנס לאזור האישי.</p>
-        <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
-    </div>
-</div>
-
-<div class="settings-overlay" id="emailChangedOverlay">
-    <div class="settings-box" style="text-align:center;">
-        <h2 style="color:#38a169; margin-top:0;">✓ כתובת המייל עודכנה בהצלחה!</h2>
-        <p class="subtitle">מעכשיו תוכל להתחבר עם כתובת המייל החדשה. לחץ כדי להיכנס לאזור האישי.</p>
-        <button class="btn" onclick="continueAfterConfirmation()">כניסה לאזור האישי</button>
-    </div>
-</div>
-
-<div class="settings-overlay" id="newPasswordOverlay">
-    <div class="settings-box">
-        <h2 style="text-align:center; color:#1a365d; margin-top:0;">בחירת סיסמה חדשה</h2>
-        <p class="subtitle" style="text-align:center;">הזן סיסמה חדשה לחשבון שלך.</p>
-        <div id="newPasswordError" class="error-msg"></div>
-        <form id="newPasswordForm" onsubmit="handleSetNewPassword(event)">
-            <div class="form-group">
-                <label for="newPasswordInput">סיסמה חדשה:</label>
-                <input type="password" id="newPasswordInput" required minlength="6" placeholder="לפחות 6 תווים">
-            </div>
-            <button type="submit" class="btn">שמור סיסמה והמשך</button>
-        </form>
-    </div>
-</div>
-
+<script src="assets/auth-widget.js"></script>
 <script>
-    // verifiedTz: הת"ז שאומתה מול הרשימה בסבב הנוכחי (in-memory + גיבוי ב-localStorage
-    // רק כדי לשרוד ריענון/חזרה מ-OAuth של גוגל - זהו רק "כרטיס כניסה זמני", האמת
-    // הבלעדית לגבי איזה ת"ז שייכת לאיזה חשבון נשמרת בשרת ב-app_metadata ולא כאן).
-    let verifiedTz = null;
-    let currentMode = null; // 'login' | 'signup'
-    let initHandled = false;
-    let confirmationHandled = false;
-
-    // זיהוי הגעה מקישור שנשלח במייל (הרשמה / שינוי מייל / איפוס סיסמה) - תבניות
-    // המייל בנויות כך שמובילות לכאן עם הטוקן המתאים בכתובת - ר' ARCHITECTURE.md
-    const _hash = window.location.hash;
-    const authTokenType = _hash.includes('confirmation_token') ? 'signup'
-        : _hash.includes('email_change_token') ? 'email_change'
-        : _hash.includes('recovery_token') ? 'recovery'
-        : null;
-
-    function routeAuthTokenUser(user) {
-        if (authTokenType === 'signup') {
-            showInfoScreen('emailConfirmedOverlay', user);
-        } else if (authTokenType === 'email_change') {
-            showInfoScreen('emailChangedOverlay', user);
-        } else if (authTokenType === 'recovery') {
-            showNewPasswordScreen(user);
-        } else {
-            handleAuthenticated(user);
-        }
-    }
-
-    function hideAllTopLevelSections() {
-        document.getElementById('initialLoader').style.display = 'none';
-        document.getElementById('resultsSection').style.display = 'none';
-    }
-
-    function showInfoScreen(overlayId, user) {
-        if (confirmationHandled) return;
-        confirmationHandled = true;
-        window.__confirmedUser = user;
-        // מנקים את הטוקן משורת הכתובת - אין סיבה שיישאר חשוף שם
-        history.replaceState(null, '', window.location.pathname);
-        hideAllTopLevelSections();
-        document.getElementById('loginSection').style.display = 'block'; // הדף הרגיל נשאר ברקע מאחורי הפופאפ
-        document.getElementById(overlayId).classList.add('open');
-    }
-
-    function continueAfterConfirmation() {
-        document.getElementById('emailConfirmedOverlay').classList.remove('open');
-        document.getElementById('emailChangedOverlay').classList.remove('open');
-        if (window.__confirmedUser) {
-            handleAuthenticated(window.__confirmedUser);
-        }
-    }
-
-    function showNewPasswordScreen(user) {
-        if (confirmationHandled) return;
-        confirmationHandled = true;
-        window.__confirmedUser = user;
-        history.replaceState(null, '', window.location.pathname);
-        hideAllTopLevelSections();
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('newPasswordOverlay').classList.add('open');
-    }
-
-    async function handleSetNewPassword(event) {
-        event.preventDefault();
-        const newPassword = document.getElementById('newPasswordInput').value;
-        const errorDiv = document.getElementById('newPasswordError');
-        errorDiv.style.display = 'none';
-
-        try {
-            const user = window.__confirmedUser || netlifyIdentity.currentUser();
-            if (!user) throw new Error('פג תוקף הקישור - יש לבצע את תהליך איפוס הסיסמה מחדש');
-            await user.update({ password: newPassword });
-            document.getElementById('newPasswordOverlay').classList.remove('open');
-            handleAuthenticated(user);
-        } catch (err) {
-            errorDiv.innerHTML = 'שגיאה בשמירת הסיסמה: ' + err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    // נקודת כניסה בטוחה למצב ההתחלתי - יכולה להיקרא פעם אחת בלבד, בין אם דרך
-    // אירוע ה-init של ה-widget ובין אם דרך רשת הביטחון למטה.
-    function safeHandleInit(user) {
-        if (initHandled) return;
-        initHandled = true;
-        document.getElementById('initialLoader').style.display = 'none';
-        if (user) {
-            routeAuthTokenUser(user);
-        } else {
-            document.getElementById('loginSection').style.display = 'block';
-        }
-    }
-
-    if (typeof netlifyIdentity !== 'undefined') {
-        // חשוב: לא מחכים ל-window 'load' - זה נורה מאוחר מדי (אחרי טעינת כל
-        // התמונות), ועד אז אירוע ה-init של ה-widget כבר קרה ואבד.
-        netlifyIdentity.on('init', safeHandleInit);
-
-        netlifyIdentity.on('login', user => {
-            netlifyIdentity.close();
-            routeAuthTokenUser(user);
-        });
-
-        netlifyIdentity.on('logout', () => {
-            handleLogout();
-        });
-
-        // רשת ביטחון: אם מסיבה כלשהי אירוע ה-init לא נתפס בזמן, בודקים ישירות
-        // אחרי שנייה וחצי אם המשתמש כבר ידוע ל-widget, וממשיכים בכל מקרה.
-        setTimeout(() => {
-            if (!initHandled) {
-                safeHandleInit(netlifyIdentity.currentUser());
-            }
-        }, 1500);
-    }
-
-    // נקודת כניסה יחידה לכל מקרה של "יש לנו משתמש מחובר" - בין אם דרך סיסמה,
-    // Google, או session קיים מרענון דף.
-    async function handleAuthenticated(user) {
-        const boundTz = user.app_metadata && user.app_metadata.verified_tz;
-
-        if (boundTz) {
-            // החשבון כבר מקושר לת"ז - שולפים נתונים ישירות, בלי לסמוך על שום דבר מהלקוח
-            const savedName = user.user_metadata && user.user_metadata.full_name;
-            showAccountMenu(savedName || user.email);
-            fetchDonorData();
-            return;
-        }
-
-        // החשבון עדיין לא מקושר (בעיקר משתמשי Google חדשים) - צריך לקשר אותו עכשיו
-        const pendingTz = verifiedTz || localStorage.getItem('pending_verified_tz');
-
-        if (!pendingTz) {
-            // מצב חריג: חשבון קיים בלי ת"ז מקושרת, ובלי ת"ז ממתינה בסשן הנוכחי
-            document.getElementById('initialLoader').style.display = 'none';
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('whitelistForm').style.display = 'block';
-            document.getElementById('identityAuthBox').style.display = 'none';
-            document.getElementById('infoBox').innerHTML = '<b>החשבון אומת בהצלחה!</b><br>כדי לקשר את הנתונים שלך, אנא הזן את תעודת הזהות שלך פעם אחת אחרונה:';
-            return;
-        }
-
-        const loadingDiv = document.getElementById('loadingSpinner');
-        const errorDiv = document.getElementById('errorMessage');
-        loadingDiv.style.display = 'block';
-
-        try {
-            const token = await user.jwt();
-            const res = await fetch('/.netlify/functions/bind-tz', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ tz: pendingTz })
-            });
-            const result = await res.json();
-
-            if (!res.ok || !result.success) {
-                throw new Error(result.error || 'לא ניתן היה לקשר את תעודת הזהות לחשבון');
-            }
-
-            // חשוב: app_metadata התעדכן בשרת, אבל ה-JWT הנוכחי עדיין "ישן". צריך לרענן
-            // אותו בכפייה כדי שהבקשות הבאות (למשל get-donor-data-by-tz) יראו את הקישור החדש.
-            await user.jwt(true);
-            localStorage.removeItem('pending_verified_tz');
-
-            loadingDiv.style.display = 'none';
-            fetchDonorData();
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            document.getElementById('initialLoader').style.display = 'none';
-            document.getElementById('loginSection').style.display = 'block';
-            errorDiv.innerHTML = err.message;
-            errorDiv.style.display = 'block';
-            // לא משאירים חשבון "תלוי" בלי הסבר - מנתקים אותו כדי שלא ייווצר בלבול
-            netlifyIdentity.logout();
-        }
-    }
-
     function toggleDropdown(event) {
         if (window.innerWidth <= 768) {
             event.preventDefault();
@@ -519,154 +140,23 @@
         }
     }
 
-    // שלב 1: בדיקת הת"ז מול הרשימה, וקביעה האם להציג מסך התחברות בלבד או הרשמה בלבד
-    async function verifyWhitelist(event) {
-        event.preventDefault();
-        const tz = document.getElementById('verificationTz').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-        const whitelistForm = document.getElementById('whitelistForm');
-        const authBox = document.getElementById('identityAuthBox');
+    document.addEventListener('mohliver:authenticated', () => {
+        document.getElementById('notLoggedInMessage').style.display = 'none';
+        fetchDonorData();
+    });
 
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
+    document.addEventListener('mohliver:logout', () => {
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('notLoggedInMessage').style.display = 'block';
+    });
 
-        try {
-            const response = await fetch('/.netlify/functions/verify-tz', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tz })
-            });
-
-            const result = await response.json();
-            loadingDiv.style.display = 'none';
-
-            if (!result.allowed) {
-                throw new Error('תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה.');
-            }
-
-            verifiedTz = tz;
-            localStorage.setItem('pending_verified_tz', tz);
-
-            whitelistForm.style.display = 'none';
-            authBox.style.display = 'block';
-
-            // result.exists יכול להיות true / false / null (אם בדיקת הקיום נכשלה טכנית -
-            // במקרה הזה מציגים טופס מאוחד כדי לא לחסום משתמש לגיטימי)
-            if (result.exists === true) {
-                currentMode = 'login';
-                document.getElementById('successMessage').textContent = '';
-                document.getElementById('infoBox').style.display = 'none';
-                document.getElementById('authTitle').textContent = 'התחברות לחשבון';
-                document.getElementById('authSubtitle').textContent = 'הזן את המייל והסיסמה שאיתם נרשמת בעבר.';
-                document.getElementById('authSubmitBtn').textContent = 'התחבר';
-                document.getElementById('googleBtnLabel').textContent = 'התחבר עם Google';
-                document.getElementById('fullNameGroup').style.display = 'none';
-                document.getElementById('authFullName').required = false;
-                document.getElementById('forgotPasswordLink').style.display = 'block';
-            } else {
-                currentMode = 'signup';
-                document.getElementById('successMessage').textContent = '✓ נמצאת זכאי ברשימת חברי הקהילה!';
-                document.getElementById('authTitle').textContent = 'פתיחת חשבון חדש';
-                document.getElementById('authSubtitle').textContent = 'בחר מייל וסיסמה לחשבון החדש שלך.';
-                document.getElementById('authSubmitBtn').textContent = 'הרשם';
-                document.getElementById('googleBtnLabel').textContent = 'הרשם עם Google';
-                document.getElementById('fullNameGroup').style.display = 'block';
-                document.getElementById('authFullName').required = true;
-                document.getElementById('forgotPasswordLink').style.display = 'none';
-            }
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            errorDiv.innerHTML = err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    // שלב 2: התחברות (למי שכבר קיים) או הרשמה (למי שזכאי וחדש) - בלי נפילה אוטומטית
-    // מהתחברות להרשמה, כי הבחירה כבר נקבעה בשלב 1 לפי מה שה-שרת דיווח.
-    async function handleUnifiedAuth(event) {
-        event.preventDefault();
-        const email = document.getElementById('authEmail').value;
-        const password = document.getElementById('authPassword').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
-
-        try {
-            if (currentMode === 'login') {
-                const user = await netlifyIdentity.gotrue.login(email, password, true);
-                loadingDiv.style.display = 'none';
-                // לא מסתמכים על אירוע ה-'login' של ה-widget - קריאה ישירה ל-.gotrue.login
-                // עוקפת את שכבת ה-widget ולפעמים לא מנפיקה את האירוע הזה בכלל.
-                handleAuthenticated(user);
-            } else {
-                const fullName = document.getElementById('authFullName').value.trim();
-                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz, full_name: fullName } });
-                loadingDiv.style.display = 'none';
-                alert('נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל ולאחר מכן חזור לכאן להתחבר.');
-            }
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            const msg = (err.message || '').toLowerCase();
-
-            if (currentMode === 'login' && msg.includes('email not confirmed')) {
-                errorDiv.innerHTML = 'חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור.';
-            } else if (currentMode === 'signup' && (msg.includes('already exists') || msg.includes('registered'))) {
-                errorDiv.innerHTML = 'כבר קיים חשבון תחת אימייל זה. אם זה החשבון שלך - אנא בצע שוב את בדיקת תעודת הזהות כדי לעבור למסך ההתחברות.';
-            } else if (currentMode === 'signup' && msg.includes('community')) {
-                errorDiv.innerHTML = err.message; // שגיאה מהשרת (identity-signup.js) - למשל ת"ז לא תקינה/כבר בשימוש
-            } else {
-                errorDiv.innerHTML = currentMode === 'login'
-                    ? 'שם המשתמש או הסיסמה שגויים.'
-                    : ('שגיאה בהרשמה: ' + err.message);
-            }
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    async function handleForgotPassword(event) {
-        event.preventDefault();
-        const email = document.getElementById('authEmail').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingDiv = document.getElementById('loadingSpinner');
-        errorDiv.style.display = 'none';
-
-        if (!email) {
-            errorDiv.innerHTML = 'יש להזין קודם את כתובת המייל בשדה למעלה, ואז ללחוץ שוב על "שכחתי סיסמה".';
-            errorDiv.style.display = 'block';
-            return;
-        }
-
-        loadingDiv.style.display = 'block';
-        try {
-            await netlifyIdentity.gotrue.requestPasswordRecovery(email);
-            loadingDiv.style.display = 'none';
-            alert('נשלח מייל לאיפוס סיסמה לכתובת ' + email + '. יש לבדוק את תיבת הדואר (כולל ספאם).');
-        } catch (err) {
-            loadingDiv.style.display = 'none';
-            errorDiv.innerHTML = 'שגיאה בשליחת מייל איפוס: ' + err.message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    function loginWithGoogle() {
-        if (typeof netlifyIdentity !== 'undefined') {
-            netlifyIdentity.gotrue.loginExternal('google');
-        }
-    }
-
-    // שליפת הנתונים - תמיד מאומת (Authorization header), אף פעם לא שולח tz בגוף הבקשה
     async function fetchDonorData() {
         const errorDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loadingSpinner');
-        const loginSection = document.getElementById('loginSection');
         const resultsSection = document.getElementById('resultsSection');
 
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
-        document.getElementById('initialLoader').style.display = 'none';
 
         try {
             const currentUser = netlifyIdentity.currentUser();
@@ -675,10 +165,7 @@
 
             const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({})
             });
 
@@ -689,12 +176,9 @@
                 throw new Error(result.error || 'לא נמצאו נתונים תואמים במערכת.');
             }
 
-            loginSection.style.display = 'none';
+            document.getElementById('notLoggedInMessage').style.display = 'none';
             resultsSection.style.display = 'block';
             document.getElementById('donorName').innerText = (result.data[0] && result.data[0].name) || '';
-            if (result.data[0] && result.data[0].name) {
-                showAccountMenu(result.data[0].name);
-            }
 
             const kevaListDiv = document.getElementById('kevaList');
             kevaListDiv.innerHTML = '';
@@ -738,7 +222,7 @@
                         ${errorBadge}
                         <button class="history-btn" onclick="toggleHistory('${keva.kevaId}', this)">הצג היסטוריית חיובים ▾</button>
                         <div id="history_${keva.kevaId}" class="history-section">
-                            <div class="loading-history" style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
+                            <div style="text-align:center; color:#1a365d;">טוען היסטוריית תשלומים...</div>
                         </div>
                     `;
                     kevaListDiv.appendChild(card);
@@ -769,15 +253,11 @@
 
             const response = await fetch('/.netlify/functions/get-donor-data-by-tz', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ kevaId })
             });
 
             const result = await response.json();
-
             if (!response.ok || !result.success) throw new Error(result.error || 'כשל בטעינת ההיסטוריה');
 
             let historyHTML = `
@@ -791,9 +271,7 @@
             } else {
                 historyHTML += `
                     <table class="history-table">
-                        <thead>
-                            <tr><th>תאריך</th><th>סכום</th><th>סטטוס</th></tr>
-                        </thead>
+                        <thead><tr><th>תאריך</th><th>סכום</th><th>סטטוס</th></tr></thead>
                         <tbody>
                 `;
                 result.history.forEach(row => {
@@ -812,156 +290,6 @@
             historyDiv.innerHTML = historyHTML;
         } catch (err) {
             historyDiv.innerHTML = `<div style="color:#c53030; text-align:center; font-size:14px;">${err.message}</div>`;
-        }
-    }
-
-    // === ניתוק אוטומטי לאחר 10 דקות של חוסר פעילות ===
-    const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 דקות
-    const INACTIVITY_WARNING_MS = 60 * 1000;     // אזהרה דקה לפני הניתוק
-
-    let inactivityWarnTimer = null;
-    let inactivityLogoutTimer = null;
-    let inactivityCountdownInterval = null;
-
-    function isUserAuthenticated() {
-        return document.getElementById('accountMenu').style.display !== 'none';
-    }
-
-    function resetInactivityTimer() {
-        clearTimeout(inactivityWarnTimer);
-        clearTimeout(inactivityLogoutTimer);
-        clearInterval(inactivityCountdownInterval);
-        document.getElementById('inactivityOverlay').classList.remove('open');
-
-        if (!isUserAuthenticated()) return;
-
-        inactivityWarnTimer = setTimeout(showInactivityWarning, INACTIVITY_LIMIT_MS - INACTIVITY_WARNING_MS);
-    }
-
-    function showInactivityWarning() {
-        let secondsLeft = INACTIVITY_WARNING_MS / 1000;
-        document.getElementById('inactivityCountdown').textContent = secondsLeft;
-        document.getElementById('inactivityOverlay').classList.add('open');
-
-        inactivityCountdownInterval = setInterval(() => {
-            secondsLeft--;
-            document.getElementById('inactivityCountdown').textContent = Math.max(secondsLeft, 0);
-            if (secondsLeft <= 0) clearInterval(inactivityCountdownInterval);
-        }, 1000);
-
-        inactivityLogoutTimer = setTimeout(() => {
-            document.getElementById('inactivityOverlay').classList.remove('open');
-            handleLogout();
-        }, INACTIVITY_WARNING_MS);
-    }
-
-    function stayLoggedIn() {
-        resetInactivityTimer();
-    }
-
-    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
-        document.addEventListener(evt, () => {
-            // לא מאפסים תוך כדי שהאזהרה מוצגת - כדי שתזוזת עכבר מקרית לא "תבטל" אותה בשקט
-            if (isUserAuthenticated() && !document.getElementById('inactivityOverlay').classList.contains('open')) {
-                resetInactivityTimer();
-            }
-        }, { passive: true });
-    });
-
-    function handleLogout() {
-        verifiedTz = null;
-        currentMode = null;
-        localStorage.removeItem('pending_verified_tz');
-        if (typeof netlifyIdentity !== 'undefined') netlifyIdentity.logout();
-        document.getElementById('verificationTz').value = '';
-        document.getElementById('resultsSection').style.display = 'none';
-        document.getElementById('identityAuthBox').style.display = 'none';
-        document.getElementById('whitelistForm').style.display = 'block';
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('forgotPasswordLink').style.display = 'none';
-        const infoBox = document.getElementById('infoBox');
-        infoBox.style.display = 'block';
-        infoBox.innerHTML = 'ההרשמה והגישה לאזור האישי מיועדות עבור חברי הקהילה בעלי הוראת קבע פעילה.<br>' +
-            'במידה והינך חבר קהילה ואינך מצליח להתחבר, אנא שלחו הודעה מפורטת למייל התמיכה: ' +
-            '<a href="mailto:b0799186827@gmail.com" style="color: #2b6cb0; font-weight: bold;">b0799186827@gmail.com</a>';
-        hideAccountMenu();
-        clearTimeout(inactivityWarnTimer);
-        clearTimeout(inactivityLogoutTimer);
-        clearInterval(inactivityCountdownInterval);
-        document.getElementById('inactivityOverlay').classList.remove('open');
-    }
-
-    // === תפריט חשבון (שלום, X ▾) ===
-    function showAccountMenu(displayName) {
-        document.getElementById('accountGreeting').textContent = `שלום, ${displayName}`;
-        document.getElementById('accountMenu').style.display = 'block';
-        resetInactivityTimer();
-    }
-
-    function hideAccountMenu() {
-        document.getElementById('accountMenu').style.display = 'none';
-        document.getElementById('accountDropdown').classList.remove('open');
-    }
-
-    function toggleAccountMenu() {
-        document.getElementById('accountDropdown').classList.toggle('open');
-    }
-
-    // סגירת התפריט בלחיצה מחוץ לו
-    document.addEventListener('click', (e) => {
-        const menu = document.getElementById('accountMenu');
-        if (menu && !menu.contains(e.target)) {
-            document.getElementById('accountDropdown').classList.remove('open');
-        }
-    });
-
-    // === חלון הגדרות חשבון (שינוי מייל/סיסמה) ===
-    function openAccountSettings() {
-        document.getElementById('accountDropdown').classList.remove('open');
-        const currentUser = netlifyIdentity.currentUser();
-        document.getElementById('newEmail').value = currentUser ? currentUser.email : '';
-        document.getElementById('newPassword').value = '';
-        document.getElementById('settingsError').style.display = 'none';
-        document.getElementById('settingsSuccess').style.display = 'none';
-        document.getElementById('settingsOverlay').classList.add('open');
-    }
-
-    function closeAccountSettings() {
-        document.getElementById('settingsOverlay').classList.remove('open');
-    }
-
-    async function handleAccountUpdate(event) {
-        event.preventDefault();
-        const newEmail = document.getElementById('newEmail').value;
-        const newPassword = document.getElementById('newPassword').value;
-        const errorDiv = document.getElementById('settingsError');
-        const successDiv = document.getElementById('settingsSuccess');
-        errorDiv.style.display = 'none';
-        successDiv.style.display = 'none';
-
-        try {
-            const currentUser = netlifyIdentity.currentUser();
-            if (!currentUser) throw new Error('יש להתחבר מחדש');
-
-            const updates = {};
-            if (newEmail && newEmail !== currentUser.email) updates.email = newEmail;
-            if (newPassword) updates.password = newPassword;
-
-            if (Object.keys(updates).length === 0) {
-                closeAccountSettings();
-                return;
-            }
-
-            await currentUser.update(updates);
-
-            successDiv.textContent = updates.email
-                ? 'העדכון בוצע. אם שינית את כתובת המייל, נשלח אליה מייל אימות - יש לאשר אותו כדי שהשינוי ייכנס לתוקף.'
-                : 'הסיסמה עודכנה בהצלחה.';
-            successDiv.style.display = 'block';
-            document.getElementById('newPassword').value = '';
-        } catch (err) {
-            errorDiv.innerHTML = 'שגיאה בעדכון: ' + err.message;
-            errorDiv.style.display = 'block';
         }
     }
 </script>
