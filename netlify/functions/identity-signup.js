@@ -64,7 +64,10 @@ exports.handler = async (event, context) => {
           roles: ['user'],
           verified_tz: record.tz,
           verified_phone: record.phone || null
-        }
+        },
+        // חשוב: יש לכלול גם את ה-user_metadata המקורי (כולל השם שהוזן בהרשמה) -
+        // אחרת נטליפיי מפרשת את ההיעדר שלו בתשובה כ"מחיקה" שלו.
+        user_metadata: metadata
       })
     };
   } catch (err) {
