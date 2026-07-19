@@ -3,7 +3,7 @@
  *
  * מטרתו: להוסיף כפתור "כניסה / הרשמה" (או "שלום, X" כשמחוברים) בפינה השמאלית
  * העליונה של כל דף באתר, ולנהל את כל תהליך ההזדהות (בדיקת ת"ז מול הגיליון,
- * הרשמה/התחברות, Google, שכחתי סיסמה, הגדרות חשבון, ניתוק לפי חוסר פעילות)
+ * הרשמה/התחברות, שכחתי סיסמה, הגדרות חשבון, ניתוק לפי חוסר פעילות)
  * כחלון קופץ - בלי לעזוב את הדף הנוכחי.
  *
  * שימוש בכל דף באתר: להוסיף לפני </body> בדיוק שתי שורות:
@@ -86,11 +86,6 @@
         .maw-btn:hover { background: #2a4365; }
         .maw-btn-secondary { background: #718096; }
         .maw-btn-secondary:hover { background: #4a5568; }
-        .maw-google-btn {
-            background: #fff; color: #757575; border: 1px solid #ddd; display: flex; align-items: center;
-            justify-content: center; gap: 10px; margin-top: 12px;
-        }
-        .maw-google-btn:hover { background: #f7fafc; }
         .maw-error {
             color: #c53030; background: #fff5f5; padding: 10px; border-radius: 8px; margin-bottom: 16px;
             font-weight: bold; display: none; text-align: right; line-height: 1.4; font-size: 14px;
@@ -154,10 +149,6 @@
                             <button type="submit" class="maw-btn" id="mawAuthSubmitBtn">המשך</button>
                         </form>
                         <div class="maw-forgot" id="mawForgotPasswordLink"><a id="mawForgotPasswordAnchor">שכחתי סיסמה</a></div>
-                        <button class="maw-btn maw-google-btn" id="mawGoogleBtn">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" style="width:18px;height:18px;">
-                            <span id="mawGoogleBtnLabel">המשך באמצעות Google</span>
-                        </button>
                     </div>
 
                     <div class="maw-loading" id="mawLoadingSpinner">מבצע פעולה...</div>
@@ -301,7 +292,6 @@
                 $('mawAuthTitle').textContent = 'התחברות לחשבון';
                 $('mawAuthSubtitle').textContent = 'הזן את המייל והסיסמה שאיתם נרשמת בעבר.';
                 $('mawAuthSubmitBtn').textContent = 'התחבר';
-                $('mawGoogleBtnLabel').textContent = 'התחבר עם Google';
                 $('mawFullNameGroup').style.display = 'none';
                 $('mawAuthFullName').required = false;
                 $('mawForgotPasswordLink').style.display = 'block';
@@ -312,7 +302,6 @@
                 $('mawAuthTitle').textContent = 'פתיחת חשבון חדש';
                 $('mawAuthSubtitle').textContent = 'בחר מייל וסיסמה לחשבון החדש שלך.';
                 $('mawAuthSubmitBtn').textContent = 'הרשם';
-                $('mawGoogleBtnLabel').textContent = 'הרשם עם Google';
                 $('mawFullNameGroup').style.display = 'block';
                 $('mawAuthFullName').required = true;
                 $('mawForgotPasswordLink').style.display = 'none';
@@ -361,10 +350,6 @@
             }
             errorDiv.style.display = 'block';
         }
-    });
-
-    $('mawGoogleBtn').addEventListener('click', () => {
-        netlifyIdentity.gotrue.loginExternal('google');
     });
 
     $('mawForgotPasswordAnchor').addEventListener('click', async event => {
@@ -453,7 +438,7 @@
         const boundTz = user.app_metadata && user.app_metadata.verified_tz;
 
         if (boundTz) {
-            const savedName = user.user_metadata && user.user_metadata.full_name;
+            const savedName = user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name);
             renderCornerLoggedIn(savedName || user.email);
             resetInactivityTimer();
             document.dispatchEvent(new CustomEvent('mohliver:authenticated', { detail: { user } }));
