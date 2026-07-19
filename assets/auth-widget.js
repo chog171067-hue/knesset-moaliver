@@ -439,7 +439,10 @@
 
         if (boundTz) {
             const cachedName = localStorage.getItem('mohliver_display_name');
-            const savedName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || cachedName;
+            const um = user.user_metadata || {};
+            // נטליפיי שומרת את הנתונים המותאמים אישית שנשלחו בהרשמה תחת עטיפת .data
+            // נוספת - בודקים גם שם, לא רק ברמה העליונה.
+            const savedName = um.full_name || um.name || (um.data && (um.data.full_name || um.data.name)) || cachedName;
             renderCornerLoggedIn(savedName || user.email);
             resetInactivityTimer();
             document.dispatchEvent(new CustomEvent('mohliver:authenticated', { detail: { user } }));
