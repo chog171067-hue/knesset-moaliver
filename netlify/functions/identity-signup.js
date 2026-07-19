@@ -25,8 +25,12 @@ exports.handler = async (event, context) => {
   }
 
   // הרשמה עם מייל+סיסמה - כאן חובה שתהיה ת"ז מצורפת, ואנחנו מאמתים אותה בעצמנו
-  const metadata = user.user_metadata || {};
-  const claimedTz = metadata.verified_tz || (metadata.data ? metadata.data.verified_tz : null);
+  const rawMetadata = user.user_metadata || {};
+  // נטליפיי לפעמים עוטפת את הנתונים המותאמים אישית (ת"ז, שם) בשכבת .data נוספת -
+  // משטחים את זה כדי שהשדות יישמרו במקום הרגיל שגם הלקוח וגם ממשק הניהול מצפים לו.
+  const metadata = rawMetadata.data ? { ...rawMetadata, ...rawMetadata.data } : rawMetadata;
+  delete metadata.data;
+  const claimedTz = metadata.verified_tz || null;
 
   if (!claimedTz) {
     console.warn(`[identity-signup] הרשמה נדחתה - אין ת"ז מצורפת עבור ${user.email}`);
