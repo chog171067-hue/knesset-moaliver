@@ -5,10 +5,18 @@
 (function () {
     var current = location.pathname.split('/').pop() || 'index.html';
 
-    var prayerPages = ['shabbat.html', 'yemothachol.html', 'tishabav.html', 'beinhazmanim.html'];
+    // מקור אמת יחיד לרשימת דפי התפילה: גם לבניית התפריט הנפתח וגם לפופאפ שליחת המייל
+    // (assets/*.html קוראים ל-window.sitePrayerPages כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
+    var prayerPages = [
+        { file: 'shabbat.html', label: 'שבתות' },
+        { file: 'yemothachol.html', label: 'ימות החול' },
+        { file: 'tishabav.html', label: 'תשעה באב' },
+        { file: 'beinhazmanim.html', label: 'בין הזמנים' }
+    ];
+    window.sitePrayerPages = prayerPages;
 
     var isHome = (current === 'index.html' || current === '');
-    var isPrayer = prayerPages.indexOf(current) !== -1;
+    var isPrayer = prayerPages.some(function (p) { return p.file === current; });
     var isNews = (current === 'news.html');
     var isPersonal = (current === 'personal.html');
 
@@ -26,10 +34,9 @@
         '      <li class="nav-item' + (isPrayer ? ' active' : '') + '" id="prayersDropdown">' +
         '        <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>' +
         '        <ul class="dropdown-menu">' +
-        '          <li><a href="shabbat.html">שבתות</a></li>' +
-        '          <li><a href="yemothachol.html">ימות החול</a></li>' +
-        '          <li><a href="tishabav.html">תשעה באב</a></li>' +
-        '          <li><a href="beinhazmanim.html">בין הזמנים</a></li>' +
+        prayerPages.map(function (p) {
+            return '<li><a href="' + p.file + '">' + p.label + '</a></li>';
+        }).join('') +
         '        </ul>' +
         '      </li>' +
         '      <li class="nav-item' + (isNews ? ' active' : '') + '"><a href="news.html">מהנעשה ונשמע</a></li>' +
