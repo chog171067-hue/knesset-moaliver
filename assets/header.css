@@ -92,7 +92,7 @@ header {
     transition: background-color 0.15s ease;
 }
 .dropdown-menu li a:hover {
-    background-color: #2b6cb0;
+    background-color: rgba(255, 255, 255, 0.18);
 }
 /* הצגת התפריט בריחוף (Desktop) */
 .nav-item:hover .dropdown-menu {
