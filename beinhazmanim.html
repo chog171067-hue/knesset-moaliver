@@ -6,9 +6,9 @@
     
     <link rel="icon" type="image/png" href="logo.png">
     
-    <link rel="stylesheet" href="assets/header.css">
+    <link rel="stylesheet" href="assets/header.css?v=2">
     <style>
-        body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; text-align: center; }
+        body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 0; box-sizing: border-box; text-align: center; }
         h1 { color: #800020; margin-bottom: 2rem; font-size: 2.5rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
         
         .top-nav-bar { display: flex; gap: 15px; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; direction: rtl; }
@@ -54,13 +54,18 @@
         .message { margin-top: 12px; font-size: 0.9rem; font-weight: bold; display: none; }
         .message.success { color: green; }
         .message.error { color: red; }
+
+        /* עוטף את תוכן העמוד (מתחת לסרגל הניווט) עם הריפוד שהיה קודם על ה-body,
+           כדי שה-header עצמו יישאר צמוד לקצה ולרוחב המלא של הדף */
+        .page-content { width: 100%; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     </style>
 </head>
 <body>
 
 
 <div id="site-header"></div>
-<script src="assets/header.js"></script>
+<script src="assets/header.js?v=2"></script>
+<div class="page-content">
     <h1>זמני תפילות בין הזמנים</h1>
     
     <div class="top-nav-bar">
@@ -101,6 +106,8 @@
                 </table>
             </div>
         </div>
+    </div>
+
     </div>
 
     <div class="modal-overlay" id="mailModal" onclick="closeMailModalOnOverlay(event)">
