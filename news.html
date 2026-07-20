@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מהנעשה ונשמע - בית כנסת מוהליבר</title>
     <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="assets/header.css?v=2">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -24,118 +25,6 @@
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(255, 255, 255, 0.45);
             z-index: 1;
-        }
-
-        /* סרגל ניווט עליון מיושר לאמצע */
-        header {
-            background-color: rgba(26, 54, 93, 0.95);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            position: relative;
-            z-index: 100;
-        }
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 20px;
-            gap: 10px;
-        }
-        .nav-logo-link {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-        }
-        .nav-logo {
-            height: 45px;
-            width: auto;
-        }
-        .nav-menu {
-            display: flex;
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            gap: 15px;
-            justify-content: center;
-            align-items: center;
-        }
-        .nav-item {
-            position: relative;
-        }
-        .nav-item a, .dropdown-toggle {
-            color: #f7fafc;
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 600;
-            padding: 10px 18px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            display: block;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
-        }
-        .nav-item a:hover, .dropdown-toggle:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-            color: #fff;
-        }
-        .nav-item.active a {
-            background-color: #2b6cb0;
-            color: white;
-        }
-
-        /* תפריט נפתח (Dropdown) לזמני תפילות */
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background-color: #1a365d;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            border-radius: 8px;
-            min-width: 160px;
-            z-index: 1000;
-            margin: 0;
-            padding: 5px 0;
-            list-style: none;
-        }
-        .dropdown-menu li a {
-            color: #f7fafc;
-            padding: 10px 15px;
-            text-decoration: none;
-            display: block;
-            font-size: 15px;
-            text-align: right;
-            border-radius: 0;
-        }
-        .dropdown-menu li a:hover {
-            background-color: #2b6cb0;
-        }
-        /* הצגת התפריט בריחוף (Desktop) */
-        .nav-item:hover .dropdown-menu {
-            display: block;
-        }
-
-        /* המבורגר */
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 6px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 5px;
-        }
-        .hamburger span {
-            display: block;
-            width: 28px;
-            height: 3px;
-            background-color: white;
-            border-radius: 2px;
-            transition: 0.3s;
         }
 
         /* תוכן */
@@ -174,81 +63,12 @@
             margin: 0;
         }
 
-        @media (max-width: 768px) {
-            .nav-container {
-                flex-direction: row;
-                justify-content: space-between;
-            }
-            .hamburger {
-                display: flex;
-            }
-            .nav-menu {
-                display: none;
-                flex-direction: column;
-                width: 100%;
-                position: absolute;
-                top: 70px;
-                left: 0;
-                background-color: #1a365d;
-                padding: 15px 0;
-                box-shadow: 0 8px 15px rgba(0,0,0,0.2);
-            }
-            .nav-menu.open {
-                display: flex;
-            }
-            .nav-item {
-                text-align: center;
-                width: 100%;
-            }
-            .nav-item a, .dropdown-toggle {
-                padding: 12px 0;
-                border-radius: 0;
-                width: 100%;
-                text-align: center;
-            }
-            .dropdown-menu {
-                position: static;
-                display: none;
-                width: 100%;
-                background-color: rgba(0, 0, 0, 0.2);
-                box-shadow: none;
-            }
-            .nav-item.open-dropdown .dropdown-menu {
-                display: block;
-            }
-        }
     </style>
 </head>
 <body>
 
-<header>
-    <div class="nav-container">
-        <a href="index.html" class="nav-logo-link">
-            <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">
-        </a>
-        
-        <button class="hamburger" onclick="toggleMenu()">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-        
-        <ul class="nav-menu" id="navMenu">
-            <li class="nav-item"><a href="index.html">דף הבית</a></li>
-            
-            <li class="nav-item" id="prayersDropdown">
-                <button class="dropdown-toggle" onclick="toggleDropdown(event)">זמני התפילות ▾</button>
-                <ul class="dropdown-menu">
-                    <li><a href="yemothachol.html">ימות החול</a></li>
-                    <li><a href="shabbat.html">שבתות וחגים</a></li>
-                </ul>
-            </li>
-            
-            <li class="nav-item active"><a href="news.html">מהנעשה ונשמע</a></li>
-            <li class="nav-item"><a href="personal.html">אזור אישי</a></li>
-        </ul>
-    </div>
-</header>
+<div id="site-header"></div>
+<script src="assets/header.js?v=2"></script>
 
 <main class="main-content">
     <div class="info-card">
@@ -257,21 +77,6 @@
         <p>כרגע הדף ריק. עובדים על תוכן איכותי בשבילכם.</p>
     </div>
 </main>
-
-<script>
-    function toggleMenu() {
-        const menu = document.getElementById('navMenu');
-        menu.classList.toggle('open');
-    }
-
-    function toggleDropdown(event) {
-        if (window.innerWidth <= 768) {
-            event.preventDefault();
-            const dropdown = document.getElementById('prayersDropdown');
-            dropdown.classList.toggle('open-dropdown');
-        }
-    }
-</script>
 
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="assets/auth-widget.js"></script>
