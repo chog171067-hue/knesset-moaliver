@@ -6,6 +6,9 @@ header {
     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
     position: relative;
     z-index: 100;
+    width: 100%;
+    align-self: stretch;
+    box-sizing: border-box;
 }
 .nav-container {
     max-width: 1200px;
