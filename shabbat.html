@@ -55,6 +55,12 @@
         .message.success { color: green; }
         .message.error { color: red; }
 
+        .pages-checklist-wrap { text-align: right; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; background: #fafafa; }
+        .select-all-row { border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 8px; font-weight: bold; color: #000080; }
+        .pages-checklist { display: flex; flex-direction: column; gap: 6px; }
+        .pages-checklist label, .select-all-row label { display: flex; align-items: center; gap: 8px; justify-content: flex-end; font-size: 0.95rem; color: #333; cursor: pointer; }
+        .pages-checklist input, .select-all-row input { cursor: pointer; }
+
         @media (max-width: 950px) {
             .tables-container { flex-wrap: wrap; }
             .table-box { flex: none; width: 45%; max-width: none; }
@@ -145,8 +151,15 @@
         <div class="modal-content">
             <span class="modal-close" onclick="closeMailModal()">&times;</span>
             <h3>לקבלת לוח הזמנים המעודכן למייל</h3>
-            <p>הזינו את כתובת המייל שלכם ולוח הזמנים המלא ישלח אליכם מיד</p>
-            
+            <p>הזינו את כתובת המייל שלכם ובחרו אילו לוחות זמנים לשלוח</p>
+
+            <div class="pages-checklist-wrap">
+                <div class="select-all-row">
+                    <label><input type="checkbox" id="selectAllPages" onchange="toggleSelectAllPages(this)"> בחר הכל</label>
+                </div>
+                <div id="pagesChecklist" class="pages-checklist"></div>
+            </div>
+
             <form id="emailForm" onsubmit="sendSchedule(event)">
                 <div class="form-group">
                     <input type="email" id="subscriberEmail" class="email-input" placeholder="you@example.com" required>
@@ -173,6 +186,7 @@
         function openMailModal() {
             document.getElementById('mailModal').style.display = 'flex';
             document.getElementById('responseMessage').style.display = 'none';
+            renderPagesChecklist();
         }
         function closeMailModal() {
             document.getElementById('mailModal').style.display = 'none';
@@ -181,6 +195,34 @@
             if (event.target.id === 'mailModal') {
                 closeMailModal();
             }
+        }
+
+        // בונה את רשימת הצ'קבוקסים מתוך window.sitePrayerPages (מקור האמת המשותף שבassets/header.js)
+        // כך שהרשימה תמיד מסונכרנת אוטומטית עם לשוניות התפריט, גם אם הן ישתנו בעתיד
+        function renderPagesChecklist() {
+            var container = document.getElementById('pagesChecklist');
+            if (!container || !window.sitePrayerPages) return;
+
+            var currentFile = location.pathname.split('/').pop() || 'index.html';
+
+            container.innerHTML = window.sitePrayerPages.map(function (p) {
+                var pageId = p.file.replace('.html', '');
+                var checkedAttr = (p.file === currentFile) ? 'checked' : '';
+                return '<label><input type="checkbox" class="page-check" value="' + pageId + '" ' + checkedAttr + ' onchange="syncSelectAllState()"> ' + p.label + '</label>';
+            }).join('');
+
+            syncSelectAllState();
+        }
+
+        function toggleSelectAllPages(checkbox) {
+            document.querySelectorAll('.page-check').forEach(function (cb) { cb.checked = checkbox.checked; });
+        }
+
+        function syncSelectAllState() {
+            var boxes = document.querySelectorAll('.page-check');
+            var selectAll = document.getElementById('selectAllPages');
+            if (!selectAll || boxes.length === 0) return;
+            selectAll.checked = Array.from(boxes).every(function (cb) { return cb.checked; });
         }
 
         function cleanCSVCell(text) {
@@ -248,6 +290,14 @@
             const email = emailInput.value.trim().toLowerCase();
             if (!email) return;
 
+            const selectedPages = Array.from(document.querySelectorAll('.page-check:checked')).map(cb => cb.value);
+            if (selectedPages.length === 0) {
+                messageDiv.className = 'message error';
+                messageDiv.innerText = 'יש לבחור לפחות לוח זמנים אחד לשליחה';
+                messageDiv.style.display = 'block';
+                return;
+            }
+
             submitBtn.disabled = true;
             submitBtn.innerText = 'שולח...';
             messageDiv.style.display = 'none';
@@ -256,7 +306,7 @@
                 const response = await fetch('/.netlify/functions/send-schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: email })
+                    body: JSON.stringify({ email: email, pages: selectedPages })
                 });
 
                 if (response.ok) {
