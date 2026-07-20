@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>זמני תפילות בין הזמנים - בית הכנסת מוהליבר</title>
+    
+    <link rel="icon" type="image/png" href="logo.png">
+    
+    <style>
+        body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; text-align: center; }
+        h1 { color: #800020; margin-bottom: 2rem; font-size: 2.5rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        
+        .top-nav-bar { display: flex; gap: 15px; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; direction: rtl; }
+        
+        .nav-btn { display: inline-block; padding: 10px 20px; border: 2px solid #000080; color: #000080; border-radius: 6px; font-weight: bold; text-decoration: none; background: white; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; font-size: 1rem; font-family: inherit; }
+        .nav-btn:hover { background-color: #000080; color: #F5F5DC; }
+        .nav-btn.mail-btn { border-color: #800020; color: #800020; }
+        .nav-btn.mail-btn:hover { background-color: #800020; color: white; }
+        
+        /* המכולה גלויה קבוע כעת */
+        .tables-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1200px; align-items: flex-start; }
+        .table-box { background: white; border: 2px solid #000080; border-radius: 12px; padding: 0; width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; overflow: hidden; display: block; height: auto; }
+        
+        .table-box h3 { color: white; background-color: #000080; padding: 15px; margin: 0; font-size: 1.3rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .table-box h3:hover { background-color: #000060; }
+        .table-box h3::after { content: '▼'; font-size: 0.9rem; color: #F5F5DC; }
+        .table-box.active h3::after { content: '▲'; }
+        
+        .table-content { display: none; padding: 15px; border-top: 1px solid #000080; }
+        .table-note { background-color: #f9f9f9; color: #800020; font-weight: bold; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 1px dashed #800020; font-size: 1rem; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 1.1rem; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #ddd; }
+        th { color: #000080; font-weight: bold; }
+        tr:last-child td { border-bottom: none; }
+        .time-cell { font-weight: bold; color: #000080; }
+        
+        /* הודעת טעינה פנימית עדינה לכל טבלה */
+        .inner-loading { font-size: 0.95rem; color: #666; font-style: italic; padding: 10px 0; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; border: 2px solid #000080; padding: 25px; border-radius: 12px; max-width: 450px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative; text-align: center; box-sizing: border-box; }
+        .modal-close { position: absolute; top: 10px; left: 10px; font-size: 1.5rem; cursor: pointer; color: #666; font-weight: bold; line-height: 1; }
+        .modal-close:hover { color: black; }
+        .modal-content h3 { color: #800020; margin-top: 10px; margin-bottom: 10px; font-size: 1.3rem; }
+        .modal-content p { color: #555; font-size: 0.9rem; margin-bottom: 15px; }
+        .form-group { display: flex; gap: 10px; }
+        .email-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; text-align: left; dir: ltr; }
+        .email-input:focus { border-color: #000080; outline: none; }
+        .submit-button { background-color: #000080; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .submit-button:hover { background-color: #000060; }
+        .submit-button:disabled { background-color: #999; cursor: not-allowed; }
+        .message { margin-top: 12px; font-size: 0.9rem; font-weight: bold; display: none; }
+        .message.success { color: green; }
+        .message.error { color: red; }
+    </style>
+</head>
+<body>
+
+    <h1>זמני תפילות בין הזמנים</h1>
+    
+    <div class="top-nav-bar">
+        <a href="index.html" class="nav-btn">חזרה לדף הבית</a>
+        <button class="nav-btn mail-btn" onclick="openMailModal()">לקבלת זמני התפילות למייל</button>
+    </div>
+
+    <div class="tables-container" id="tablesContainer">
+        <div class="table-box" id="box-shacharit">
+            <h3 onclick="toggleBox('box-shacharit')">שחרית</h3>
+            <div class="table-content">
+                <div id="shacharit-load" class="inner-loading">טוען נתונים...</div>
+                <table id="shacharitTable" style="display:none;">
+                    <thead><tr><th>שעה</th><th>מיקום</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-box" id="box-mincha">
+            <h3 onclick="toggleBox('box-mincha')">מנחה</h3>
+            <div class="table-content">
+                <div id="mincha-load" class="inner-loading">טוען נתונים...</div>
+                <table id="minchaTable" style="display:none;">
+                    <thead><tr><th>שעה</th><th>מיקום</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-box" id="box-maariv">
+            <h3 onclick="toggleBox('box-maariv')">ערבית</h3>
+            <div class="table-content">
+                <div id="maariv-load" class="inner-loading">טוען נתונים...</div>
+                <table id="maarivTable" style="display:none;">
+                    <thead><tr><th>שעה</th><th>מיקום</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="mailModal" onclick="closeMailModalOnOverlay(event)">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeMailModal()">&times;</span>
+            <h3>לקבלת לוח הזמנים המעודכן למייל</h3>
+            <p>הזינו את כתובת המייל שלכם ולוח הזמנים המלא ישלח אליכם מיד</p>
+            
+            <form id="emailForm" onsubmit="sendSchedule(event)">
+                <div class="form-group">
+                    <input type="email" id="subscriberEmail" class="email-input" placeholder="you@example.com" required>
+                    <button type="submit" id="submitBtn" class="submit-button">שלח</button>
+                </div>
+            </form>
+            <div id="responseMessage" class="message"></div>
+        </div>
+    </div>
+
+    <script>
+        function toggleBox(boxId) {
+            const box = document.getElementById(boxId);
+            const content = box.querySelector('.table-content');
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                box.classList.remove('active');
+            } else {
+                content.style.display = 'block';
+                box.classList.add('active');
+            }
+        }
+
+        function openMailModal() {
+            document.getElementById('mailModal').style.display = 'flex';
+            document.getElementById('responseMessage').style.display = 'none';
+        }
+        function closeMailModal() {
+            document.getElementById('mailModal').style.display = 'none';
+        }
+        function closeMailModalOnOverlay(event) {
+            if (event.target.id === 'mailModal') {
+                closeMailModal();
+            }
+        }
+
+        function cleanCSVCell(text) {
+            if (!text) return '';
+            let s = text.trim();
+            if (s.startsWith('"') && s.endsWith('"')) { s = s.slice(1, -1); s = s.trim(); }
+            if (s.startsWith('“') && s.endsWith('”')) { s = s.slice(1, -1); s = s.trim(); }
+            s = s.replace(/""/g, '"');
+            s = s.replace(/””/g, '"');
+            s = s.replace(/““/g, '"');
+            if (s.startsWith('"') && !s.includes('"', 1)) { s = s.slice(1); }
+            if (s.endsWith('"') && s.lastIndexOf('"') === s.length - 1 && (s.match(/"/g) || []).length % 2 !== 0) { s = s.slice(0, -1); }
+            return s.trim();
+        }
+
+        /* === שים לב: יש להחליף את שלושת הקישורים הבאים בקישורי ה-CSV
+           מהגיליון הייעודי ל"בין הזמנים" (גיליון אחר מזה של ימות החול) === */
+        const links = {
+            shacharit: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqsR9YPqI3e8NPLqqbWZ0j_cK3Vbql9DwtSqrJZhpc_lDlNWvGSR-6L4mK8P-oXgNA3kiMi-Jp5s5J/pub?gid=0&single=true&output=csv',
+            mincha: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqsR9YPqI3e8NPLqqbWZ0j_cK3Vbql9DwtSqrJZhpc_lDlNWvGSR-6L4mK8P-oXgNA3kiMi-Jp5s5J/pub?gid=1976712448&single=true&output=csv',
+            maariv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqsR9YPqI3e8NPLqqbWZ0j_cK3Vbql9DwtSqrJZhpc_lDlNWvGSR-6L4mK8P-oXgNA3kiMi-Jp5s5J/pub?gid=905054164&single=true&output=csv'
+        };
+
+        async function loadTable(url, tableBodyId, loadingId, tableElementId) {
+            try {
+                const response = await fetch(url);
+                const data = await response.text();
+                const lines = data.split('\n').map(line => line.split(','));
+                const tbody = document.getElementById(tableBodyId);
+                tbody.innerHTML = '';
+
+                lines.forEach((cols, idx) => {
+                    if (idx === 0 || cols.length < 2) return;
+                    const time = cleanCSVCell(cols[0]);
+                    const location = cleanCSVCell(cols[1]);
+                    if (time && location && time.toLowerCase() !== 'time' && time !== 'שעה') {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td class="time-cell">${time}</td><td>${location}</td>`;
+                        tbody.appendChild(tr);
+                    }
+                });
+                
+                document.getElementById(loadingId).style.display = 'none';
+                document.getElementById(tableElementId).style.display = 'table';
+            } catch (error) {
+                document.getElementById(loadingId).innerText = 'שגיאה בטעינת הנתונים';
+                console.error('Error loading table:', error);
+            }
+        }
+
+        function loadAllTables() {
+            loadTable(links.shacharit, 'shacharitTable', 'shacharit-load', 'shacharitTable');
+            loadTable(links.mincha, 'minchaTable', 'mincha-load', 'minchaTable');
+            loadTable(links.maariv, 'maarivTable', 'maariv-load', 'maarivTable');
+        }
+
+        async function sendSchedule(event) {
+            event.preventDefault();
+            const emailInput = document.getElementById('subscriberEmail');
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('responseMessage');
+            
+            const email = emailInput.value.trim().toLowerCase();
+            if (!email) return;
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'שולח...';
+            messageDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/.netlify/functions/send-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+
+                if (response.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.innerText = 'הזמנים נשלחו בהצלחה למייל שלך!';
+                    emailInput.value = '';
+                    setTimeout(closeMailModal, 2000);
+                } else {
+                    const errText = await response.text();
+                    messageDiv.className = 'message error';
+                    messageDiv.innerText = 'שגיאה בשליחה: ' + (errText || 'נסה שוב מאוחר יותר');
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.innerText = 'אירעה שגיאת תקשורת.';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'שלח';
+                messageDiv.style.display = 'block';
+            }
+        }
+
+        window.onload = loadAllTables;
+    </script>
+
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="assets/auth-widget.js"></script>
+</body>
+</html>
