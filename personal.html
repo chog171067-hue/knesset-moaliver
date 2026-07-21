@@ -190,7 +190,7 @@
                     <div class="form-grid">
                         <div class="field full">
                             <label>מוסד</label>
-                            <select id="nkMosad" required>
+                            <select id="nkMosad" required onchange="updateCategoryOptions()">
                                 <option value="7012851" data-apivalid="alCP+ihmNC">בית הכנסת המרכזי מוהליבר</option>
                                 <option value="7005583" data-apivalid="Y8Wct7uqaw">קרן הבנין 'גדול יהיה'</option>
                             </select>
@@ -216,7 +216,8 @@
                         </div>
                         <div class="field">
                             <label>קטגוריה</label>
-                            <input type="text" id="nkGroupe" placeholder="למשל: תרומה חודשית">
+                            <input type="text" id="nkGroupe" list="nkGroupeList" placeholder="בחרו מהרשימה או הקלידו קטגוריה חדשה">
+                            <datalist id="nkGroupeList"></datalist>
                         </div>
                         <div class="field full">
                             <label>הערות</label>
@@ -309,6 +310,7 @@
         document.getElementById('notLoggedInMessage').style.display = 'none';
         prefillNewKevaForm();
         fetchDonorData();
+        fetchCategories();
     });
 
     document.addEventListener('mohliver:logout', () => {
@@ -525,6 +527,37 @@
         for (let y = currentYear; y >= currentYear - 4; y--) {
             rcYear.innerHTML += `<option value="${y}">${y}</option>`;
         }
+    }
+
+    // --- רשימת קטגוריות קיימות (להשלמה אוטומטית בטופס הו"ק חדשה) ---
+    let categoriesByMosad = {};
+
+    async function fetchCategories() {
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            if (!currentUser) return;
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/get-categories', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                categoriesByMosad = result.categoriesByMosad || {};
+                updateCategoryOptions();
+            }
+        } catch (err) {
+            // לא קריטי - במקרה של כשל, שדה הקטגוריה פשוט יישאר טקסט חופשי רגיל בלי הצעות
+            console.warn('לא ניתן היה לטעון רשימת קטגוריות:', err.message);
+        }
+    }
+
+    function updateCategoryOptions() {
+        const mosadId = document.getElementById('nkMosad').value;
+        const list = document.getElementById('nkGroupeList');
+        const categories = categoriesByMosad[mosadId] || [];
+        list.innerHTML = categories.map(c => `<option value="${c}"></option>`).join('');
     }
 
     // --- טאב 2: פתיחת הוראת קבע חדשה (אייפרם) ---
