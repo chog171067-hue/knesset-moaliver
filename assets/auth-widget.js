@@ -35,14 +35,15 @@
     // ===== הזרקת CSS =====
     const style = document.createElement('style');
     style.textContent = `
-        #maw-corner { position: fixed; top: 14px; left: 20px; z-index: 9999; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #maw-corner { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; position: relative; }
         #maw-corner button { font-family: inherit; }
+        #maw-corner.maw-fixed-fallback { position: fixed; top: 14px; left: 20px; z-index: 9999; }
         .maw-toggle {
-            background: #1a365d; color: #f7fafc; border: none; padding: 9px 16px; border-radius: 8px;
-            font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            background: #d4a017; color: #1a365d; border: none; padding: 8px 14px; border-radius: 8px;
+            font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); white-space: nowrap;
         }
-        .maw-toggle:hover { background: #2a4365; }
+        .maw-toggle:hover { background: #b8860b; }
         .maw-dropdown {
             display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
             background: #fff; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
@@ -95,20 +96,34 @@
         .maw-forgot { display: none; text-align: center; margin-top: 10px; }
         .maw-forgot a { color: #2b6cb0; font-size: 13px; text-decoration: underline; cursor: pointer; }
         @media (max-width: 480px) {
-            #maw-corner { top: 8px; left: 8px; }
+            #maw-corner.maw-fixed-fallback { top: 8px; left: 8px; }
         }
     `;
     document.head.appendChild(style);
 
     // ===== הזרקת HTML =====
-    const html = `
+    // כפתור "כניסה/הרשמה" (או "שלום X") - מוטמע בתוך סרגל הניווט עצמו (בתוך
+    // #maw-header-slot שנוצר ע"י header.js), כדי שיהיה חלק קבוע מהסרגל ולא ירחף
+    // בנפרד. אם משום מה הסרגל לא נטען (לדוגמה דף שלא כולל את header.js),
+    // נופלים חזרה למיקום קבוע (fixed) בפינה כמו בעבר.
+    const cornerHtml = `
         <div id="maw-corner">
             <button class="maw-toggle" id="mawToggle">
                 <span id="mawGreeting">כניסה / הרשמה</span> <span>▾</span>
             </button>
             <div class="maw-dropdown" id="mawDropdown"></div>
         </div>
+    `;
 
+    const headerSlot = document.getElementById('maw-header-slot');
+    if (headerSlot) {
+        headerSlot.insertAdjacentHTML('beforeend', cornerHtml);
+    } else {
+        document.body.insertAdjacentHTML('beforeend', cornerHtml);
+        document.getElementById('maw-corner').classList.add('maw-fixed-fallback');
+    }
+
+    const html = `
         <div class="maw-overlay" id="mawAuthOverlay">
             <div class="maw-box">
                 <button class="maw-close" id="mawAuthClose" aria-label="סגור">✕</button>
