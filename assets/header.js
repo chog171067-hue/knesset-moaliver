@@ -26,9 +26,6 @@
         '    <a href="index.html" class="nav-logo-link">' +
         '      <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="nav-logo">' +
         '    </a>' +
-        '    <button class="hamburger" onclick="toggleMenu()">' +
-        '      <span></span><span></span><span></span>' +
-        '    </button>' +
         '    <ul class="nav-menu" id="navMenu">' +
         '      <li class="nav-item' + (isHome ? ' active' : '') + '"><a href="index.html">דף הבית</a></li>' +
         '      <li class="nav-item' + (isPrayer ? ' active' : '') + '" id="prayersDropdown">' +
@@ -42,6 +39,12 @@
         '      <li class="nav-item' + (isNews ? ' active' : '') + '"><a href="news.html">מהנעשה ונשמע</a></li>' +
         '      <li class="nav-item' + (isPersonal ? ' active' : '') + '"><a href="personal.html">אזור אישי</a></li>' +
         '    </ul>' +
+        '    <div class="nav-side-controls">' +
+        '      <button class="hamburger" onclick="toggleMenu()">' +
+        '        <span></span><span></span><span></span>' +
+        '      </button>' +
+        '      <div id="maw-header-slot"></div>' +
+        '    </div>' +
         '  </div>' +
         '</header>';
 
@@ -52,6 +55,19 @@
         // רשת ביטחון: אם מישהו שכח את ה-placeholder, מוסיפים בתחילת ה-body בכל זאת
         document.body.insertAdjacentHTML('afterbegin', html);
     }
+
+    // הסרגל קבוע (position: fixed) כדי שיישאר מרחף למעלה גם בעת גלילה - לכן צריך
+    // "לפצות" על זה עם ריווח עליון לתוכן הדף, בגובה המדויק של הסרגל בפועל.
+    function updateHeaderOffset() {
+        var headerEl = document.querySelector('header');
+        if (headerEl) {
+            document.body.style.paddingTop = headerEl.offsetHeight + 'px';
+        }
+    }
+    updateHeaderOffset();
+    window.addEventListener('resize', updateHeaderOffset);
+    var logoImg = document.querySelector('.nav-logo');
+    if (logoImg) logoImg.addEventListener('load', updateHeaderOffset);
 
     // פונקציות גלובליות עבור כפתורי ההמבורגר והדרופדאון שבתוך ה-HTML שהוזרק
     window.toggleMenu = function () {
