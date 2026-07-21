@@ -55,6 +55,35 @@ async function findOwnKeva(ownTz, ownPhone, kevaId) {
   return ownKevot.find(k => String(k.KevaId) === String(kevaId)) || null;
 }
 
+// שליפת רשימת הקטגוריות (Groupe) שכבר בשימוש בפועל אצל כל מוסד - אין ל-API של נדרים
+// פלוס נקודת קצה ייעודית לרשימת קטגוריות של תרומות (זה קיים רק במודול ההוצאות),
+// ולכן פשוט אוספים את כל הערכים השונים מתוך רשימת כל הוראות הקבע של המוסד (GetKevaJson).
+async function fetchCategoriesByMosad() {
+  const { API_PASSWORD_1, API_PASSWORD_2 } = getApiPasswords();
+
+  const [res1, res2] = await Promise.all([
+    fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetKevaJson&MosadId=${MOSAD_1}&ApiPassword=${API_PASSWORD_1}`),
+    fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetKevaJson&MosadId=${MOSAD_2}&ApiPassword=${API_PASSWORD_2}`)
+  ]);
+
+  const allKevot1 = res1.ok ? await res1.json() : [];
+  const allKevot2 = res2.ok ? await res2.json() : [];
+
+  function distinctCategories(list) {
+    const set = new Set();
+    list.forEach(k => {
+      const g = (k.Groupe || '').trim();
+      if (g) set.add(g);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'he'));
+  }
+
+  return {
+    [MOSAD_1]: distinctCategories(allKevot1),
+    [MOSAD_2]: distinctCategories(allKevot2)
+  };
+}
+
 module.exports = {
   MOSAD_1,
   MOSAD_2,
@@ -64,5 +93,6 @@ module.exports = {
   getApiPasswordForMosad,
   getMosadName,
   fetchOwnKevot,
-  findOwnKeva
+  findOwnKeva,
+  fetchCategoriesByMosad
 };
