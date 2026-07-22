@@ -84,6 +84,51 @@ async function fetchCategoriesByMosad() {
   };
 }
 
+// שליפת "הסטוריית עסקאות" (Action=GetHistoryJson) - שים לב: לפי התיעוד, פעולה זו מוגבלת
+// ל-20 בקשות בשעה בלבד (למוסד), בניגוד לשאר הפעולות. לכן מיישמים כאן מטמון פשוט
+// בזיכרון התהליך (best-effort - נשמר כל עוד ה-function "חמה", לא מובטח בין הפעלות קרות),
+// כדי שריבוי לחיצות של כמה משתמשים בו-זמנית לא "ישרוף" את המכסה המוגבלת.
+const HISTORY_CACHE_TTL_MS = 10 * 60 * 1000; // 10 דקות
+const historyCache = {};
+
+async function fetchInstitutionHistory(mosadId) {
+  const now = Date.now();
+  const cached = historyCache[mosadId];
+  if (cached && (now - cached.fetchedAt) < HISTORY_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const apiPassword = getApiPasswordForMosad(mosadId);
+  const response = await fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=2000`);
+  const data = response.ok ? await response.json() : [];
+  const list = Array.isArray(data) ? data : [];
+
+  historyCache[mosadId] = { data: list, fetchedAt: now };
+  return list;
+}
+
+// שליפת כל ההיסטוריה (כולל עסקאות חד-פעמיות שאינן קשורות לשום הוראת קבע) של המשתמש המחובר בלבד
+async function fetchOwnDonationHistory(ownTz, ownPhone) {
+  const [hist1, hist2] = await Promise.all([
+    fetchInstitutionHistory(MOSAD_1),
+    fetchInstitutionHistory(MOSAD_2)
+  ]);
+
+  const marked1 = hist1.map(t => ({ ...t, mosadId: MOSAD_1, mosadName: MOSAD_1_NAME }));
+  const marked2 = hist2.map(t => ({ ...t, mosadId: MOSAD_2, mosadName: MOSAD_2_NAME }));
+  const combined = [...marked1, ...marked2];
+
+  const ownPhoneClean = (ownPhone || '').replace(/[-\s]/g, '');
+  const filtered = combined.filter(t => {
+    const tTz = (t.Zeout || '').trim();
+    const tPhone = (t.Phone || '').trim().replace(/[-\s]/g, '');
+    return tTz === ownTz && (!ownPhoneClean || tPhone === ownPhoneClean);
+  });
+
+  filtered.sort((a, b) => new Date(b.TransactionTime) - new Date(a.TransactionTime));
+  return filtered;
+}
+
 module.exports = {
   MOSAD_1,
   MOSAD_2,
@@ -94,5 +139,6 @@ module.exports = {
   getMosadName,
   fetchOwnKevot,
   findOwnKeva,
-  fetchCategoriesByMosad
+  fetchCategoriesByMosad,
+  fetchOwnDonationHistory
 };
