@@ -210,6 +210,8 @@
                     <li><button class="nav-btn" data-tab="tab-update" onclick="switchTab('tab-update')"><span class="icon">💳</span> עדכון כרטיס / תאריך חיוב</button></li>
                     <li class="sidebar-divider-li"><div class="sidebar-divider"></div></li>
                     <li><button class="nav-btn" data-tab="tab-receipt" onclick="switchTab('tab-receipt')"><span class="icon">🧾</span> הפקת קבלה</button></li>
+                    <li class="sidebar-divider-li"><div class="sidebar-divider"></div></li>
+                    <li><button class="nav-btn" data-tab="tab-donation-history" onclick="switchTab('tab-donation-history')"><span class="icon">📜</span> היסטוריית תרומות</button></li>
                 </ul>
             </div>
 
@@ -355,6 +357,22 @@
                 </form>
             </div>
 
+            <!-- טאב: היסטוריית תרומות (כולל חד-פעמיות) -->
+            <div class="panel" id="tab-donation-history">
+                <h2>היסטוריית תרומות</h2>
+                <p class="panel-desc">כל התרומות שביצעת למוסדות בית הכנסת - כולל תרומות חד-פעמיות שאינן קשורות להוראת קבע.</p>
+                <div id="dhSummary" class="summary-info" style="display:none;"></div>
+                <div id="dhLoading" class="loading">טוען היסטוריית תרומות...</div>
+                <div id="dhError" class="form-error"></div>
+                <div id="dhTableWrap" style="display:none;">
+                    <table class="history-table">
+                        <thead><tr><th>תאריך</th><th>סכום</th><th>סוג</th><th>קטגוריה</th><th>מוסד</th></tr></thead>
+                        <tbody id="dhTableBody"></tbody>
+                    </table>
+                </div>
+                <button class="history-btn" onclick="fetchDonationHistory(true)" style="margin-top:15px;">🔄 רענון</button>
+            </div>
+
             <!-- טאב 5: כרטיס חבר קהילה -->
             <div class="panel" id="tab-member-card">
                 <h2>כרטיס חבר קהילה</h2>
@@ -468,11 +486,19 @@
     }
 
     // --- ניווט בין הטאבים בסרגל הצד ---
+    let donationHistoryLoaded = false;
+
     function switchTab(tabId) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         document.querySelector(`.nav-btn[data-tab="${tabId}"]`).classList.add('active');
+
+        // טעינה עצלה: שולפים את היסטוריית התרומות רק בכניסה הראשונה לטאב (לא בכל התחברות),
+        // כדי לא לבזבז מיותר מתוך המכסה המוגבלת (20 בקשות בשעה) של נדרים פלוס
+        if (tabId === 'tab-donation-history' && !donationHistoryLoaded) {
+            fetchDonationHistory(false);
+        }
     }
 
     // --- טאב 1: שליפת והצגת הוראות הקבע ---
@@ -690,6 +716,63 @@
         const list = document.getElementById('nkGroupeList');
         const categories = categoriesByMosad[mosadId] || [];
         list.innerHTML = categories.map(c => `<option value="${c}"></option>`).join('');
+    }
+
+    // --- היסטוריית תרומות מלאה (כולל חד-פעמיות) ---
+    async function fetchDonationHistory(forceRefresh) {
+        const loadingDiv = document.getElementById('dhLoading');
+        const errorDiv = document.getElementById('dhError');
+        const tableWrap = document.getElementById('dhTableWrap');
+        const summaryDiv = document.getElementById('dhSummary');
+        const tbody = document.getElementById('dhTableBody');
+
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        tableWrap.style.display = 'none';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            if (!currentUser) throw new Error('יש להתחבר מחדש');
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/get-donation-history', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'כשל בטעינת ההיסטוריה');
+            }
+
+            donationHistoryLoaded = true;
+
+            summaryDiv.style.display = 'block';
+            summaryDiv.innerText = `סה"כ ${result.count} תרומות, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
+
+            tbody.innerHTML = '';
+            if (result.history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות קודמות.</td></tr>';
+            } else {
+                result.history.forEach(t => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${t.date || '-'}</td>
+                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
+                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
+                            <td>${t.category || '-'}</td>
+                            <td>${t.mosadName || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        }
     }
 
     // --- טאב 5: כרטיס חבר קהילה ---
