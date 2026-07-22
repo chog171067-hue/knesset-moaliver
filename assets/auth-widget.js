@@ -633,6 +633,9 @@
                 localStorage.setItem('mohliver_display_name', name);
                 renderCornerLoggedIn(name);
             }
+        },
+        openAccountSettings: function () {
+            if (isCurrentlyAuthenticated()) openAccountSettings();
         }
     };
 })();
