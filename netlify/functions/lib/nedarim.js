@@ -94,6 +94,10 @@ async function fetchCategoriesByMosad() {
 // ל-20 בקשות בשעה בלבד (למוסד), בניגוד לשאר הפעולות. לכן מיישמים כאן מטמון פשוט
 // בזיכרון התהליך (best-effort - נשמר כל עוד ה-function "חמה", לא מובטח בין הפעלות קרות),
 // כדי שריבוי לחיצות של כמה משתמשים בו-זמנית לא "ישרוף" את המכסה המוגבלת.
+//
+// MaxId מוגדר גבוה מאוד (100000) כדי לוודא שכל ההיסטוריה מוחזרת: הרשומות מוחזרות
+// מה-API בסדר כרונולוגי עולה (הישנות קודם), ולכן ערך MaxId נמוך מדי חותך בפועל
+// את התרומות החדשות ביותר (שהן הרשומות שבסוף הרשימה), ולא את הישנות.
 const HISTORY_CACHE_TTL_MS = 10 * 60 * 1000; // 10 דקות
 const historyCache = {};
 
@@ -105,12 +109,26 @@ async function fetchInstitutionHistory(mosadId) {
   }
 
   const apiPassword = getApiPasswordForMosad(mosadId);
-  const response = await fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=2000`);
+  const response = await fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=100000`);
   const data = response.ok ? await response.json() : [];
   const list = Array.isArray(data) ? data : [];
 
   historyCache[mosadId] = { data: list, fetchedAt: now };
   return list;
+}
+
+// ממיר תאריך בפורמט שמחזיר נדרים פלוס (DD/MM/YYYY, לעיתים עם שעה) לאובייקט Date תקין.
+// אי אפשר לסמוך על new Date(str) ישירות עם הפורמט הזה - JS מפרש מחרוזות עם / כ-MM/DD/YYYY,
+// כך שכל יום מעל 12 (למשל 28/07/2026) הופך ל-Invalid Date, מה שגרם למיון לפי תאריך לא לעבוד בפועל.
+function parseNedarimDate(value) {
+  const str = String(value || '').trim();
+  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (match) {
+    const [, day, month, year, hour, minute, second] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour || 0), Number(minute || 0), Number(second || 0));
+  }
+  const fallback = new Date(str);
+  return isNaN(fallback) ? new Date(0) : fallback;
 }
 
 // שליפת היסטוריית העסקאות של שני המוסדות יחד, ללא כל סינון לפי בעלות - שימוש פנימי בלבד
@@ -125,7 +143,7 @@ async function fetchAllDonationHistory() {
   const marked2 = hist2.map(t => ({ ...t, mosadId: MOSAD_2, mosadName: MOSAD_2_NAME }));
   const combined = [...marked1, ...marked2];
 
-  combined.sort((a, b) => new Date(b.TransactionTime) - new Date(a.TransactionTime));
+  combined.sort((a, b) => parseNedarimDate(b.TransactionTime) - parseNedarimDate(a.TransactionTime));
   return combined;
 }
 
