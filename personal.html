@@ -440,6 +440,8 @@
             <div class="panel" id="tab-yeshiva-tracking">
                 <h2>מעקב תרומות ישי' ביה"ז</h2>
                 <p class="panel-desc">כל התורמים והוראות הקבע תחת הקטגוריה "כולל וישיבת בין הזמנים", משני המוסדות.</p>
+                <button class="history-btn" onclick="fetchYeshivaTracking()" style="margin-bottom:15px;">🔄 רענון</button>
+
                 <div id="ytSummary" class="summary-info" style="display:none;"></div>
                 <div id="ytLoading" class="loading">טוען נתונים...</div>
                 <div id="ytError" class="form-error"></div>
@@ -457,8 +459,6 @@
                         <tbody id="ytHistoryTableBody"></tbody>
                     </table>
                 </div>
-
-                <button class="history-btn" onclick="fetchYeshivaTracking()" style="margin-top:15px;">🔄 רענון</button>
             </div>
 
         </section>

@@ -108,12 +108,17 @@ const HISTORY_PAGE_SIZE = 2000; // המקסימום המותר לפי התיעו
 const HISTORY_MAX_PAGES = 10; // רשת ביטחון מפני לולאה אינסופית / שריפת כל המכסה השעתית על משיכה אחת
 const historyCache = {};
 
+// זורק שגיאה (ולא מחזיר []) כשהבקשה נכשלת - כדי שחריגה ממכסת 20 הבקשות בשעה לא
+// תתבלבל עם "הגענו לסוף הרשימה" ותסכן מטמון של מידע חלקי/ריק לשעה שלמה (ראו fetchInstitutionHistory)
 async function fetchHistoryPage(mosadId, apiPassword, lastId) {
   let url = `https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=${HISTORY_PAGE_SIZE}`;
   if (lastId) url += `&LastId=${encodeURIComponent(lastId)}`;
 
   const response = await fetch(url);
-  const data = response.ok ? await response.json() : [];
+  if (!response.ok) {
+    throw new Error(`נדרים פלוס החזיר שגיאה (${response.status}) בשליפת היסטוריית עסקאות - יתכן שנחצתה מכסת 20 הבקשות בשעה למוסד זה`);
+  }
+  const data = await response.json();
   return Array.isArray(data) ? data : [];
 }
 
@@ -124,21 +129,28 @@ async function fetchInstitutionHistory(mosadId) {
     return cached.data;
   }
 
-  const apiPassword = getApiPasswordForMosad(mosadId);
-  let all = [];
-  let lastId;
+  try {
+    const apiPassword = getApiPasswordForMosad(mosadId);
+    let all = [];
+    let lastId;
 
-  for (let page = 0; page < HISTORY_MAX_PAGES; page++) {
-    const chunk = await fetchHistoryPage(mosadId, apiPassword, lastId);
-    if (chunk.length === 0) break;
+    for (let page = 0; page < HISTORY_MAX_PAGES; page++) {
+      const chunk = await fetchHistoryPage(mosadId, apiPassword, lastId);
+      if (chunk.length === 0) break;
 
-    all = all.concat(chunk);
-    if (chunk.length < HISTORY_PAGE_SIZE) break; // עמוד חלקי = הגענו לסוף הרשימה (אין רשומות חדשות יותר)
-    lastId = chunk[chunk.length - 1].TransactionId;
+      all = all.concat(chunk);
+      if (chunk.length < HISTORY_PAGE_SIZE) break; // עמוד חלקי = הגענו לסוף הרשימה (אין רשומות חדשות יותר)
+      lastId = chunk[chunk.length - 1].TransactionId;
+    }
+
+    historyCache[mosadId] = { data: all, fetchedAt: now };
+    return all;
+  } catch (err) {
+    // כשל בפועל (למשל חריגה ממכסת הבקשות) - עדיף להחזיר מטמון ישן (גם אם פג תוקפו)
+    // מאשר לאבד נתונים או לשמור בטעות מידע חלקי כמלא. רק אם אין שום מטמון קודם, נכשלים כלפי מעלה.
+    if (cached) return cached.data;
+    throw err;
   }
-
-  historyCache[mosadId] = { data: all, fetchedAt: now };
-  return all;
 }
 
 // ממיר תאריך בפורמט שמחזיר נדרים פלוס (DD/MM/YYYY, לעיתים עם שעה) לאובייקט Date תקין.
