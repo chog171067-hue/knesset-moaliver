@@ -93,23 +93,22 @@ async function fetchCategoriesByMosad() {
 // שליפת "הסטוריית עסקאות" (Action=GetHistoryJson). לפי התיעוד הרשמי של נדרים פלוס:
 // - הפעולה מוגבלת ל-20 בקשות בשעה (למוסד).
 // - היא לעולם לא מחזירה יותר מ-2000 רשומות בקריאה בודדת (MaxId), והרשומות חוזרות
-//   בסדר כרונולוגי עולה החל מהעסקה הראשונה של המוסד (הישנה ביותר) - כלומר קריאה
-//   בודדת בלי pagination "חותכת" בפועל את התרומות החדשות ביותר, לא את הישנות.
-// - כדי לקבל את כל ההיסטוריה יש לבצע קריאות חוזרות בלולאה, ובכל פעם לשלוח את
-//   ה-TransactionId האחרון שהתקבל בתור LastId של הקריאה הבאה, עד שמתקבלת רשומה
-//   ריקה או עמוד קטן מ-MaxId (סימן שהגענו לסוף הרשימה - אין עוד רשומות חדשות יותר).
+//   בסדר כרונולוגי עולה - וכש-LastId נשלח, הן ממשיכות מהרשומה שאחריו (לא כולל).
 //
-// כדי לא לשרוף את מכסת ה-20 בקשות בשעה על משיכה אחת (למשל אם כמה משתמשים פותחים
-// את הטאב בו-זמנית), מיישמים כאן מטמון בזיכרון התהליך (best-effort - נשמר כל עוד
-// ה-function "חמה", לא מובטח בין הפעלות קרות) עם TTL ארוך יחסית של שעה - כך שגם אם
-// המשיכה המלאה דורשת כמה עמודים, היא מתבצעת לכל היותר פעם בשעה למוסד, ולא בכל טעינת דף.
-const HISTORY_CACHE_TTL_MS = 60 * 60 * 1000; // שעה
+// כדי גם לקבל עדכון כמעט מיידי על תרומה חדשה וגם לא לחרוג ממכסת 20 הבקשות בשעה,
+// המטמון בזיכרון התהליך שומר את כל מה שכבר נשלף פעם אחת (best-effort - נשמר כל
+// עוד ה-function "חמה", לא מובטח בין הפעלות קרות), ובכל קריאה עוקבת מבצעים רק
+// "בדיקת דלתא" זולה - קריאה עם LastId של הרשומה האחרונה שכבר יש לנו, שמחזירה אך
+// ורק את מה שהצטבר מאז (לרוב קריאה בודדת וריקה/כמעט ריקה, לא pagination מלא מחדש).
+// HISTORY_MIN_RECHECK_MS מגביל את קצב בדיקות הדלתא עצמן, כך שגם בעומס כבד
+// (הרבה משתמשים בו-זמנית) לא ניתן לחרוג מהמכסה השעתית.
+const HISTORY_MIN_RECHECK_MS = 4 * 60 * 1000; // 4 דקות -> לכל היותר 15 בדיקות בשעה למוסד, מרווח בטוח מתחת ל-20
 const HISTORY_PAGE_SIZE = 2000; // המקסימום המותר לפי התיעוד - לא ניתן לבקש יותר בקריאה בודדת
 const HISTORY_MAX_PAGES = 10; // רשת ביטחון מפני לולאה אינסופית / שריפת כל המכסה השעתית על משיכה אחת
 const historyCache = {};
 
 // זורק שגיאה (ולא מחזיר []) כשהבקשה נכשלת - כדי שחריגה ממכסת 20 הבקשות בשעה לא
-// תתבלבל עם "הגענו לסוף הרשימה" ותסכן מטמון של מידע חלקי/ריק לשעה שלמה (ראו fetchInstitutionHistory)
+// תתבלבל עם "הגענו לסוף הרשימה" ותסכן מטמון של מידע חלקי/ריק (ראו fetchInstitutionHistory)
 async function fetchHistoryPage(mosadId, apiPassword, lastId) {
   let url = `https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=${HISTORY_PAGE_SIZE}`;
   if (lastId) url += `&LastId=${encodeURIComponent(lastId)}`;
@@ -122,32 +121,51 @@ async function fetchHistoryPage(mosadId, apiPassword, lastId) {
   return Array.isArray(data) ? data : [];
 }
 
+// שולף בלולאה את כל הרשומות החל מ-startLastId (לא כולל) ועד סוף הרשימה - בין אם
+// זו משיכה ראשונית מלאה (startLastId ריק) ובין אם זו בדיקת דלתא (startLastId = מה שכבר יש לנו)
+async function fetchHistoryPagesFrom(mosadId, apiPassword, startLastId) {
+  let records = [];
+  let lastId = startLastId;
+
+  for (let page = 0; page < HISTORY_MAX_PAGES; page++) {
+    const chunk = await fetchHistoryPage(mosadId, apiPassword, lastId);
+    if (chunk.length === 0) break;
+
+    records = records.concat(chunk);
+    lastId = chunk[chunk.length - 1].TransactionId;
+    if (chunk.length < HISTORY_PAGE_SIZE) break; // עמוד חלקי = הגענו לסוף הרשימה
+  }
+
+  return { records, lastId };
+}
+
 async function fetchInstitutionHistory(mosadId) {
   const now = Date.now();
   const cached = historyCache[mosadId];
-  if (cached && (now - cached.fetchedAt) < HISTORY_CACHE_TTL_MS) {
+
+  // בדקנו לאחרונה ממש עכשיו - לא פונים שוב לנדרים פלוס, כדי לא לחרוג מהמכסה השעתית בעומס
+  if (cached && (now - cached.checkedAt) < HISTORY_MIN_RECHECK_MS) {
     return cached.data;
   }
 
   try {
     const apiPassword = getApiPasswordForMosad(mosadId);
-    let all = [];
-    let lastId;
+    const { records: newRecords, lastId: newLastId } = await fetchHistoryPagesFrom(mosadId, apiPassword, cached && cached.lastId);
 
-    for (let page = 0; page < HISTORY_MAX_PAGES; page++) {
-      const chunk = await fetchHistoryPage(mosadId, apiPassword, lastId);
-      if (chunk.length === 0) break;
-
-      all = all.concat(chunk);
-      if (chunk.length < HISTORY_PAGE_SIZE) break; // עמוד חלקי = הגענו לסוף הרשימה (אין רשומות חדשות יותר)
-      lastId = chunk[chunk.length - 1].TransactionId;
+    if (!cached) {
+      historyCache[mosadId] = { data: newRecords, lastId: newLastId, checkedAt: now };
+      return newRecords;
     }
 
-    historyCache[mosadId] = { data: all, fetchedAt: now };
-    return all;
+    if (newRecords.length > 0) {
+      cached.data = cached.data.concat(newRecords);
+      cached.lastId = newLastId;
+    }
+    cached.checkedAt = now;
+    return cached.data;
   } catch (err) {
-    // כשל בפועל (למשל חריגה ממכסת הבקשות) - עדיף להחזיר מטמון ישן (גם אם פג תוקפו)
-    // מאשר לאבד נתונים או לשמור בטעות מידע חלקי כמלא. רק אם אין שום מטמון קודם, נכשלים כלפי מעלה.
+    // כשל בפועל (למשל חריגה ממכסת הבקשות) - עדיף להחזיר את מה שכבר יש (גם אם לא
+    // הכי טרי) מאשר לאבד נתונים. רק אם אין שום מטמון קודם, נכשלים כלפי מעלה.
     if (cached) return cached.data;
     throw err;
   }
