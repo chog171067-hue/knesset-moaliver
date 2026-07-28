@@ -346,7 +346,7 @@
                 handleAuthenticated(user);
             } else {
                 const fullName = $('mawAuthFullName').value.trim();
-                await netlifyIdentity.gotrue.signup(email, password, { data: { verified_tz: verifiedTz, full_name: fullName, name: fullName } });
+                await netlifyIdentity.gotrue.signup(email, password, { verified_tz: verifiedTz, full_name: fullName, name: fullName });
                 loadingDiv.style.display = 'none';
                 alert('נרשמת בהצלחה! מייל אישור נשלח לכתובת שלך. אנא אשר אותו בתיבת המייל ולאחר מכן חזור לכאן להתחבר.');
                 closeAuthModal();
