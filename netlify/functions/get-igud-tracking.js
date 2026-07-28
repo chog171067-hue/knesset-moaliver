@@ -1,10 +1,10 @@
-// טאב אישי חריג ("מעקב תרומות האיגוד") שנחשף בממשק רק למשתמש מורשה ספציפי אחד
-// (מזוהה לפי ת"ז מקושרת) - מציג לו את כל התורמים (ולא רק את עצמו) שנתרמו תחת
+// טאב אישי חריג ("מעקב תרומות האיגוד") שנחשף בממשק רק למשתמשים מורשים ספציפיים
+// (מזוהים לפי ת"ז מקושרת) - מציג להם את כל התורמים (ולא רק את עצמם) שנתרמו תחת
 // הקטגוריה הנתונה, מתוך שני המוסדות. ראו assets/../personal.html לצד הלקוח.
 
 const { fetchAllKevot, fetchAllDonationHistory } = require('./lib/nedarim');
 
-const AUTHORIZED_TZ = '066436932';
+const AUTHORIZED_TZS = ['066436932', '313325292'];
 const TRACKED_CATEGORY = "איגוד מוהליבר";
 
 function matchesCategory(rawCategory) {
@@ -29,7 +29,7 @@ exports.handler = async function (event, context) {
     };
   }
 
-  if (authedTz !== AUTHORIZED_TZ) {
+  if (!AUTHORIZED_TZS.includes(authedTz)) {
     return {
       statusCode: 403,
       headers: corsHeaders,

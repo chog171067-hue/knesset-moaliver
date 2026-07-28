@@ -1392,16 +1392,16 @@
         }
     }
 
-    // --- טאב חריג: מעקב תרומות האיגוד (מוצג רק למשתמש מורשה שלישי) ---
+    // --- טאב חריג: מעקב תרומות האיגוד (מוצג רק למשתמשים מורשים) ---
     // הבדיקה כאן היא רק כדי להראות/להסתיר את כפתור התפריט - ההרשאה האמיתית
     // נאכפת בשרת (get-igud-tracking.js) לפי ה-verified_tz שבטוקן המאומת.
-    const IGUD_TRACKING_AUTHORIZED_TZ = '066436932';
+    const IGUD_TRACKING_AUTHORIZED_TZS = ['066436932', '313325292'];
     let igudTrackingLoaded = false;
 
     function checkIgudTrackingAccess() {
         const user = netlifyIdentity.currentUser();
         const meta = user && user.app_metadata;
-        const isAuthorized = meta && String(meta.verified_tz || '').trim() === IGUD_TRACKING_AUTHORIZED_TZ;
+        const isAuthorized = meta && IGUD_TRACKING_AUTHORIZED_TZS.includes(String(meta.verified_tz || '').trim());
 
         document.getElementById('igudTrackingNavItem').style.display = isAuthorized ? 'block' : 'none';
         document.getElementById('igudTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
