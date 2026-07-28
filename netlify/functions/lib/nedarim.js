@@ -90,16 +90,32 @@ async function fetchCategoriesByMosad() {
   };
 }
 
-// שליפת "הסטוריית עסקאות" (Action=GetHistoryJson) - שים לב: לפי התיעוד, פעולה זו מוגבלת
-// ל-20 בקשות בשעה בלבד (למוסד), בניגוד לשאר הפעולות. לכן מיישמים כאן מטמון פשוט
-// בזיכרון התהליך (best-effort - נשמר כל עוד ה-function "חמה", לא מובטח בין הפעלות קרות),
-// כדי שריבוי לחיצות של כמה משתמשים בו-זמנית לא "ישרוף" את המכסה המוגבלת.
+// שליפת "הסטוריית עסקאות" (Action=GetHistoryJson). לפי התיעוד הרשמי של נדרים פלוס:
+// - הפעולה מוגבלת ל-20 בקשות בשעה (למוסד).
+// - היא לעולם לא מחזירה יותר מ-2000 רשומות בקריאה בודדת (MaxId), והרשומות חוזרות
+//   בסדר כרונולוגי עולה החל מהעסקה הראשונה של המוסד (הישנה ביותר) - כלומר קריאה
+//   בודדת בלי pagination "חותכת" בפועל את התרומות החדשות ביותר, לא את הישנות.
+// - כדי לקבל את כל ההיסטוריה יש לבצע קריאות חוזרות בלולאה, ובכל פעם לשלוח את
+//   ה-TransactionId האחרון שהתקבל בתור LastId של הקריאה הבאה, עד שמתקבלת רשומה
+//   ריקה או עמוד קטן מ-MaxId (סימן שהגענו לסוף הרשימה - אין עוד רשומות חדשות יותר).
 //
-// MaxId מוגדר גבוה מאוד (100000) כדי לוודא שכל ההיסטוריה מוחזרת: הרשומות מוחזרות
-// מה-API בסדר כרונולוגי עולה (הישנות קודם), ולכן ערך MaxId נמוך מדי חותך בפועל
-// את התרומות החדשות ביותר (שהן הרשומות שבסוף הרשימה), ולא את הישנות.
-const HISTORY_CACHE_TTL_MS = 10 * 60 * 1000; // 10 דקות
+// כדי לא לשרוף את מכסת ה-20 בקשות בשעה על משיכה אחת (למשל אם כמה משתמשים פותחים
+// את הטאב בו-זמנית), מיישמים כאן מטמון בזיכרון התהליך (best-effort - נשמר כל עוד
+// ה-function "חמה", לא מובטח בין הפעלות קרות) עם TTL ארוך יחסית של שעה - כך שגם אם
+// המשיכה המלאה דורשת כמה עמודים, היא מתבצעת לכל היותר פעם בשעה למוסד, ולא בכל טעינת דף.
+const HISTORY_CACHE_TTL_MS = 60 * 60 * 1000; // שעה
+const HISTORY_PAGE_SIZE = 2000; // המקסימום המותר לפי התיעוד - לא ניתן לבקש יותר בקריאה בודדת
+const HISTORY_MAX_PAGES = 10; // רשת ביטחון מפני לולאה אינסופית / שריפת כל המכסה השעתית על משיכה אחת
 const historyCache = {};
+
+async function fetchHistoryPage(mosadId, apiPassword, lastId) {
+  let url = `https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=${HISTORY_PAGE_SIZE}`;
+  if (lastId) url += `&LastId=${encodeURIComponent(lastId)}`;
+
+  const response = await fetch(url);
+  const data = response.ok ? await response.json() : [];
+  return Array.isArray(data) ? data : [];
+}
 
 async function fetchInstitutionHistory(mosadId) {
   const now = Date.now();
@@ -109,12 +125,20 @@ async function fetchInstitutionHistory(mosadId) {
   }
 
   const apiPassword = getApiPasswordForMosad(mosadId);
-  const response = await fetch(`https://matara.pro/nedarimplus/Reports/Manage3.aspx?Action=GetHistoryJson&MosadId=${mosadId}&ApiPassword=${apiPassword}&MaxId=100000`);
-  const data = response.ok ? await response.json() : [];
-  const list = Array.isArray(data) ? data : [];
+  let all = [];
+  let lastId;
 
-  historyCache[mosadId] = { data: list, fetchedAt: now };
-  return list;
+  for (let page = 0; page < HISTORY_MAX_PAGES; page++) {
+    const chunk = await fetchHistoryPage(mosadId, apiPassword, lastId);
+    if (chunk.length === 0) break;
+
+    all = all.concat(chunk);
+    if (chunk.length < HISTORY_PAGE_SIZE) break; // עמוד חלקי = הגענו לסוף הרשימה (אין רשומות חדשות יותר)
+    lastId = chunk[chunk.length - 1].TransactionId;
+  }
+
+  historyCache[mosadId] = { data: all, fetchedAt: now };
+  return all;
 }
 
 // ממיר תאריך בפורמט שמחזיר נדרים פלוס (DD/MM/YYYY, לעיתים עם שעה) לאובייקט Date תקין.
