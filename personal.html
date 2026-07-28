@@ -234,6 +234,13 @@
                 <button class="nav-btn" data-tab="tab-yeshiva-tracking" onclick="switchTab('tab-yeshiva-tracking')"><span class="icon">📿</span> מעקב תרומות ישי' ביה"ז</button>
             </div>
 
+            <!-- טאב חריג נוסף המוצג רק למשתמש מורשה ספציפי אחר (בדיקת הרשאה בשרת ובלקוח) -->
+            <div class="sidebar-divider" id="coffeeRoomTrackingDivider" style="display:none;"></div>
+
+            <div class="sidebar-flat-item" id="coffeeRoomTrackingNavItem" style="display:none;">
+                <button class="nav-btn" data-tab="tab-coffee-room-tracking" onclick="switchTab('tab-coffee-room-tracking')"><span class="icon">☕</span> מעקב תרומות חדר קפה</button>
+            </div>
+
             <div class="sidebar-logout">
                 <button onclick="netlifyIdentity.logout()">יציאה מהמערכת</button>
             </div>
@@ -461,6 +468,31 @@
                 </div>
             </div>
 
+            <!-- טאב חריג: מעקב תרומות חדר קפה - מוצג רק למשתמש מורשה אחר, נתונים נשלפים ומאומתים בשרת -->
+            <div class="panel" id="tab-coffee-room-tracking">
+                <h2>מעקב תרומות חדר קפה</h2>
+                <p class="panel-desc">כל התורמים והוראות הקבע תחת הקטגוריה "פינת הכח ללימוד ותפילה", משני המוסדות.</p>
+                <button class="history-btn" onclick="fetchCoffeeRoomTracking()" style="margin-bottom:15px;">🔄 רענון</button>
+
+                <div id="crSummary" class="summary-info" style="display:none;"></div>
+                <div id="crLoading" class="loading">טוען נתונים...</div>
+                <div id="crError" class="form-error"></div>
+
+                <div id="crContentWrap" style="display:none;">
+                    <h3 style="font-size:15px; color:#1a365d;">הוראות קבע פעילות</h3>
+                    <table class="history-table">
+                        <thead><tr><th>שם</th><th>מוסד</th><th>סכום</th><th>תאריך חיוב קרוב</th><th>סטטוס</th></tr></thead>
+                        <tbody id="crKevotTableBody"></tbody>
+                    </table>
+
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
+                    <table class="history-table">
+                        <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th><th>מוסד</th></tr></thead>
+                        <tbody id="crHistoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
         </section>
     </div>
 </main>
@@ -477,6 +509,7 @@
         fetchCategories();
         loadMemberCard();
         checkYeshivaTrackingAccess();
+        checkCoffeeRoomTrackingAccess();
     });
 
     document.addEventListener('mohliver:logout', () => {
@@ -534,6 +567,9 @@
         }
         if (tabId === 'tab-yeshiva-tracking' && !yeshivaTrackingLoaded) {
             fetchYeshivaTracking();
+        }
+        if (tabId === 'tab-coffee-room-tracking' && !coffeeRoomTrackingLoaded) {
+            fetchCoffeeRoomTracking();
         }
     }
 
@@ -1184,6 +1220,96 @@
             }
 
             yeshivaTrackingLoaded = true;
+
+            summaryDiv.style.display = 'block';
+            summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
+
+            kevotBody.innerHTML = '';
+            if (result.kevot.length === 0) {
+                kevotBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
+            } else {
+                result.kevot.forEach(k => {
+                    kevotBody.innerHTML += `
+                        <tr>
+                            <td>${k.name || '-'}</td>
+                            <td>${k.mosadName || '-'}</td>
+                            <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
+                            <td>${k.nextDate || '-'}</td>
+                            <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            historyBody.innerHTML = '';
+            if (result.history.length === 0) {
+                historyBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בקטגוריה זו.</td></tr>';
+            } else {
+                result.history.forEach(t => {
+                    historyBody.innerHTML += `
+                        <tr>
+                            <td>${t.date || '-'}</td>
+                            <td>${t.name || '-'}</td>
+                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
+                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
+                            <td>${t.mosadName || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            contentWrap.style.display = 'block';
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    // --- טאב חריג: מעקב תרומות חדר קפה (מוצג רק למשתמש מורשה אחד אחר) ---
+    // הבדיקה כאן היא רק כדי להראות/להסתיר את כפתור התפריט - ההרשאה האמיתית
+    // נאכפת בשרת (get-coffee-room-tracking.js) לפי ה-verified_tz שבטוקן המאומת.
+    const COFFEE_ROOM_TRACKING_AUTHORIZED_TZ = '201200623';
+    let coffeeRoomTrackingLoaded = false;
+
+    function checkCoffeeRoomTrackingAccess() {
+        const user = netlifyIdentity.currentUser();
+        const meta = user && user.app_metadata;
+        const isAuthorized = meta && String(meta.verified_tz || '').trim() === COFFEE_ROOM_TRACKING_AUTHORIZED_TZ;
+
+        document.getElementById('coffeeRoomTrackingNavItem').style.display = isAuthorized ? 'block' : 'none';
+        document.getElementById('coffeeRoomTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
+    }
+
+    async function fetchCoffeeRoomTracking() {
+        const loadingDiv = document.getElementById('crLoading');
+        const errorDiv = document.getElementById('crError');
+        const summaryDiv = document.getElementById('crSummary');
+        const contentWrap = document.getElementById('crContentWrap');
+        const kevotBody = document.getElementById('crKevotTableBody');
+        const historyBody = document.getElementById('crHistoryTableBody');
+
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        contentWrap.style.display = 'none';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            if (!currentUser) throw new Error('יש להתחבר מחדש');
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/get-coffee-room-tracking', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'כשל בטעינת הנתונים');
+            }
+
+            coffeeRoomTrackingLoaded = true;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
