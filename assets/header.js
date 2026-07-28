@@ -10,7 +10,6 @@
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
         { file: 'yemothachol.html', label: 'ימות החול' },
-        { file: 'tishabav.html', label: 'תשעה באב' },
         { file: 'beinhazmanim.html', label: 'בין הזמנים' }
     ];
     window.sitePrayerPages = prayerPages;
