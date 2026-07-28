@@ -26,8 +26,9 @@ function getMosadName(mosadId) {
   return String(mosadId) === MOSAD_1 ? MOSAD_1_NAME : MOSAD_2_NAME;
 }
 
-// שליפת כל הוראות הקבע ששייכות למשתמש המחובר (לפי הת"ז/טלפון שלו בלבד, לא לפי בקשה חיצונית)
-async function fetchOwnKevot(ownTz, ownPhone) {
+// שליפת הוראות הקבע של שני המוסדות יחד, ללא כל סינון לפי בעלות - שימוש פנימי בלבד
+// (על הקוד הקורא לפונקציה הזו לאכוף בעצמו את בדיקת ההרשאה המתאימה, אם יש כזו)
+async function fetchAllKevot() {
   const { API_PASSWORD_1, API_PASSWORD_2 } = getApiPasswords();
 
   const [res1, res2] = await Promise.all([
@@ -40,7 +41,12 @@ async function fetchOwnKevot(ownTz, ownPhone) {
 
   const markedKevot1 = allKevot1.map(k => ({ ...k, belongsToMosad: MOSAD_1_NAME, mosadId: MOSAD_1 }));
   const markedKevot2 = allKevot2.map(k => ({ ...k, belongsToMosad: MOSAD_2_NAME, mosadId: MOSAD_2 }));
-  const combinedKevot = [...markedKevot1, ...markedKevot2];
+  return [...markedKevot1, ...markedKevot2];
+}
+
+// שליפת כל הוראות הקבע ששייכות למשתמש המחובר (לפי הת"ז/טלפון שלו בלבד, לא לפי בקשה חיצונית)
+async function fetchOwnKevot(ownTz, ownPhone) {
+  const combinedKevot = await fetchAllKevot();
 
   return combinedKevot.filter(keva => {
     const kevaPhone = (keva.Phone || '').trim().replace(/[-\s]/g, '');
@@ -107,8 +113,9 @@ async function fetchInstitutionHistory(mosadId) {
   return list;
 }
 
-// שליפת כל ההיסטוריה (כולל עסקאות חד-פעמיות שאינן קשורות לשום הוראת קבע) של המשתמש המחובר בלבד
-async function fetchOwnDonationHistory(ownTz, ownPhone) {
+// שליפת היסטוריית העסקאות של שני המוסדות יחד, ללא כל סינון לפי בעלות - שימוש פנימי בלבד
+// (על הקוד הקורא לפונקציה הזו לאכוף בעצמו את בדיקת ההרשאה המתאימה, אם יש כזו)
+async function fetchAllDonationHistory() {
   const [hist1, hist2] = await Promise.all([
     fetchInstitutionHistory(MOSAD_1),
     fetchInstitutionHistory(MOSAD_2)
@@ -118,15 +125,20 @@ async function fetchOwnDonationHistory(ownTz, ownPhone) {
   const marked2 = hist2.map(t => ({ ...t, mosadId: MOSAD_2, mosadName: MOSAD_2_NAME }));
   const combined = [...marked1, ...marked2];
 
+  combined.sort((a, b) => new Date(b.TransactionTime) - new Date(a.TransactionTime));
+  return combined;
+}
+
+// שליפת כל ההיסטוריה (כולל עסקאות חד-פעמיות שאינן קשורות לשום הוראת קבע) של המשתמש המחובר בלבד
+async function fetchOwnDonationHistory(ownTz, ownPhone) {
+  const combined = await fetchAllDonationHistory();
+
   const ownPhoneClean = (ownPhone || '').replace(/[-\s]/g, '');
-  const filtered = combined.filter(t => {
+  return combined.filter(t => {
     const tTz = (t.Zeout || '').trim();
     const tPhone = (t.Phone || '').trim().replace(/[-\s]/g, '');
     return tTz === ownTz && (!ownPhoneClean || tPhone === ownPhoneClean);
   });
-
-  filtered.sort((a, b) => new Date(b.TransactionTime) - new Date(a.TransactionTime));
-  return filtered;
 }
 
 module.exports = {
@@ -137,8 +149,10 @@ module.exports = {
   getApiPasswords,
   getApiPasswordForMosad,
   getMosadName,
+  fetchAllKevot,
   fetchOwnKevot,
   findOwnKeva,
   fetchCategoriesByMosad,
+  fetchAllDonationHistory,
   fetchOwnDonationHistory
 };

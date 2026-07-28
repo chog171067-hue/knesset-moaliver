@@ -227,6 +227,13 @@
                 <button class="nav-btn" data-tab="tab-gabai-chat" onclick="switchTab('tab-gabai-chat')"><span class="icon">💬</span> הודעות לגבאי</button>
             </div>
 
+            <!-- טאב חריג המוצג רק למשתמש מורשה ספציפי (בדיקת הרשאה בשרת ובלקוח) -->
+            <div class="sidebar-divider" id="yeshivaTrackingDivider" style="display:none;"></div>
+
+            <div class="sidebar-flat-item" id="yeshivaTrackingNavItem" style="display:none;">
+                <button class="nav-btn" data-tab="tab-yeshiva-tracking" onclick="switchTab('tab-yeshiva-tracking')"><span class="icon">📿</span> מעקב תרומות ישי' ביה"ז</button>
+            </div>
+
             <div class="sidebar-logout">
                 <button onclick="netlifyIdentity.logout()">יציאה מהמערכת</button>
             </div>
@@ -429,6 +436,31 @@
                 <div class="coming-soon-box">🚧 בקרוב</div>
             </div>
 
+            <!-- טאב חריג: מעקב תרומות ישי' ביה"ז - מוצג רק למשתמש מורשה, נתונים נשלפים ומאומתים בשרת -->
+            <div class="panel" id="tab-yeshiva-tracking">
+                <h2>מעקב תרומות ישי' ביה"ז</h2>
+                <p class="panel-desc">כל התורמים והוראות הקבע תחת הקטגוריה "כולל וישיבת בין הזמנים", משני המוסדות.</p>
+                <div id="ytSummary" class="summary-info" style="display:none;"></div>
+                <div id="ytLoading" class="loading">טוען נתונים...</div>
+                <div id="ytError" class="form-error"></div>
+
+                <div id="ytContentWrap" style="display:none;">
+                    <h3 style="font-size:15px; color:#1a365d;">הוראות קבע פעילות</h3>
+                    <table class="history-table">
+                        <thead><tr><th>שם</th><th>מוסד</th><th>סכום</th><th>תאריך חיוב קרוב</th><th>סטטוס</th></tr></thead>
+                        <tbody id="ytKevotTableBody"></tbody>
+                    </table>
+
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
+                    <table class="history-table">
+                        <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th><th>מוסד</th></tr></thead>
+                        <tbody id="ytHistoryTableBody"></tbody>
+                    </table>
+                </div>
+
+                <button class="history-btn" onclick="fetchYeshivaTracking()" style="margin-top:15px;">🔄 רענון</button>
+            </div>
+
         </section>
     </div>
 </main>
@@ -444,6 +476,7 @@
         fetchDonorData();
         fetchCategories();
         loadMemberCard();
+        checkYeshivaTrackingAccess();
     });
 
     document.addEventListener('mohliver:logout', () => {
@@ -498,6 +531,9 @@
         // כדי לא לבזבז מיותר מתוך המכסה המוגבלת (20 בקשות בשעה) של נדרים פלוס
         if (tabId === 'tab-donation-history' && !donationHistoryLoaded) {
             fetchDonationHistory(false);
+        }
+        if (tabId === 'tab-yeshiva-tracking' && !yeshivaTrackingLoaded) {
+            fetchYeshivaTracking();
         }
     }
 
@@ -1101,6 +1137,96 @@
         } finally {
             btn.disabled = false;
             btn.innerText = 'הפקת קבלה';
+        }
+    }
+
+    // --- טאב חריג: מעקב תרומות ישי' ביה"ז (מוצג רק למשתמש מורשה אחד) ---
+    // הבדיקה כאן היא רק כדי להראות/להסתיר את כפתור התפריט - ההרשאה האמיתית
+    // נאכפת בשרת (get-yeshiva-tracking.js) לפי ה-verified_tz שבטוקן המאומת.
+    const YESHIVA_TRACKING_AUTHORIZED_TZ = '301042867';
+    let yeshivaTrackingLoaded = false;
+
+    function checkYeshivaTrackingAccess() {
+        const user = netlifyIdentity.currentUser();
+        const meta = user && user.app_metadata;
+        const isAuthorized = meta && String(meta.verified_tz || '').trim() === YESHIVA_TRACKING_AUTHORIZED_TZ;
+
+        document.getElementById('yeshivaTrackingNavItem').style.display = isAuthorized ? 'block' : 'none';
+        document.getElementById('yeshivaTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
+    }
+
+    async function fetchYeshivaTracking() {
+        const loadingDiv = document.getElementById('ytLoading');
+        const errorDiv = document.getElementById('ytError');
+        const summaryDiv = document.getElementById('ytSummary');
+        const contentWrap = document.getElementById('ytContentWrap');
+        const kevotBody = document.getElementById('ytKevotTableBody');
+        const historyBody = document.getElementById('ytHistoryTableBody');
+
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        contentWrap.style.display = 'none';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            if (!currentUser) throw new Error('יש להתחבר מחדש');
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/get-yeshiva-tracking', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'כשל בטעינת הנתונים');
+            }
+
+            yeshivaTrackingLoaded = true;
+
+            summaryDiv.style.display = 'block';
+            summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
+
+            kevotBody.innerHTML = '';
+            if (result.kevot.length === 0) {
+                kevotBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
+            } else {
+                result.kevot.forEach(k => {
+                    kevotBody.innerHTML += `
+                        <tr>
+                            <td>${k.name || '-'}</td>
+                            <td>${k.mosadName || '-'}</td>
+                            <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
+                            <td>${k.nextDate || '-'}</td>
+                            <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            historyBody.innerHTML = '';
+            if (result.history.length === 0) {
+                historyBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בקטגוריה זו.</td></tr>';
+            } else {
+                result.history.forEach(t => {
+                    historyBody.innerHTML += `
+                        <tr>
+                            <td>${t.date || '-'}</td>
+                            <td>${t.name || '-'}</td>
+                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
+                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
+                            <td>${t.mosadName || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            contentWrap.style.display = 'block';
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
         }
     }
 </script>
