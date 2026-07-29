@@ -26,7 +26,7 @@ exports.handler = async (event, context) => {
     }
 
     // בדיקת זכאות אמיתית מול הגיליון - זה החלק שהיה חסר לגמרי בגרסה הקודמת
-    const record = await getCommunityRecord(tz);
+    const record = await getCommunityRecord(tz, event);
     if (!record) {
       return {
         statusCode: 200,

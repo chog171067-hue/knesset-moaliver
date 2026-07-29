@@ -23,7 +23,7 @@ exports.handler = async function (event, context) {
     return { statusCode: auth.statusCode, headers, body: JSON.stringify({ success: false, error: auth.error }) };
   }
 
-  const store = getAdminStore();
+  const store = getAdminStore(event);
 
   try {
     if (event.httpMethod === 'GET') {

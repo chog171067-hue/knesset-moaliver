@@ -17,7 +17,7 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    const store = getAdminStore();
+    const store = getAdminStore(event);
     const list = (await store.get('email-requests.json', { type: 'json' })) || [];
     const sorted = [...list].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
 

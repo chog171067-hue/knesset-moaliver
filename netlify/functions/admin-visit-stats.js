@@ -16,7 +16,7 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    const store = getAdminStore();
+    const store = getAdminStore(event);
     const visits = (await store.get('site-visits.json', { type: 'json' })) || {};
 
     const days = Object.keys(visits).sort().reverse();

@@ -41,7 +41,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const record = await getCommunityRecord(claimedTz);
+    const record = await getCommunityRecord(claimedTz, event);
     if (!record) {
       console.warn(`[identity-signup] הרשמה נדחתה - ת"ז ${claimedTz} אינה ברשימת הזכאים (${user.email})`);
       return {

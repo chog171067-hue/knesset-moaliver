@@ -1,9 +1,15 @@
 // גישה מרוכזת למאגר ה-Blobs של האתר - כל נתוני הניהול (בקשות מייל, רשימת
 // זכאים משלימה, מונה כניסות) נשמרים תחת אותו store לוגי אחד, כדי שלא נצטרך
 // לנהל כמה stores נפרדים בלי סיבה אמיתית.
-const { getStore } = require('@netlify/blobs');
+//
+// כל הפונקציות בפרויקט הזה כתובות בסגנון "Lambda compatibility" הקלאסי
+// (exports.handler = async (event, context) => {...}) - הסגנון הזה לא מקבל
+// אוטומטית את הגדרות ה-Blobs מנטליפיי (זה קורה רק בפונקציות Edge/v2). לכן חובה
+// לקרוא ל-connectLambda(event) עם אירוע הבקשה הגולמי, לפני כל שימוש ב-getStore.
+const { getStore, connectLambda } = require('@netlify/blobs');
 
-function getAdminStore() {
+function getAdminStore(event) {
+  connectLambda(event);
   return getStore('admin-data');
 }
 

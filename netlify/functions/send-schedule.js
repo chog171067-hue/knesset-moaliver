@@ -130,9 +130,9 @@ async function buildPageSection(pageId) {
 // רישום כל בקשה לשליחת זמנים במייל ליומן ב-Blobs, כדי שדף הניהול יוכל להציג
 // אותן - כולל בקשות ממי שאין לו אזור אישי כלל (הבקשה הזו לא דורשת התחברות).
 // כשל ברישום לא אמור אף פעם למנוע את שליחת המייל עצמו.
-async function logEmailRequest(entry) {
+async function logEmailRequest(entry, event) {
   try {
-    const store = getAdminStore();
+    const store = getAdminStore(event);
     const key = 'email-requests.json';
     const MAX_ENTRIES = 2000;
 
@@ -214,11 +214,11 @@ exports.handler = async (event, context) => {
         });
 
         if (response.ok) {
-            await logEmailRequest({ timestamp: new Date().toISOString(), email, pages: validPageIds, pageLabels, success: true });
+            await logEmailRequest({ timestamp: new Date().toISOString(), email, pages: validPageIds, pageLabels, success: true }, event);
             return { statusCode: 200, headers, body: JSON.stringify({ message: 'המייל נשלח בהצלחה!' }) };
         } else {
             const errorData = await response.text();
-            await logEmailRequest({ timestamp: new Date().toISOString(), email, pages: validPageIds, pageLabels, success: false, error: errorData });
+            await logEmailRequest({ timestamp: new Date().toISOString(), email, pages: validPageIds, pageLabels, success: false, error: errorData }, event);
             return { statusCode: response.status, headers, body: `שגיאה: ${errorData}` };
         }
 

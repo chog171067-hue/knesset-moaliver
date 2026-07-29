@@ -22,7 +22,7 @@ exports.handler = async function (event) {
   }
 
   try {
-    const store = getAdminStore();
+    const store = getAdminStore(event);
     const today = getIsraelDateString(new Date());
 
     const visits = (await store.get(STORE_KEY, { type: 'json' })) || {};

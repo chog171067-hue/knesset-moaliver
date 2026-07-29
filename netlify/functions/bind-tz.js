@@ -33,7 +33,7 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'תעודת זהות חסרה' }) };
     }
 
-    const record = await getCommunityRecord(tz);
+    const record = await getCommunityRecord(tz, event);
     if (!record) {
       return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'תעודת הזהות אינה מופיעה ברשימת חברי הקהילה' }) };
     }

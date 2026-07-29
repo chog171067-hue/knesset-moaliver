@@ -52,9 +52,10 @@ async function fetchCommunityList() {
 
 // בודק ברשימה המשלימה שהמנהל מנהל ידנית (בנפרד מהגיליון הראשי). כשל בקריאה
 // מה-Blobs לא אמור לחסום את הבדיקה מול הגיליון הראשי - לכן נבלע שקט ל-null.
-async function getExtraEligibleRecord(tz) {
+// event הוא אירוע ה-Lambda הגולמי, נדרש כדי לחבר את הקשר ה-Blobs (ראו blobs-store.js).
+async function getExtraEligibleRecord(tz, event) {
   try {
-    const store = getAdminStore();
+    const store = getAdminStore(event);
     const list = (await store.get('extra-eligible-tz.json', { type: 'json' })) || [];
     const cleanTz = String(tz).trim();
     const found = list.find(r => r.tz === cleanTz);
@@ -64,12 +65,12 @@ async function getExtraEligibleRecord(tz) {
   }
 }
 
-async function getCommunityRecord(tz) {
+async function getCommunityRecord(tz, event) {
   const list = await fetchCommunityList();
   const cleanTz = String(tz).trim();
   const fromSheet = list.find(r => r.tz === cleanTz);
   if (fromSheet) return fromSheet;
-  return getExtraEligibleRecord(cleanTz);
+  return getExtraEligibleRecord(cleanTz, event);
 }
 
 // מאפשר רענון כפוי מיידי (למשל אם עדכנת את הגיליון ורוצה לבדוק את זה מיד, בלי לחכות לדקה)
