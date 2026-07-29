@@ -248,6 +248,14 @@
                 <button class="nav-btn" data-tab="tab-igud-tracking" onclick="switchTab('tab-igud-tracking')"><span class="icon">🤝</span> מעקב תרומות האיגוד</button>
             </div>
 
+            <!-- כפתור ניהול - מוצג רק למנהל (בדיקת הרשאה בצד לקוח כאן היא רק ל-UI;
+                 ההרשאה האמיתית נאכפת בשרת בכל אחת מפונקציות ה-admin-*.js) -->
+            <div class="sidebar-divider" id="adminNavDivider" style="display:none;"></div>
+
+            <div class="sidebar-flat-item" id="adminNavItem" style="display:none;">
+                <a class="nav-btn" href="admin.html" style="text-decoration:none;"><span class="icon">🛠️</span> ניהול</a>
+            </div>
+
             <div class="sidebar-logout">
                 <button onclick="netlifyIdentity.logout()">יציאה מהמערכת</button>
             </div>
@@ -543,6 +551,7 @@
         checkYeshivaTrackingAccess();
         checkCoffeeRoomTrackingAccess();
         checkIgudTrackingAccess();
+        checkAdminAccess();
     });
 
     document.addEventListener('mohliver:logout', () => {
@@ -1480,6 +1489,20 @@
             errorDiv.innerText = err.message;
             errorDiv.style.display = 'block';
         }
+    }
+
+    // --- כפתור ניהול (מוצג רק למנהל) ---
+    // הבדיקה כאן היא רק כדי להראות/להסתיר את כפתור התפריט - ההרשאה האמיתית
+    // נאכפת בשרת בכל פונקציות ה-admin-*.js, וגם בדף admin.html עצמו.
+    const ADMIN_TZ = '207139759';
+
+    function checkAdminAccess() {
+        const user = netlifyIdentity.currentUser();
+        const meta = user && user.app_metadata;
+        const isAdmin = meta && String(meta.verified_tz || '').trim() === ADMIN_TZ;
+
+        document.getElementById('adminNavItem').style.display = isAdmin ? 'block' : 'none';
+        document.getElementById('adminNavDivider').style.display = isAdmin ? 'block' : 'none';
     }
 </script>
 </body>

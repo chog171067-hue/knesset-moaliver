@@ -81,4 +81,10 @@
             dropdown.classList.toggle('open-dropdown');
         }
     };
+
+    // מונה כניסות לאתר (best-effort, בלי לחכות לתשובה) - למסך "כניסות לאתר"
+    // בדף הניהול. כשל כאן לא אמור להשפיע בשום צורה על טעינת הדף.
+    try {
+        fetch('/.netlify/functions/track-visit', { method: 'POST', keepalive: true });
+    } catch (e) { /* לא קריטי */ }
 })();

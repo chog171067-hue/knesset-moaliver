@@ -1,3 +1,5 @@
+const { getAdminStore } = require('./lib/blobs-store');
+
 // תצורת כל דפי התפילה: לכל דף - התוויות והקישורים (CSV) של הטבלאות שבו.
 // חשוב: מפתחות האובייקט (shabbat, yemothachol, beinhazmanim) חייבים להיות
 // זהים לשמות קבצי ה-HTML (ללא הסיומת .html) כפי שמוגדרים ב-assets/header.js,
@@ -125,6 +127,25 @@ async function buildPageSection(pageId) {
     `;
 }
 
+// רישום כל בקשה לשליחת זמנים במייל ליומן ב-Blobs, כדי שדף הניהול יוכל להציג
+// אותן - כולל בקשות ממי שאין לו אזור אישי כלל (הבקשה הזו לא דורשת התחברות).
+// כשל ברישום לא אמור אף פעם למנוע את שליחת המייל עצמו.
+async function logEmailRequest(entry) {
+  try {
+    const store = getAdminStore();
+    const key = 'email-requests.json';
+    const MAX_ENTRIES = 2000;
+
+    const list = (await store.get(key, { type: 'json' })) || [];
+    list.push(entry);
+    const trimmed = list.length > MAX_ENTRIES ? list.slice(list.length - MAX_ENTRIES) : list;
+
+    await store.setJSON(key, trimmed);
+  } catch (e) {
+    console.warn('[send-schedule] כשל ברישום הבקשה ליומן:', e.message);
+  }
+}
+
 exports.handler = async (event, context) => {
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -148,6 +169,8 @@ exports.handler = async (event, context) => {
         if (validPageIds.length === 0) {
             return { statusCode: 400, headers, body: 'לא נמצאו לוחות זמנים תקינים לשליחה' };
         }
+
+        const pageLabels = validPageIds.map(p => PAGE_CONFIG[p].label);
 
         const apiKey = process.env.SENDGRID_API_KEY;
 
@@ -191,9 +214,11 @@ exports.handler = async (event, context) => {
         });
 
         if (response.ok) {
+            await logEmailRequest({ timestamp: new Date().toISOString(), email, pages: validPageIds, pageLabels, success: true });
             return { statusCode: 200, headers, body: JSON.stringify({ message: 'המייל נשלח בהצלחה!' }) };
         } else {
             const errorData = await response.text();
+            await logEmailRequest({ timestamp: new Date().toISOString(), email, pages: validPageIds, pageLabels, success: false, error: errorData });
             return { statusCode: response.status, headers, body: `שגיאה: ${errorData}` };
         }
 

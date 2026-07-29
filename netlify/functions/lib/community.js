@@ -1,6 +1,11 @@
 // שכבת גישה יחידה לרשימת חברי הקהילה הזכאים.
 // כל פונקציה אחרת (verify-tz, identity-signup, bind-tz) חייבת להשתמש בקובץ הזה
 // ולא לממש בדיקה משלה - כך יש מקור אמת אחד בלבד.
+//
+// מקור הזכאות המרכזי הוא גיליון הגוגל (SHEET_CSV_URL, לקריאה בלבד). בנוסף,
+// המנהל יכול להוסיף ת.ז ידנית דרך דף הניהול (admin.html) - אלו נשמרות ברשימה
+// משלימה ב-Netlify Blobs (ראו admin-eligible-list.js) ונבדקות כאן גם כן.
+const { getAdminStore } = require('./blobs-store');
 
 let cache = { data: null, fetchedAt: 0 };
 const CACHE_TTL_MS = 60 * 1000; // דקה - מונע הצפה של גוגל בבקשות בזמן עומס (הרשמות רבות ברצף)
@@ -45,10 +50,26 @@ async function fetchCommunityList() {
   return list;
 }
 
+// בודק ברשימה המשלימה שהמנהל מנהל ידנית (בנפרד מהגיליון הראשי). כשל בקריאה
+// מה-Blobs לא אמור לחסום את הבדיקה מול הגיליון הראשי - לכן נבלע שקט ל-null.
+async function getExtraEligibleRecord(tz) {
+  try {
+    const store = getAdminStore();
+    const list = (await store.get('extra-eligible-tz.json', { type: 'json' })) || [];
+    const cleanTz = String(tz).trim();
+    const found = list.find(r => r.tz === cleanTz);
+    return found ? { tz: found.tz, phone: found.phone || '' } : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getCommunityRecord(tz) {
   const list = await fetchCommunityList();
   const cleanTz = String(tz).trim();
-  return list.find(r => r.tz === cleanTz) || null;
+  const fromSheet = list.find(r => r.tz === cleanTz);
+  if (fromSheet) return fromSheet;
+  return getExtraEligibleRecord(cleanTz);
 }
 
 // מאפשר רענון כפוי מיידי (למשל אם עדכנת את הגיליון ורוצה לבדוק את זה מיד, בלי לחכות לדקה)
