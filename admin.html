@@ -123,6 +123,48 @@
         }
         .view-card-btn:hover { background: #bee3f8; }
 
+        /* --- טאב הודעות לגבאי --- */
+        .unread-dot {
+            display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e53e3e;
+            margin-right: 4px; flex-shrink: 0;
+        }
+        .gabai-layout { display: flex; gap: 16px; align-items: stretch; }
+        .gabai-threads-list {
+            width: 300px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 10px;
+            max-height: 560px; overflow-y: auto; background: #fff;
+        }
+        .gabai-thread-item { padding: 12px 14px; border-bottom: 1px solid #edf2f7; cursor: pointer; }
+        .gabai-thread-item:hover { background: #f7fafc; }
+        .gabai-thread-item.active { background: #ebf8ff; }
+        .gabai-thread-item .gt-top { display: flex; justify-content: space-between; align-items: center; }
+        .gabai-thread-item .gt-name { font-weight: bold; font-size: 14px; color: #1a365d; }
+        .gabai-thread-item .gt-time { font-size: 11px; color: #a0aec0; }
+        .gabai-thread-item .gt-preview {
+            font-size: 12px; color: #718096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px;
+        }
+        .gabai-conversation {
+            flex: 1; min-width: 0; display: flex; flex-direction: column; border: 1px solid #e2e8f0;
+            border-radius: 10px; background: #fff; max-height: 560px;
+        }
+        .gabai-conversation-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1a365d; }
+        .chat-messages { flex: 1; height: 380px; overflow-y: auto; padding: 16px; background: #f7fafc; display: flex; flex-direction: column; gap: 10px; }
+        .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+        .chat-bubble.from-user { align-self: flex-start; background: #2b6cb0; color: white; border-bottom-left-radius: 4px; }
+        .chat-bubble.from-admin { align-self: flex-end; background: #e2e8f0; color: #2d3748; border-bottom-right-radius: 4px; }
+        .chat-bubble .chat-time { display: block; font-size: 11px; opacity: 0.75; margin-top: 4px; }
+        .chat-empty { text-align: center; color: #a0aec0; font-size: 14px; margin: auto; }
+        .chat-input-row { display: flex; gap: 10px; padding: 12px; background: white; border-top: 1px solid #e2e8f0; align-items: flex-end; }
+        .chat-input-row textarea {
+            flex: 1; padding: 10px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 14px;
+            font-family: inherit; resize: none; box-sizing: border-box;
+        }
+        .chat-input-row textarea:disabled { background: #f1f5f9; }
+
+        @media (max-width: 900px) {
+            .gabai-layout { flex-direction: column; }
+            .gabai-threads-list { width: 100%; max-height: 220px; }
+        }
+
         .card-overlay {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
             z-index: 10000; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
@@ -177,6 +219,7 @@
 
             <ul class="sidebar-nav">
                 <li><button class="nav-btn active" data-tab="tab-users" onclick="switchAdminTab('tab-users')"><span class="icon">👥</span> משתמשים רשומים</button></li>
+                <li><button class="nav-btn" data-tab="tab-gabai" onclick="switchAdminTab('tab-gabai')"><span class="icon">💬</span> הודעות לגבאי <span class="unread-dot" id="gabaiAdminUnreadDot" style="display:none;"></span></button></li>
                 <li><button class="nav-btn" data-tab="tab-email-requests" onclick="switchAdminTab('tab-email-requests')"><span class="icon">📧</span> בקשות שליחת זמנים</button></li>
                 <li><button class="nav-btn" data-tab="tab-eligible" onclick="switchAdminTab('tab-eligible')"><span class="icon">➕</span> רשימת הזכאים</button></li>
                 <li><button class="nav-btn" data-tab="tab-visits" onclick="switchAdminTab('tab-visits')"><span class="icon">📊</span> כניסות לאתר</button></li>
@@ -213,6 +256,29 @@
                         </thead>
                         <tbody id="usersTableBody"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- טאב: הודעות לגבאי -->
+            <div class="panel" id="tab-gabai">
+                <h2>הודעות לגבאי</h2>
+                <p class="panel-desc">כל השיחות מול משתמשי האזור האישי. לחצו על שיחה כדי לפתוח אותה ולהשיב.</p>
+
+                <div class="gabai-layout">
+                    <div class="gabai-threads-list" id="gabaiThreadsList">
+                        <div class="loading">טוען שיחות...</div>
+                    </div>
+                    <div class="gabai-conversation">
+                        <div class="gabai-conversation-header" id="gabaiConvHeader">בחרו שיחה מהרשימה</div>
+                        <div id="gabaiConvMessages" class="chat-messages">
+                            <div class="chat-empty">בחרו שיחה מהרשימה משמאל</div>
+                        </div>
+                        <form class="chat-input-row" onsubmit="return false;">
+                            <textarea id="gabaiReplyInput" rows="2" placeholder="כתבו תשובה..." disabled></textarea>
+                            <button class="btn" id="gabaiReplyBtn" onclick="sendGabaiReply()" style="width:auto; padding:12px 22px;" disabled>שליחה</button>
+                        </form>
+                        <div class="form-error" id="gabaiReplyError"></div>
+                    </div>
                 </div>
             </div>
 
@@ -330,11 +396,13 @@
         document.getElementById('adminLayout').style.display = 'flex';
 
         fetchUsers();
+        fetchGabaiThreads(); // כדי שתג "לא נקרא" יופיע גם בלי לפתוח את הטאב
     });
 
     document.addEventListener('mohliver:logout', () => {
         document.getElementById('adminLayout').style.display = 'none';
         document.getElementById('notAdminMessage').style.display = 'block';
+        stopGabaiAdminPolling();
     });
 
     function updateAdminHeaderVar() {
@@ -355,6 +423,13 @@
         if (tabId === 'tab-email-requests' && !emailReqLoaded) fetchEmailRequests();
         if (tabId === 'tab-eligible' && !eligibleLoaded) fetchEligibleList();
         if (tabId === 'tab-visits' && !visitsLoaded) fetchVisitStats();
+
+        if (tabId === 'tab-gabai') {
+            fetchGabaiThreads();
+            startGabaiAdminPolling();
+        } else {
+            stopGabaiAdminPolling();
+        }
     }
 
     async function authedFetch(url, options) {
@@ -656,6 +731,138 @@
             loadingDiv.style.display = 'none';
             errorDiv.innerText = err.message;
             errorDiv.style.display = 'block';
+        }
+    }
+
+    // --- טאב הודעות לגבאי ---
+    let gabaiThreads = [];
+    let gabaiActiveUserId = null;
+    let gabaiAdminPollInterval = null;
+
+    async function fetchGabaiThreads() {
+        const listDiv = document.getElementById('gabaiThreadsList');
+        try {
+            const result = await authedFetch('/.netlify/functions/admin-gabai-list-threads', { method: 'GET' });
+            gabaiThreads = result.threads;
+            renderGabaiThreadsList();
+
+            const anyUnread = gabaiThreads.some(t => t.unreadByAdmin);
+            document.getElementById('gabaiAdminUnreadDot').style.display = anyUnread ? 'inline-block' : 'none';
+        } catch (err) {
+            listDiv.innerHTML = `<div class="chat-empty" style="color:#c53030; padding:14px;">${err.message}</div>`;
+        }
+    }
+
+    function renderGabaiThreadsList() {
+        const listDiv = document.getElementById('gabaiThreadsList');
+        if (gabaiThreads.length === 0) {
+            listDiv.innerHTML = '<div class="chat-empty" style="padding:14px;">עדיין לא התקבלו הודעות מאף משתמש.</div>';
+            return;
+        }
+
+        listDiv.innerHTML = gabaiThreads.map(t => {
+            const time = t.lastMessageAt ? new Date(t.lastMessageAt).toLocaleString('he-IL') : '';
+            const activeCls = t.userId === gabaiActiveUserId ? ' active' : '';
+            const dot = t.unreadByAdmin ? '<span class="unread-dot"></span>' : '';
+            const fromPrefix = t.lastMessageFrom === 'admin' ? 'את/ה: ' : '';
+            return `
+                <div class="gabai-thread-item${activeCls}" onclick="openGabaiThread('${t.userId}')">
+                    <div class="gt-top"><span class="gt-name">${dot}${escapeHtml(t.userName || t.userEmail)}</span><span class="gt-time">${time}</span></div>
+                    <div class="gt-preview">${fromPrefix}${escapeHtml(t.lastMessagePreview || '')}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function openGabaiThread(userId) {
+        gabaiActiveUserId = userId;
+        renderGabaiThreadsList();
+
+        const thread = gabaiThreads.find(t => t.userId === userId);
+        document.getElementById('gabaiConvHeader').innerText = thread ? `${thread.userName || thread.userEmail} (ת.ז ${thread.userTz || '-'})` : 'שיחה';
+        document.getElementById('gabaiConvMessages').innerHTML = '<div class="chat-empty">טוען שיחה...</div>';
+        document.getElementById('gabaiReplyInput').disabled = false;
+        document.getElementById('gabaiReplyBtn').disabled = false;
+
+        try {
+            const result = await authedFetch(`/.netlify/functions/admin-gabai-get-thread?userId=${encodeURIComponent(userId)}`, { method: 'GET' });
+            renderGabaiConversation(result.messages);
+
+            const localEntry = gabaiThreads.find(t => t.userId === userId);
+            if (localEntry) localEntry.unreadByAdmin = false;
+            renderGabaiThreadsList();
+            const anyUnread = gabaiThreads.some(t => t.unreadByAdmin);
+            document.getElementById('gabaiAdminUnreadDot').style.display = anyUnread ? 'inline-block' : 'none';
+        } catch (err) {
+            document.getElementById('gabaiConvMessages').innerHTML = `<div class="chat-empty" style="color:#c53030;">${err.message}</div>`;
+        }
+    }
+
+    function renderGabaiConversation(messages) {
+        const wrap = document.getElementById('gabaiConvMessages');
+        if (!messages || messages.length === 0) {
+            wrap.innerHTML = '<div class="chat-empty">אין עדיין הודעות בשיחה הזו.</div>';
+            return;
+        }
+        wrap.innerHTML = messages.map(m => {
+            const time = m.timestamp ? new Date(m.timestamp).toLocaleString('he-IL') : '';
+            // בלוח הזמן של המנהל, הודעת "user" (מהמשתמש) מוצגת בצד ימין וההודעה שלנו ("admin") בצד שמאל
+            const cls = m.from === 'admin' ? 'from-admin' : 'from-user';
+            return `<div class="chat-bubble ${cls}">${escapeHtml(m.text)}<span class="chat-time">${time}</span></div>`;
+        }).join('');
+        wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    async function sendGabaiReply() {
+        if (!gabaiActiveUserId) return;
+        const errorDiv = document.getElementById('gabaiReplyError');
+        const input = document.getElementById('gabaiReplyInput');
+        const btn = document.getElementById('gabaiReplyBtn');
+        errorDiv.style.display = 'none';
+
+        const text = input.value.trim();
+        if (!text) return;
+
+        btn.disabled = true;
+        btn.innerText = 'שולח...';
+
+        try {
+            await authedFetch('/.netlify/functions/admin-gabai-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: gabaiActiveUserId, text })
+            });
+            input.value = '';
+            await openGabaiThread(gabaiActiveUserId);
+            fetchGabaiThreads();
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'שליחה';
+        }
+    }
+
+    document.getElementById('gabaiReplyInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendGabaiReply();
+        }
+    });
+
+    function startGabaiAdminPolling() {
+        stopGabaiAdminPolling();
+        gabaiAdminPollInterval = setInterval(() => {
+            fetchGabaiThreads();
+            if (gabaiActiveUserId) openGabaiThread(gabaiActiveUserId);
+        }, 20000);
+    }
+
+    function stopGabaiAdminPolling() {
+        if (gabaiAdminPollInterval) {
+            clearInterval(gabaiAdminPollInterval);
+            gabaiAdminPollInterval = null;
         }
     }
 </script>
