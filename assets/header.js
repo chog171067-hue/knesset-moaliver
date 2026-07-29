@@ -39,7 +39,7 @@
         '      <li class="nav-item' + (isPersonal ? ' active' : '') + '"><a href="personal.html">אזור אישי</a></li>' +
         '    </ul>' +
         '    <div class="nav-side-controls">' +
-        '      <button class="hamburger" onclick="toggleMenu()">' +
+        '      <button class="hamburger" onclick="toggleMenu()" id="hamburgerBtn" aria-expanded="false" aria-controls="navMenu" aria-label="תפריט">' +
         '        <span></span><span></span><span></span>' +
         '      </button>' +
         '      <div id="maw-header-slot"></div>' +
@@ -69,9 +69,24 @@
     if (logoImg) logoImg.addEventListener('load', updateHeaderOffset);
 
     // פונקציות גלובליות עבור כפתורי ההמבורגר והדרופדאון שבתוך ה-HTML שהוזרק
+    function closeMenu() {
+        var menu = document.getElementById('navMenu');
+        var btn = document.getElementById('hamburgerBtn');
+        var dropdown = document.getElementById('prayersDropdown');
+        if (menu) menu.classList.remove('open');
+        if (btn) { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+        if (dropdown) dropdown.classList.remove('open-dropdown');
+    }
+
     window.toggleMenu = function () {
         var menu = document.getElementById('navMenu');
-        menu.classList.toggle('open');
+        var btn = document.getElementById('hamburgerBtn');
+        var isOpen = menu.classList.toggle('open');
+        if (btn) { btn.classList.toggle('open', isOpen); btn.setAttribute('aria-expanded', String(isOpen)); }
+        if (!isOpen) {
+            var dropdown = document.getElementById('prayersDropdown');
+            if (dropdown) dropdown.classList.remove('open-dropdown');
+        }
     };
 
     window.toggleDropdown = function (event) {
@@ -81,6 +96,20 @@
             dropdown.classList.toggle('open-dropdown');
         }
     };
+
+    // סגירת התפריט בלחיצה מחוץ לו, ובבחירת קישור מתוכו (מובייל)
+    document.addEventListener('click', function (event) {
+        var menu = document.getElementById('navMenu');
+        var btn = document.getElementById('hamburgerBtn');
+        if (!menu || !menu.classList.contains('open')) return;
+        if (menu.contains(event.target) && event.target.tagName === 'A') {
+            closeMenu();
+            return;
+        }
+        if (!menu.contains(event.target) && event.target !== btn && (!btn || !btn.contains(event.target))) {
+            closeMenu();
+        }
+    });
 
     // מזהה אנונימי קבוע למכשיר/דפדפן הזה (לא מזהה אישית - רק ערך אקראי) - נשמר
     // לוקאלית, ומשמש רק כדי להעריך בדף הניהול כמה מהכניסות הן ממכשירים שונים

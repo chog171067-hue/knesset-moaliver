@@ -2,11 +2,12 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>זמני תפילות ימות החול - בית הכנסת מוהליבר</title>
     
     <link rel="icon" type="image/png" href="logo.png">
     
-    <link rel="stylesheet" href="assets/header.css?v=2">
+    <link rel="stylesheet" href="assets/header.css?v=3">
     <style>
         body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 0; box-sizing: border-box; text-align: center; }
         h1 { color: #800020; margin-bottom: 2rem; font-size: 2.5rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
@@ -61,6 +62,10 @@
         .pages-checklist label, .select-all-row label { display: flex; align-items: center; gap: 8px; justify-content: flex-end; font-size: 0.95rem; color: #333; cursor: pointer; }
         .pages-checklist input, .select-all-row input { cursor: pointer; }
 
+        @media (max-width: 500px) {
+            .table-box { width: 100%; }
+        }
+
         /* עוטף את תוכן העמוד (מתחת לסרגל הניווט) עם הריפוד שהיה קודם על ה-body,
            כדי שה-header עצמו יישאר צמוד לקצה ולרוחב המלא של הדף */
         .page-content { width: 100%; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -70,7 +75,7 @@
 
 
 <div id="site-header"></div>
-<script src="assets/header.js?v=3"></script>
+<script src="assets/header.js?v=4"></script>
 <div class="page-content">
     <h1>זמני תפילות ימות החול</h1>
     
