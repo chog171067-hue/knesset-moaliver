@@ -82,9 +82,31 @@
         }
     };
 
+    // מזהה אנונימי קבוע למכשיר/דפדפן הזה (לא מזהה אישית - רק ערך אקראי) - נשמר
+    // לוקאלית, ומשמש רק כדי להעריך בדף הניהול כמה מהכניסות הן ממכשירים שונים
+    // לעומת אותו מכשיר שחוזר. לא נשלח לשום מקום מלבד track-visit.js.
+    function getVisitorId() {
+        try {
+            var key = 'mohliver_visitor_id';
+            var id = localStorage.getItem(key);
+            if (!id) {
+                id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('v-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+                localStorage.setItem(key, id);
+            }
+            return id;
+        } catch (e) {
+            return null; // localStorage חסום/לא זמין - עדיין נספור את הצפייה, רק בלי שיוך למכשיר
+        }
+    }
+
     // מונה כניסות לאתר (best-effort, בלי לחכות לתשובה) - למסך "כניסות לאתר"
     // בדף הניהול. כשל כאן לא אמור להשפיע בשום צורה על טעינת הדף.
     try {
-        fetch('/.netlify/functions/track-visit', { method: 'POST', keepalive: true });
+        fetch('/.netlify/functions/track-visit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitorId: getVisitorId() }),
+            keepalive: true
+        });
     } catch (e) { /* לא קריטי */ }
 })();

@@ -1,7 +1,16 @@
 // דף ניהול - טאב "כניסות לאתר": מחזיר סיכום צפיות בדפים (שנרשמות ב-track-visit.js)
-// לפי יום ולפי חודש, בהתבסס על שעון ישראל.
+// לפי יום ולפי חודש, בהתבסס על שעון ישראל - כולל הערכת "מבקרים ייחודיים" לפי
+// מזהה מכשיר אנונימי (לא מזהה אישית, ולא חסין מפני מכשיר/דפדפן חדש לאותו אדם).
 const { getAdminStore, getIsraelDateString } = require('./lib/blobs-store');
 const { requireAdmin } = require('./lib/admin-auth');
+
+// מחזיר את סך הצפיות והמבקרים הייחודיים (המוערכים) עבור יום בודד. תומך גם
+// בפורמט הישן (מספר בלבד, מלפני שנוסף מעקב מזהה מבקר) - אז unique = null.
+function dayStats(entry) {
+  if (typeof entry === 'number') return { views: entry, unique: null };
+  if (!Array.isArray(entry)) return { views: 0, unique: 0 };
+  return { views: entry.length, unique: new Set(entry).size };
+}
 
 exports.handler = async function (event, context) {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
@@ -20,16 +29,33 @@ exports.handler = async function (event, context) {
     const visits = (await store.get('site-visits.json', { type: 'json' })) || {};
 
     const days = Object.keys(visits).sort().reverse();
-    const daily = days.map(d => ({ date: d, count: visits[d] }));
-
-    const monthlyMap = {};
-    days.forEach(d => {
-      const month = d.slice(0, 7);
-      monthlyMap[month] = (monthlyMap[month] || 0) + visits[d];
+    const daily = days.map(d => {
+      const s = dayStats(visits[d]);
+      return { date: d, views: s.views, unique: s.unique };
     });
-    const monthly = Object.keys(monthlyMap).sort().reverse().map(m => ({ month: m, count: monthlyMap[m] }));
+
+    // לצבירה חודשית - הצפיות פשוט מסתכמות, אבל "ייחודיים" חייב להיות איחוד
+    // (union) של הסטים לאורך החודש, אחרת מבקר שחוזר בכמה ימים באותו חודש
+    // ייספר כמה פעמים בטעות.
+    const monthlyViews = {};
+    const monthlyIdSets = {};
+    days.forEach(d => {
+      const entry = visits[d];
+      const month = d.slice(0, 7);
+      monthlyViews[month] = (monthlyViews[month] || 0) + dayStats(entry).views;
+      if (Array.isArray(entry)) {
+        if (!monthlyIdSets[month]) monthlyIdSets[month] = new Set();
+        entry.forEach(id => monthlyIdSets[month].add(id));
+      }
+    });
+    const monthly = Object.keys(monthlyViews).sort().reverse().map(m => ({
+      month: m,
+      views: monthlyViews[m],
+      unique: monthlyIdSets[m] ? monthlyIdSets[m].size : null
+    }));
 
     const todayStr = getIsraelDateString(new Date());
+    const todayStats = dayStats(visits[todayStr]);
     const thisMonthStr = todayStr.slice(0, 7);
 
     return {
@@ -37,8 +63,10 @@ exports.handler = async function (event, context) {
       headers,
       body: JSON.stringify({
         success: true,
-        todayCount: visits[todayStr] || 0,
-        thisMonthCount: monthlyMap[thisMonthStr] || 0,
+        todayViews: todayStats.views,
+        todayUnique: todayStats.unique,
+        thisMonthViews: monthlyViews[thisMonthStr] || 0,
+        thisMonthUnique: monthlyIdSets[thisMonthStr] ? monthlyIdSets[thisMonthStr].size : null,
         daily,
         monthly
       })

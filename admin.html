@@ -196,7 +196,7 @@
 <body>
 
 <div id="site-header"></div>
-<script src="assets/header.js?v=2"></script>
+<script src="assets/header.js?v=3"></script>
 
 <main class="main-content">
 
@@ -332,7 +332,12 @@
             <!-- טאב 4: כניסות לאתר -->
             <div class="panel" id="tab-visits">
                 <h2>כניסות לאתר</h2>
-                <p class="panel-desc">מונה צפיות בדפים (לא בהכרח מבקרים ייחודיים), לפי יום ולפי חודש.</p>
+                <p class="panel-desc">
+                    "צפיות" = סך כל טעינות הדפים. "מבקרים ייחודיים" = הערכה לפי מכשיר/דפדפן (מזהה אנונימי שנשמר בדפדפן,
+                    לא מזהה אישית) - כך אפשר לדעת אם הכניסות הגיעו מכמה אנשים שונים או שאותו מכשיר חוזר שוב ושוב.
+                    זו הערכה בלבד: אותו אדם משני מכשירים (למשל טלפון ומחשב) ייספר כשני מבקרים, וניקוי היסטוריית הדפדפן
+                    יוצר מזהה חדש.
+                </p>
                 <button class="history-btn" onclick="fetchVisitStats()">🔄 רענון</button>
 
                 <div id="visitsLoading" class="loading">טוען נתונים...</div>
@@ -340,14 +345,16 @@
 
                 <div id="visitsContentWrap" style="display:none;">
                     <div class="stat-tiles">
-                        <div class="stat-tile"><div class="stat-value" id="visitsToday">-</div><div class="stat-label">היום</div></div>
-                        <div class="stat-tile"><div class="stat-value" id="visitsThisMonth">-</div><div class="stat-label">החודש</div></div>
+                        <div class="stat-tile"><div class="stat-value" id="visitsTodayViews">-</div><div class="stat-label">צפיות היום</div></div>
+                        <div class="stat-tile"><div class="stat-value" id="visitsTodayUnique">-</div><div class="stat-label">מבקרים ייחודיים היום</div></div>
+                        <div class="stat-tile"><div class="stat-value" id="visitsMonthViews">-</div><div class="stat-label">צפיות החודש</div></div>
+                        <div class="stat-tile"><div class="stat-value" id="visitsMonthUnique">-</div><div class="stat-label">מבקרים ייחודיים החודש</div></div>
                     </div>
 
                     <h3 style="font-size:15px; color:#1a365d;">לפי חודש</h3>
                     <div class="table-scroll">
                         <table class="history-table">
-                            <thead><tr><th>חודש</th><th>צפיות</th></tr></thead>
+                            <thead><tr><th>חודש</th><th>צפיות</th><th>מבקרים ייחודיים</th></tr></thead>
                             <tbody id="visitsMonthlyBody"></tbody>
                         </table>
                     </div>
@@ -355,7 +362,7 @@
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">לפי יום (30 ימים אחרונים)</h3>
                     <div class="table-scroll">
                         <table class="history-table">
-                            <thead><tr><th>תאריך</th><th>צפיות</th></tr></thead>
+                            <thead><tr><th>תאריך</th><th>צפיות</th><th>מבקרים ייחודיים</th></tr></thead>
                             <tbody id="visitsDailyBody"></tbody>
                         </table>
                     </div>
@@ -702,16 +709,18 @@
             loadingDiv.style.display = 'none';
             visitsLoaded = true;
 
-            document.getElementById('visitsToday').innerText = result.todayCount;
-            document.getElementById('visitsThisMonth').innerText = result.thisMonthCount;
+            document.getElementById('visitsTodayViews').innerText = result.todayViews;
+            document.getElementById('visitsTodayUnique').innerText = result.todayUnique === null ? '-' : result.todayUnique;
+            document.getElementById('visitsMonthViews').innerText = result.thisMonthViews;
+            document.getElementById('visitsMonthUnique').innerText = result.thisMonthUnique === null ? '-' : result.thisMonthUnique;
 
             const monthlyBody = document.getElementById('visitsMonthlyBody');
             monthlyBody.innerHTML = '';
             if (result.monthly.length === 0) {
-                monthlyBody.innerHTML = '<tr><td colspan="2" style="color:#718096;">אין עדיין נתונים.</td></tr>';
+                monthlyBody.innerHTML = '<tr><td colspan="3" style="color:#718096;">אין עדיין נתונים.</td></tr>';
             } else {
                 result.monthly.forEach(m => {
-                    monthlyBody.innerHTML += `<tr><td>${m.month}</td><td>${m.count}</td></tr>`;
+                    monthlyBody.innerHTML += `<tr><td>${m.month}</td><td>${m.views}</td><td>${m.unique === null ? '-' : m.unique}</td></tr>`;
                 });
             }
 
@@ -719,10 +728,10 @@
             dailyBody.innerHTML = '';
             const dailySlice = result.daily.slice(0, 30);
             if (dailySlice.length === 0) {
-                dailyBody.innerHTML = '<tr><td colspan="2" style="color:#718096;">אין עדיין נתונים.</td></tr>';
+                dailyBody.innerHTML = '<tr><td colspan="3" style="color:#718096;">אין עדיין נתונים.</td></tr>';
             } else {
                 dailySlice.forEach(d => {
-                    dailyBody.innerHTML += `<tr><td>${d.date}</td><td>${d.count}</td></tr>`;
+                    dailyBody.innerHTML += `<tr><td>${d.date}</td><td>${d.views}</td><td>${d.unique === null ? '-' : d.unique}</td></tr>`;
                 });
             }
 

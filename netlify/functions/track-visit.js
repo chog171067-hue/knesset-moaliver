@@ -1,10 +1,15 @@
 // נקרא (best-effort, בלי לחכות לתשובה) מכל טעינת עמוד באתר דרך assets/header.js,
 // וסופר צפיות בדפים לפי יום (שעון ישראל). לא דורש התחברות - זה מונה כניסות
 // כללי לאתר, לא רק לאזור האישי. כשל כאן אף פעם לא אמור להשפיע על חוויית המשתמש.
+//
+// כל יום נשמר כמערך של מזהי-מכשיר אנונימיים (visitorId - ראו assets/header.js),
+// אחד לכל צפייה - כדי שנוכל להסיק גם "כמה צפיות בסה"כ" (אורך המערך) וגם "כמה
+// מכשירים שונים בפועל" (גודל הסט הייחודי), ראו admin-visit-stats.js.
 const { getAdminStore, getIsraelDateString } = require('./lib/blobs-store');
 
 const STORE_KEY = 'site-visits.json';
 const MAX_DAYS_KEPT = 400; // קצת יותר משנה, כדי שתמיד יהיה גם חודש מקביל אשתקד
+const NO_ID_MARKER = 'no-id'; // מכשיר שחסם/לא תמך ב-localStorage - נספר כצפייה, אך לא כמבקר ייחודי נוסף
 
 exports.handler = async function (event) {
   const headers = {
@@ -25,8 +30,25 @@ exports.handler = async function (event) {
     const store = getAdminStore(event);
     const today = getIsraelDateString(new Date());
 
+    let visitorId = NO_ID_MARKER;
+    try {
+      const body = JSON.parse(event.body || '{}');
+      if (body.visitorId) visitorId = String(body.visitorId).slice(0, 100);
+    } catch (e) { /* גוף לא תקין - עדיין סופרים את הצפייה, בלי מזהה */ }
+
     const visits = (await store.get(STORE_KEY, { type: 'json' })) || {};
-    visits[today] = (visits[today] || 0) + 1;
+
+    // תאימות לאחור: ימים שנשמרו לפני התמיכה במזהה מבקר (כמספר בלבד) - הופכים
+    // למערך כדי שאפשר יהיה להוסיף אליהם; סך הצפיות ההיסטורי נשמר, אך לא ניתן
+    // לשחזר מהם מבקרים ייחודיים בדיעבד.
+    let dayEntry = visits[today];
+    if (typeof dayEntry === 'number') {
+      dayEntry = new Array(dayEntry).fill(NO_ID_MARKER);
+    }
+    if (!Array.isArray(dayEntry)) dayEntry = [];
+
+    dayEntry.push(visitorId);
+    visits[today] = dayEntry;
 
     const days = Object.keys(visits).sort();
     if (days.length > MAX_DAYS_KEPT) {
