@@ -95,6 +95,11 @@
         .maw-loading { display: none; font-weight: bold; color: #1a365d; margin: 14px 0; text-align: center; }
         .maw-forgot { display: none; text-align: center; margin-top: 10px; }
         .maw-forgot a { color: #2b6cb0; font-size: 13px; text-decoration: underline; cursor: pointer; }
+        .maw-remember-group { margin-bottom: 16px; text-align: right; }
+        .maw-remember-group label {
+            display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: 13px; color: #4a5568; cursor: pointer;
+        }
+        .maw-remember-group input[type="checkbox"] { width: auto; flex-shrink: 0; }
         @media (max-width: 480px) {
             #maw-corner.maw-fixed-fallback { top: 8px; left: 8px; }
         }
@@ -160,6 +165,9 @@
                             <div class="maw-form-group">
                                 <label for="mawAuthPassword">סיסמה:</label>
                                 <input type="password" id="mawAuthPassword" required minlength="6">
+                            </div>
+                            <div class="maw-remember-group">
+                                <label><input type="checkbox" id="mawRememberDevice"> זכור שזה המחשב שלי והישאר מחובר תמיד ממחשב זה</label>
                             </div>
                             <button type="submit" class="maw-btn" id="mawAuthSubmitBtn">המשך</button>
                         </form>
@@ -299,6 +307,9 @@
             localStorage.setItem('pending_verified_tz', tz);
             $('mawWhitelistForm').style.display = 'none';
             $('mawIdentityAuthBox').style.display = 'block';
+            // ברירת מחדל: מסומן (רוב המשתמשים מתחברים מהמחשב/טלפון האישי שלהם) -
+            // אלא אם המשתמש הזה כבר ביטל את הסימון בעבר במכשיר הזה.
+            $('mawRememberDevice').checked = localStorage.getItem('mohliver_remember_device') !== '0';
 
             if (result.exists === true) {
                 currentMode = 'login';
@@ -333,14 +344,19 @@
         event.preventDefault();
         const email = $('mawAuthEmail').value;
         const password = $('mawAuthPassword').value;
+        const remember = $('mawRememberDevice').checked;
         const errorDiv = $('mawErrorMessage');
         const loadingDiv = $('mawLoadingSpinner');
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
 
+        // נשמר מיידית (גם עבור הרשמה) - כדי שיחול כברירת מחדל בפעם הבאה שהמשתמש
+        // הזה מתחבר מהמכשיר הזה, גם אם זו הפעם הראשונה שהוא בכלל מתחבר (לא רק נרשם)
+        localStorage.setItem('mohliver_remember_device', remember ? '1' : '0');
+
         try {
             if (currentMode === 'login') {
-                const user = await netlifyIdentity.gotrue.login(email, password, true);
+                const user = await netlifyIdentity.gotrue.login(email, password, remember);
                 loadingDiv.style.display = 'none';
                 closeAuthModal();
                 handleAuthenticated(user);
@@ -563,12 +579,19 @@
         return !!(u && u.app_metadata && u.app_metadata.verified_tz);
     }
 
+    // מכשיר שסומן "זכור אותי" לא מקבל ניתוק אוטומטי בשל חוסר פעילות - זו בדיוק
+    // המשמעות של "הישאר מחובר תמיד ממחשב זה". במכשיר לא-מסומן (למשל מחשב
+    // ציבורי/משותף) ממשיכה לחול ההגנה הרגילה.
+    function isRememberedDevice() {
+        return localStorage.getItem('mohliver_remember_device') === '1';
+    }
+
     function resetInactivityTimer() {
         clearTimeout(inactivityWarnTimer);
         clearTimeout(inactivityLogoutTimer);
         clearInterval(inactivityCountdownInterval);
         $('mawInactivityOverlay').classList.remove('open');
-        if (!isCurrentlyAuthenticated()) return;
+        if (!isCurrentlyAuthenticated() || isRememberedDevice()) return;
         inactivityWarnTimer = setTimeout(showInactivityWarning, INACTIVITY_LIMIT_MS - INACTIVITY_WARNING_MS);
     }
 
