@@ -1,4 +1,6 @@
 // דף ניהול - טאב "הודעות לגבאי": שליחת תשובת הגבאי למשתמש ספציפי.
+// בנוסף לשמירת ההודעה בשרשור, נשלחת התראה במייל למשתמש עם תוכן התשובה
+// וכפתור לחזרה ישירות לצ'אט באזור האישי כדי להמשיך את השיחה.
 const { getAdminStore } = require('./lib/blobs-store');
 const { requireAdmin } = require('./lib/admin-auth');
 
@@ -6,6 +8,35 @@ const THREADS_INDEX_KEY = 'gabai-threads-index.json';
 
 function threadKey(userId) {
   return `gabai-thread-${userId}.json`;
+}
+
+async function notifyUser(userEmail, text) {
+  try {
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey || !userEmail) return;
+
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'בית הכנסת מוהליבר <gabay@moaliver.org.il>',
+        to: userEmail,
+        subject: 'תשובה חדשה מהגבאי - בית הכנסת מוהליבר',
+        html: `
+          <div dir="rtl" style="font-family:'Segoe UI',sans-serif; padding:15px; text-align:right;">
+            <p>שלום,</p>
+            <p>התקבלה תשובה חדשה מהגבאי באזור האישי שלך באתר בית הכנסת:</p>
+            <p style="background:#f7fafc; padding:12px; border-radius:8px;">${text}</p>
+            <p style="text-align:center; margin-top:20px;">
+              <a href="https://moaliver.org.il/personal.html?tab=gabai-chat" style="display: inline-block; padding: 10px 20px; background-color: #000080; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size:14px;">מעבר לשיחה באתר</a>
+            </p>
+          </div>
+        `
+      })
+    });
+  } catch (e) {
+    console.warn('[admin-gabai-reply] כשל בשליחת התראה למשתמש:', e.message);
+  }
 }
 
 exports.handler = async function (event, context) {
@@ -46,6 +77,8 @@ exports.handler = async function (event, context) {
       entry.unreadByAdmin = false;
       await store.setJSON(THREADS_INDEX_KEY, index);
     }
+
+    await notifyUser(entry && entry.userEmail, cleanText);
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } catch (error) {

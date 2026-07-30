@@ -581,6 +581,11 @@
         checkIgudTrackingAccess();
         checkAdminAccess();
         checkGabaiUnread();
+
+        // הגעה מקישור במייל (למשל תשובת הגבאי) - פותחים ישירות את טאב הצ'אט
+        if (new URLSearchParams(location.search).get('tab') === 'gabai-chat') {
+            switchTab('tab-gabai-chat');
+        }
     });
 
     document.addEventListener('mohliver:logout', () => {
