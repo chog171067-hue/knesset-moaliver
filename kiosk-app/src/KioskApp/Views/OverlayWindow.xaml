@@ -1,0 +1,45 @@
+<Window x:Class="KioskApp.Views.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="קיוסק הספרייה"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        FlowDirection="RightToLeft"
+        Left="0" Top="0"
+        Height="60"
+        Background="{StaticResource KioskPrimaryBrush}">
+    <Grid Margin="20,0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Column="0" x:Name="UsernameText" FontSize="15" FontWeight="Bold"
+                   Foreground="White" VerticalAlignment="Center" Margin="0,0,25,0" />
+
+        <TextBlock Grid.Column="1" x:Name="BalanceText" FontSize="15"
+                   Foreground="White" VerticalAlignment="Center" Margin="0,0,25,0" />
+
+        <TextBlock Grid.Column="2" x:Name="TimerText" FontSize="15"
+                   Foreground="#CBD5E0" VerticalAlignment="Center" />
+
+        <Button Grid.Column="4" Content="↔ החלפת תוכנה" FontSize="13" Padding="12,6" Margin="0,0,10,0"
+                Background="Transparent" Foreground="White" BorderBrush="White" BorderThickness="1"
+                Click="OnSwitchAppClick" Cursor="Hand" />
+
+        <Button Grid.Column="5" Content="💰 הטענת כסף" FontSize="13" Padding="12,6" Margin="0,0,10,0"
+                Background="{StaticResource KioskAccentBrush}" Foreground="White" BorderThickness="0"
+                Click="OnTopupClick" Cursor="Hand" />
+
+        <Button Grid.Column="6" Content="↩ ניתוק" FontSize="13" Padding="12,6"
+                Background="{StaticResource KioskDangerBrush}" Foreground="White" BorderThickness="0"
+                Click="OnLogoutClick" Cursor="Hand" />
+    </Grid>
+</Window>

@@ -1,1 +1,6 @@
 node_modules/
+
+# kiosk-app (.NET)
+kiosk-app/**/bin/
+kiosk-app/**/obj/
+kiosk-app/installer/Output/

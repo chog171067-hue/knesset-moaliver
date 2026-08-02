@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net8.0-windows: זהו פרויקט WPF, לא ניתן לבנות אותו במחשב שאינו Windows.
+         ראו kiosk-app/README.md להוראות בנייה מלאות. -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>KioskApp</RootNamespace>
+    <AssemblyName>KioskApp</AssemblyName>
+    <!-- להוסיף אייקון: להניח קובץ app.ico בתיקייה הזו ולהחזיר את השורה
+         <ApplicationIcon>app.ico</ApplicationIcon> - הושמט כברירת מחדל כי אין כאן קובץ אייקון אמיתי -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- System.Printing (ביטול/שאילתת עבודות הדפסה) - חלק מ-Windows Desktop shared
+         framework, לא NuGet package - חייב Reference מפורש כדי להשתמש ב-PrintQueue/PrintServer -->
+    <Reference Include="ReachFramework" />
+    <Reference Include="System.Printing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KioskApp.Core\KioskApp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,28 @@
+<Window x:Class="KioskApp.Views.AppPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="קיוסק הספרייה - בחירת תוכנה"
+        WindowStyle="None"
+        WindowState="Maximized"
+        ResizeMode="NoResize"
+        Topmost="True"
+        FlowDirection="RightToLeft"
+        Background="{StaticResource KioskPrimaryBrush}">
+    <DockPanel>
+        <Grid DockPanel.Dock="Top" Height="70" Background="#14FFFFFF">
+            <TextBlock x:Name="WelcomeText" Text="שלום!" FontSize="22" FontWeight="Bold"
+                       Foreground="White" VerticalAlignment="Center" Margin="30,0,0,0" />
+            <Button x:Name="LogoutButton" Content="↩ ניתוק" FontSize="14" Padding="14,8"
+                    HorizontalAlignment="Left" Margin="0,0,30,0" VerticalAlignment="Center"
+                    Background="Transparent" Foreground="White" BorderBrush="White" BorderThickness="1"
+                    Click="OnLogoutClick" Cursor="Hand" />
+        </Grid>
+
+        <TextBlock DockPanel.Dock="Top" Text="בחרו תוכנה להפעלה" FontSize="18"
+                    Foreground="White" HorizontalAlignment="Center" Margin="0,30,0,20" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <WrapPanel x:Name="AppsPanel" HorizontalAlignment="Center" Margin="30" />
+        </ScrollViewer>
+    </DockPanel>
+</Window>
