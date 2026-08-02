@@ -13,7 +13,11 @@ const crypto = require('crypto');
 
 const USERS_KEY = 'users.json';
 const TRANSACTIONS_KEY = 'transactions.json';
+const CONFIG_KEY = 'config.json';
+const PENDING_TOPUPS_KEY = 'pending-topups.json';
 const MAX_WRITE_ATTEMPTS = 5;
+
+const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [] };
 
 function getKioskStore(event) {
   connectLambda(event);
@@ -60,6 +64,12 @@ async function listUsers(event) {
   const store = getKioskStore(event);
   const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
   return Object.values(users).map(toPublicUser).sort((a, b) => a.username.localeCompare(b.username, 'he'));
+}
+
+async function getUserById(event, userId) {
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  return toPublicUser(users[userId]) || null;
 }
 
 async function findUserByUsername(event, username) {
@@ -177,6 +187,186 @@ async function addManualBalance(event, { userId, amount, description, performedB
   return { user: updatedUser, transaction };
 }
 
+// חיוב הדפסה: בודק יתרה ומחייב באותה כתיבה אטומית (לא "בדוק ואז חייב" בשני
+// שלבים נפרדים) - כדי שלא יהיה חלון זמן שבו שתי בקשות חיוב מקבילות לאותו
+// משתמש יעברו את הבדיקה שתיהן על סמך אותה יתרה ישנה. במקרה של יתרה לא
+// מספיקה זורקים שגיאה מסומנת (err.insufficientFunds) לפני כל כתיבה בפועל -
+// כך שגם לא מתבזבזת כתיבה מיותרת על "אין שינוי".
+async function chargeForPrint(event, { userId, pages }) {
+  const numericPages = Number(pages);
+  if (!Number.isInteger(numericPages) || numericPages <= 0) {
+    throw new Error('מספר עמודים לא תקין');
+  }
+
+  const config = await getConfig(event);
+  const cost = Number((numericPages * config.pricePerPage).toFixed(2));
+
+  const store = getKioskStore(event);
+  const chargedUser = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const user = users[userId];
+    if (!user) throw new Error('משתמש לא נמצא');
+    if (!user.isActive) throw new Error('החשבון מושבת');
+    if (user.balance < cost) {
+      const err = new Error('היתרה אינה מספיקה לביצוע ההדפסה');
+      err.insufficientFunds = true;
+      err.balance = user.balance;
+      err.cost = cost;
+      throw err;
+    }
+    user.balance = Number((user.balance - cost).toFixed(2));
+    user.updatedAt = new Date().toISOString();
+    return toPublicUser(user);
+  });
+
+  const transaction = await appendTransaction(event, {
+    userId,
+    type: 'charge',
+    source: 'print',
+    amount: cost,
+    description: `הדפסת ${numericPages} עמודים`,
+    pages: numericPages
+  });
+
+  return { balance: chargedUser.balance, cost, transaction };
+}
+
+// תעריף עמוד הדפסה ורשימת התוכנות המאושרות - נקרא ע"י עמדת הקיוסק (לבניית
+// מסך בחירת התוכנה ולחישוב עלות הדפסה) וע"י פאנל הניהול (לעריכה).
+async function getConfig(event) {
+  const store = getKioskStore(event);
+  const config = (await store.get(CONFIG_KEY, { type: 'json' })) || {};
+  return { ...DEFAULT_CONFIG, ...config };
+}
+
+// עדכון מלא: allowedApps (אם נשלח) מחליף את כל הרשימה הקיימת, לא ממזג איתה -
+// כך שמסך הניהול פשוט שולח בחזרה את הרשימה השלמה אחרי הוספה/הסרה/סידור מחדש.
+async function updateConfig(event, patch) {
+  if (patch.pricePerPage !== undefined) {
+    const price = Number(patch.pricePerPage);
+    if (!Number.isFinite(price) || price < 0) throw new Error('תעריף עמוד ההדפסה חייב להיות מספר לא שלילי');
+  }
+  if (patch.allowedApps !== undefined && !Array.isArray(patch.allowedApps)) {
+    throw new Error('רשימת התוכנות המאושרות חייבת להיות מערך');
+  }
+
+  const store = getKioskStore(event);
+  return writeWithRetry(store, CONFIG_KEY, { ...DEFAULT_CONFIG }, (config) => {
+    if (patch.pricePerPage !== undefined) config.pricePerPage = Number(patch.pricePerPage);
+    if (patch.allowedApps !== undefined) config.allowedApps = patch.allowedApps;
+    config.updatedAt = new Date().toISOString();
+    return { ...DEFAULT_CONFIG, ...config };
+  });
+}
+
+// הטענת כסף מקוונת מול נדרים פלוס: זרימת "אישור שרתי בלבד" (ראו תיעוד ה-API,
+// "אימות תשלום ואבטחה") - לעולם לא סומכים על מה שהדפדפן/העמדה "מספרים" לנו
+// שהתשלום הצליח, אלא רק על ה-CallBack שמגיע ישירות משרתי נדרים פלוס.
+//
+// pending-topups.json הוא מקור האמת לזיהוי "לאיזה משתמש ואיזה סכום מיועד
+// אסימון (token) ששלחנו ב-Param1" - כי Param1 עצמו לא נשמר אצל נדרים פלוס
+// (ראו התיעוד: "טקסט חופשי מיועד לקאלבק בלבד, לא נשמר").
+//
+// שני מסמכים נפרדים (pending-topups.json, users.json) לא יכולים להיכתב
+// כטרנזקציה אחת אמיתית ב-Blobs - לכן מטפלים בזה בשני שלבים מסודרים:
+// 1) "תפיסת" האסימון (pending -> processing) באופן אטומי, כדי שקריאת קאלבק
+//    כפולה (או race) לא תזכה את היתרה פעמיים.
+// 2) זיכוי היתרה בפועל, ואז סימון האסימון כ-confirmed. אם שלב 2 נכשל
+//    (למשל המשתמש נמחק בינתיים), מסמנים failed במקום להשאיר תקוע ב-processing
+//    לצמיתות - מקרה קצה נדיר שדורש בדיקה ידנית, לא זיכוי אוטומטי כפול.
+async function createPendingTopup(event, { userId, amount }) {
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    throw new Error('סכום ההטענה חייב להיות מספר חיובי');
+  }
+
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  if (!users[userId]) throw new Error('משתמש לא נמצא');
+
+  const token = crypto.randomUUID();
+  return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+    pending[token] = { token, userId, amount: numericAmount, status: 'pending', createdAt: new Date().toISOString() };
+    return { token, amount: numericAmount };
+  });
+}
+
+async function claimPendingTopupForProcessing(event, token) {
+  const store = getKioskStore(event);
+  return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+    const entry = pending[token];
+    if (!entry) throw new Error('אסימון תשלום לא מוכר');
+    if (entry.status !== 'pending') {
+      return { alreadyHandled: true, entry: { ...entry } };
+    }
+    entry.status = 'processing';
+    return { alreadyHandled: false, entry: { ...entry } };
+  });
+}
+
+async function markPendingTopupOutcome(event, token, patch) {
+  const store = getKioskStore(event);
+  await writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+    const entry = pending[token];
+    if (!entry) throw new Error('אסימון תשלום לא מוכר');
+    Object.assign(entry, patch);
+    return entry;
+  });
+}
+
+// נקרא ע"י ה-CallBack בלבד, אחרי אימות ה-IP מול נדרים פלוס. הסכום שמזוכה הוא
+// הסכום שנדרים פלוס בפועל מדווחת עליו (לא מה שביקשנו ביצירת האסימון) - כך
+// שאם משום מה יש פער, היתרה תמיד תשקף את מה שבאמת חויב בכרטיס האשראי.
+async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransactionId, confirmation, lastNum }) {
+  const claim = await claimPendingTopupForProcessing(event, token);
+  if (claim.alreadyHandled) {
+    return { duplicate: true, status: claim.entry.status };
+  }
+
+  const creditAmount = Number(nedarimAmount) > 0 ? Number(nedarimAmount) : claim.entry.amount;
+
+  try {
+    const store = getKioskStore(event);
+    const updatedUser = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+      const user = users[claim.entry.userId];
+      if (!user) throw new Error('משתמש לא נמצא (נמחק בזמן התשלום)');
+      user.balance = Number((user.balance + creditAmount).toFixed(2));
+      user.updatedAt = new Date().toISOString();
+      return toPublicUser(user);
+    });
+
+    const transaction = await appendTransaction(event, {
+      userId: claim.entry.userId,
+      type: 'topup',
+      source: 'nedarim',
+      amount: creditAmount,
+      description: 'הטענת כסף באשראי דרך נדרים פלוס',
+      nedarimTransactionId: nedarimTransactionId || null,
+      confirmation: confirmation || null
+    });
+
+    await markPendingTopupOutcome(event, token, {
+      status: 'confirmed',
+      confirmedAt: new Date().toISOString(),
+      nedarimTransactionId: nedarimTransactionId || null,
+      confirmation: confirmation || null,
+      lastNum: lastNum || null
+    });
+
+    return { duplicate: false, user: updatedUser, transaction };
+  } catch (err) {
+    await markPendingTopupOutcome(event, token, { status: 'failed', failReason: err.message }).catch(() => {});
+    throw err;
+  }
+}
+
+async function getPendingTopupStatus(event, token) {
+  const store = getKioskStore(event);
+  const pending = (await store.get(PENDING_TOPUPS_KEY, { type: 'json' })) || {};
+  const entry = pending[token];
+  if (!entry) throw new Error('אסימון תשלום לא מוכר');
+  return { status: entry.status, amount: entry.amount, confirmedAt: entry.confirmedAt || null };
+}
+
 async function listUserTransactions(event, userId) {
   const store = getKioskStore(event);
   const transactions = (await store.get(TRANSACTIONS_KEY, { type: 'json' })) || [];
@@ -190,6 +380,7 @@ module.exports = {
   verifyPassword,
   toPublicUser,
   listUsers,
+  getUserById,
   findUserByUsername,
   createUser,
   resetPassword,
@@ -197,5 +388,11 @@ module.exports = {
   deleteUser,
   addManualBalance,
   appendTransaction,
-  listUserTransactions
+  listUserTransactions,
+  getConfig,
+  updateConfig,
+  chargeForPrint,
+  createPendingTopup,
+  confirmPendingTopup,
+  getPendingTopupStatus
 };

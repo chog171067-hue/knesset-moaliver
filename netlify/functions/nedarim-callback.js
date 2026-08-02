@@ -4,21 +4,9 @@
 // כי הודעת ה-TransactionResponse שהאייפרם שולח לדפדפן ניתנת לזיוף ע"י גולש עוין.
 //
 // לפי תיעוד נדרים פלוס (סעיף "אימות מקור העדכון"), העדכונים תמיד מגיעים
-// מאחת משתי כתובות ה-IP הבאות בלבד:
-const NEDARIM_IPS = ['18.196.146.117', '18.194.219.73'];
-
-function getSourceIp(event) {
-  // נטליפיי מעביר את שרשרת ה-IP האמיתית ב-x-nf-client-connection-ip,
-  // ובמידה וזה חסר - fallback לכותרת הסטנדרטית x-forwarded-for
-  const headers = event.headers || {};
-  const direct = headers['x-nf-client-connection-ip'];
-  if (direct) return direct.trim();
-
-  const forwarded = headers['x-forwarded-for'];
-  if (forwarded) return forwarded.split(',')[0].trim();
-
-  return null;
-}
+// מאחת משתי כתובות ה-IP הבאות בלבד - ראו lib/nedarim-security.js (משותף גם
+// ל-CallBack של הטענות הקיוסק).
+const { isFromNedarim } = require('./lib/nedarim-security');
 
 async function sendGabayNotification({ subject, htmlBody }) {
   const apiKey = process.env.SENDGRID_API_KEY;
@@ -48,10 +36,9 @@ exports.handler = async function (event, context) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const sourceIp = getSourceIp(event);
-  const isFromNedarim = sourceIp && NEDARIM_IPS.includes(sourceIp);
+  const { sourceIp, verified } = isFromNedarim(event);
 
-  if (!isFromNedarim) {
+  if (!verified) {
     // לא חוסמים לגמרי - רק מתעדים ומתריעים, כי לפעמים כתובות ה-IP עלולות
     // להתעדכן מצד נדרים פלוס. אבל אנחנו לא סומכים על תוכן הבקשה במקרה הזה.
     console.warn(`[nedarim-callback] התקבלה קריאה מכתובת IP לא מוכרת: ${sourceIp}`);

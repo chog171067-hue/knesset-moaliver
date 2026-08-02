@@ -74,4 +74,42 @@ async function setUserVerifiedTz(identity, userId, tz, phone) {
   }
 }
 
-module.exports = { listAllUsers, findUserByBoundTz, setUserVerifiedTz };
+// אותו דפוס בדיוק כמו findUserByBoundTz/setUserVerifiedTz, עבור קישור חשבון
+// האזור האישי לחשבון עמדת הקיוסק בספרייה (netlify/functions/library-personal-link.js) -
+// נשמר כזוג פונקציות נפרד ולא כהכללה של הזוג הקיים, כדי לא לגעת בזרימת קישור
+// ת"ז הקיימת שכבר בשימוש בפועל.
+async function findUserByLibraryKioskId(identity, kioskUserId) {
+  const users = await listAllUsers(identity);
+  const clean = String(kioskUserId).trim();
+  return users.find(u => u.app_metadata && String(u.app_metadata.library_kiosk_user_id) === clean) || null;
+}
+
+async function setUserLibraryKioskId(identity, userId, kioskUserId) {
+  assertIdentity(identity);
+  const baseUrl = `${identity.url}/admin/users/${userId}`;
+
+  const currentRes = await fetch(baseUrl, {
+    headers: { Authorization: `Bearer ${identity.token}` }
+  });
+  if (!currentRes.ok) {
+    throw new Error(`כשל בשליפת פרטי המשתמש: ${currentRes.status}`);
+  }
+  const currentData = await currentRes.json();
+  const existingAppMetadata = currentData.app_metadata || {};
+
+  const putRes = await fetch(baseUrl, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${identity.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      app_metadata: { ...existingAppMetadata, library_kiosk_user_id: String(kioskUserId) }
+    })
+  });
+  if (!putRes.ok) {
+    throw new Error(`כשל בעדכון פרטי המשתמש: ${putRes.status}`);
+  }
+}
+
+module.exports = { listAllUsers, findUserByBoundTz, setUserVerifiedTz, findUserByLibraryKioskId, setUserLibraryKioskId };
