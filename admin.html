@@ -262,7 +262,8 @@
             <!-- טאב: הודעות לגבאי -->
             <div class="panel" id="tab-gabai">
                 <h2>הודעות לגבאי</h2>
-                <p class="panel-desc">כל השיחות מול משתמשי האזור האישי. לחצו על שיחה כדי לפתוח אותה ולהשיב.</p>
+                <p class="panel-desc">כל השיחות מול משתמשי האזור האישי. לחצו על שיחה כדי לפתוח אותה ולהשיב, או פתחו שיחה חדשה עם משתמש רשום.</p>
+                <button class="history-btn" onclick="openNewGabaiConversationModal()">✉️ שיחה חדשה</button>
 
                 <div class="gabai-layout">
                     <div class="gabai-threads-list" id="gabaiThreadsList">
@@ -379,6 +380,38 @@
         <button class="card-close" onclick="closeMemberCard()" aria-label="סגור">✕</button>
         <h3>כרטיס חבר קהילה</h3>
         <div id="memberCardContent"></div>
+    </div>
+</div>
+
+<!-- מודאל ליזום שיחה חדשה עם משתמש רשום -->
+<div class="card-overlay" id="newGabaiOverlay">
+    <div class="card-box">
+        <button class="card-close" onclick="closeNewGabaiConversationModal()" aria-label="סגור">✕</button>
+        <h3>שיחה חדשה עם משתמש</h3>
+
+        <div id="newGabaiPickStep">
+            <div class="field full" style="margin-bottom:12px;">
+                <label>חיפוש (שם / מייל / ת.ז)</label>
+                <input type="text" id="newGabaiSearch" oninput="renderNewGabaiUsersList()" placeholder="הקלד לסינון..." autocomplete="off">
+            </div>
+            <div id="newGabaiUsersList" style="max-height:320px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px;"></div>
+        </div>
+
+        <div id="newGabaiComposeStep" style="display:none;">
+            <div class="card-row" style="border-bottom:none; padding-bottom:0;">
+                <span class="card-label">נמען</span>
+                <span class="card-value" id="newGabaiRecipientLabel"></span>
+            </div>
+            <div class="field full" style="margin:15px 0 0;">
+                <label>הודעה ראשונה</label>
+                <textarea id="newGabaiMessageInput" rows="4" style="width:100%; padding:10px; border:1px solid #cbd5e0; border-radius:8px; font-size:14px; font-family:inherit; box-sizing:border-box; resize:vertical;" placeholder="כתבו כאן את ההודעה..."></textarea>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="history-btn" type="button" onclick="backToNewGabaiPickStep()">↩ חזרה לרשימה</button>
+                <button class="btn" id="newGabaiSendBtn" style="width:auto; padding:10px 22px;" onclick="sendNewGabaiConversation()">שליחה ופתיחת שיחה</button>
+            </div>
+            <div class="form-error" id="newGabaiError"></div>
+        </div>
     </div>
 </div>
 
@@ -872,6 +905,106 @@
         if (gabaiAdminPollInterval) {
             clearInterval(gabaiAdminPollInterval);
             gabaiAdminPollInterval = null;
+        }
+    }
+
+    // --- מודאל: יזום שיחה חדשה עם משתמש רשום ---
+    let newGabaiSelectedUser = null;
+
+    function openNewGabaiConversationModal() {
+        newGabaiSelectedUser = null;
+        document.getElementById('newGabaiSearch').value = '';
+        document.getElementById('newGabaiComposeStep').style.display = 'none';
+        document.getElementById('newGabaiPickStep').style.display = 'block';
+        renderNewGabaiUsersList();
+        document.getElementById('newGabaiOverlay').classList.add('open');
+    }
+
+    function closeNewGabaiConversationModal() {
+        document.getElementById('newGabaiOverlay').classList.remove('open');
+    }
+
+    function renderNewGabaiUsersList() {
+        const search = document.getElementById('newGabaiSearch').value.trim().toLowerCase();
+        const listDiv = document.getElementById('newGabaiUsersList');
+
+        const filtered = !search ? usersData : usersData.filter(u =>
+            (u.fullName || '').toLowerCase().includes(search) ||
+            (u.email || '').toLowerCase().includes(search) ||
+            (u.verifiedTz || '').includes(search)
+        );
+
+        if (filtered.length === 0) {
+            listDiv.innerHTML = '<div class="chat-empty" style="padding:14px;">לא נמצאו משתמשים תואמים.</div>';
+            return;
+        }
+
+        listDiv.innerHTML = filtered.map(u => {
+            const hasThread = gabaiThreads.some(t => t.userId === u.id);
+            const badge = hasThread ? '<span style="font-size:11px; color:#2b6cb0;">(יש שיחה קיימת)</span>' : '';
+            return `
+                <div class="gabai-thread-item" onclick="selectNewGabaiUser('${u.id}')">
+                    <div class="gt-top"><span class="gt-name">${escapeHtml(u.fullName || u.email)}</span>${badge}</div>
+                    <div class="gt-preview">${escapeHtml(u.email)}${u.verifiedTz ? ' · ת.ז ' + escapeHtml(u.verifiedTz) : ''}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function selectNewGabaiUser(userId) {
+        newGabaiSelectedUser = usersData.find(u => u.id === userId);
+        if (!newGabaiSelectedUser) return;
+
+        document.getElementById('newGabaiRecipientLabel').innerText =
+            `${newGabaiSelectedUser.fullName || newGabaiSelectedUser.email} (${newGabaiSelectedUser.email})`;
+        document.getElementById('newGabaiMessageInput').value = '';
+        document.getElementById('newGabaiError').style.display = 'none';
+        document.getElementById('newGabaiPickStep').style.display = 'none';
+        document.getElementById('newGabaiComposeStep').style.display = 'block';
+    }
+
+    function backToNewGabaiPickStep() {
+        newGabaiSelectedUser = null;
+        document.getElementById('newGabaiComposeStep').style.display = 'none';
+        document.getElementById('newGabaiPickStep').style.display = 'block';
+    }
+
+    async function sendNewGabaiConversation() {
+        if (!newGabaiSelectedUser) return;
+        const errorDiv = document.getElementById('newGabaiError');
+        const input = document.getElementById('newGabaiMessageInput');
+        const btn = document.getElementById('newGabaiSendBtn');
+        errorDiv.style.display = 'none';
+
+        const text = input.value.trim();
+        if (!text) return;
+
+        btn.disabled = true;
+        btn.innerText = 'שולח...';
+
+        try {
+            await authedFetch('/.netlify/functions/admin-gabai-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: newGabaiSelectedUser.id,
+                    text,
+                    userName: newGabaiSelectedUser.fullName,
+                    userEmail: newGabaiSelectedUser.email,
+                    userTz: newGabaiSelectedUser.verifiedTz
+                })
+            });
+
+            const openedUserId = newGabaiSelectedUser.id;
+            closeNewGabaiConversationModal();
+            await fetchGabaiThreads();
+            openGabaiThread(openedUserId);
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'שליחה ופתיחת שיחה';
         }
     }
 </script>
