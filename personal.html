@@ -140,6 +140,7 @@
 
         .iframe-wrap { display: none; margin-top: 20px; border-top: 2px dashed #cbd5e0; padding-top: 20px; }
         #NedarimFrame { width: 100%; border: none; height: 0; }
+        #LibraryNedarimFrame { width: 100%; border: none; height: 0; }
 
         .error-msg { color: #c53030; background: #fff5f5; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; display: none; text-align: right; line-height: 1.5; }
         .loading { font-weight: bold; color: #1a365d; padding: 20px 0; text-align: center; }
@@ -243,6 +244,12 @@
 
             <div class="sidebar-flat-item">
                 <button class="nav-btn" data-tab="tab-gabai-chat" onclick="switchTab('tab-gabai-chat')"><span class="icon">💬</span> הודעות לגבאי <span class="unread-dot" id="gabaiUnreadDot" style="display:none;"></span></button>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <div class="sidebar-flat-item">
+                <button class="nav-btn" data-tab="tab-library-kiosk" onclick="switchTab('tab-library-kiosk')"><span class="icon">🖥️</span> חשבון קיוסק ספרייה</button>
             </div>
 
             <!-- טאב חריג המוצג רק למשתמש מורשה ספציפי (בדיקת הרשאה בשרת ובלקוח) -->
@@ -561,6 +568,55 @@
                 </div>
             </div>
 
+            <!-- טאב: חשבון קיוסק ספרייה -->
+            <div class="panel" id="tab-library-kiosk">
+                <h2>חשבון קיוסק הספרייה</h2>
+                <p class="panel-desc">קשרו את חשבון עמדת הקיוסק בספרייה (שם המשתמש שקיבלתם מהצוות) לחשבון האתר שלכם, כדי לצפות ביתרה, בהיסטוריה ולהטעין כסף מכאן.</p>
+
+                <div id="libLoading" class="loading">בודק סטטוס קישור...</div>
+                <div id="libGeneralError" class="form-error"></div>
+
+                <div id="libLinkSection" style="display:none;">
+                    <form id="libLinkForm" onsubmit="return false;">
+                        <div class="form-grid">
+                            <div class="field"><label>שם משתמש בקיוסק</label><input type="text" id="libLinkUsername" autocomplete="off"></div>
+                            <div class="field"><label>סיסמה</label><input type="password" id="libLinkPassword" autocomplete="off"></div>
+                        </div>
+                        <button class="btn" id="libLinkBtn" onclick="submitLibraryLink()" style="width:auto; padding:12px 30px;">קישור חשבון</button>
+                        <div class="form-error" id="libLinkError"></div>
+                    </form>
+                </div>
+
+                <div id="libAccountSection" style="display:none;">
+                    <div style="background:#f7fafc; border:1px solid #e2e8f0; border-radius:10px; padding:20px; text-align:center; max-width:220px; margin-bottom:20px;">
+                        <div style="font-size:32px; font-weight:bold; color:#1a365d;" id="libBalanceValue">-</div>
+                        <div style="font-size:13px; color:#718096; margin-top:4px;">יתרה נוכחית (₪)</div>
+                    </div>
+
+                    <h3 style="font-size:15px; color:#1a365d;">הטענת כסף</h3>
+                    <div class="form-grid">
+                        <div class="field"><label>סכום להטענה (₪)</label><input type="number" min="1" step="1" id="libTopupAmount"></div>
+                    </div>
+                    <button class="btn" id="libTopupBtn" onclick="startLibraryTopup()" style="width:auto; padding:12px 30px;">המשך לתשלום</button>
+                    <div class="form-error" id="libTopupError"></div>
+                    <div class="success-box" id="libTopupSuccess"></div>
+
+                    <div class="iframe-wrap" id="libIframeWrap">
+                        <iframe id="LibraryNedarimFrame" scrolling="no"></iframe>
+                    </div>
+
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">היסטוריית פעולות</h3>
+                    <button class="history-btn" onclick="fetchLibraryPersonalHistory()">🔄 רענון</button>
+                    <div id="libHistoryLoading" class="loading" style="display:none;">טוען נתונים...</div>
+                    <div id="libHistoryTableWrap" style="display:none;">
+                        <table class="history-table">
+                            <thead><tr><th>תאריך</th><th>סוג</th><th>סכום</th><th>תיאור</th></tr></thead>
+                            <tbody id="libHistoryTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </section>
     </div>
 </main>
@@ -650,6 +706,9 @@
         }
         if (tabId === 'tab-igud-tracking' && !igudTrackingLoaded) {
             fetchIgudTracking();
+        }
+        if (tabId === 'tab-library-kiosk') {
+            checkLibraryKioskStatus();
         }
 
         if (tabId === 'tab-gabai-chat') {
@@ -1058,10 +1117,14 @@
         nedarimFrameLoaded = true;
 
         window.addEventListener('message', function (event) {
-            if (!event.data || !event.data.Name) return;
+            // בדיקת event.source חיונית כאן: יש עוד אייפרם של נדרים פלוס בעמוד הזה
+            // (LibraryNedarimFrame, טאב חשבון הקיוסק) - בלי הבדיקה הזו, postMessage
+            // מהאייפרם השני היה מופעל גם כאן (וההפך), כי window מקבל את כל ההודעות
+            // ללא קשר לאייפרם ששלח אותן.
+            const frame = document.getElementById('NedarimFrame');
+            if (!event.data || !event.data.Name || event.source !== frame.contentWindow) return;
 
             if (event.data.Name === 'Height') {
-                const frame = document.getElementById('NedarimFrame');
                 frame.style.height = (parseInt(event.data.Value, 10) + 15) + 'px';
             }
 
@@ -1666,6 +1729,270 @@
             sendGabaiMessage();
         }
     });
+
+    // --- טאב: חשבון קיוסק ספרייה ---
+    let libraryKioskLoaded = false;
+    let libraryPendingTopupToken = null;
+
+    async function checkLibraryKioskStatus() {
+        if (libraryKioskLoaded) return;
+        libraryKioskLoaded = true;
+
+        const loadingDiv = document.getElementById('libLoading');
+        const linkSection = document.getElementById('libLinkSection');
+        const accountSection = document.getElementById('libAccountSection');
+        const generalErrorDiv = document.getElementById('libGeneralError');
+
+        loadingDiv.style.display = 'block';
+        generalErrorDiv.style.display = 'none';
+        linkSection.style.display = 'none';
+        accountSection.style.display = 'none';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            if (!currentUser) throw new Error('יש להתחבר מחדש');
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/library-personal-get-balance', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (response.status === 404 && result.linked === false) {
+                linkSection.style.display = 'block';
+                return;
+            }
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'כשל בבדיקת סטטוס החשבון');
+            }
+
+            document.getElementById('libBalanceValue').innerText = Number(result.user.balance).toFixed(2);
+            accountSection.style.display = 'block';
+            fetchLibraryPersonalHistory();
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            generalErrorDiv.innerText = err.message;
+            generalErrorDiv.style.display = 'block';
+        }
+    }
+
+    async function submitLibraryLink() {
+        const errorDiv = document.getElementById('libLinkError');
+        errorDiv.style.display = 'none';
+
+        const username = document.getElementById('libLinkUsername').value.trim();
+        const password = document.getElementById('libLinkPassword').value;
+        if (!username || !password) {
+            errorDiv.innerText = 'יש למלא שם משתמש וסיסמה של חשבון הקיוסק';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        const btn = document.getElementById('libLinkBtn');
+        btn.disabled = true;
+        btn.innerText = 'מקשר...';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/library-personal-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ username, password })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'הקישור נכשל');
+            }
+
+            libraryKioskLoaded = false; // כדי שהריענון הבא יטען את מסך החשבון המקושר במקום טופס הקישור
+            checkLibraryKioskStatus();
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'קישור חשבון';
+        }
+    }
+
+    async function fetchLibraryPersonalHistory() {
+        const loadingDiv = document.getElementById('libHistoryLoading');
+        const tableWrap = document.getElementById('libHistoryTableWrap');
+        const tbody = document.getElementById('libHistoryTableBody');
+
+        loadingDiv.style.display = 'block';
+        tableWrap.style.display = 'none';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            const token = await currentUser.jwt();
+
+            const response = await fetch('/.netlify/functions/library-personal-history', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            loadingDiv.style.display = 'none';
+
+            if (!response.ok || !result.success) throw new Error(result.error || 'כשל בטעינת ההיסטוריה');
+
+            tbody.innerHTML = '';
+            if (result.transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color:#718096;">אין עדיין פעולות.</td></tr>';
+            } else {
+                result.transactions.forEach(t => {
+                    const time = t.timestamp ? new Date(t.timestamp).toLocaleString('he-IL') : '-';
+                    const typeLabel = t.type === 'topup' ? '<span class="badge-success">הטענה</span>' : '<span class="badge-danger">חיוב</span>';
+                    const sign = t.type === 'topup' ? '+' : '-';
+                    tbody.innerHTML += `<tr><td>${time}</td><td>${typeLabel}</td><td>${sign}${Number(t.amount).toFixed(2)}</td><td>${escapeHtmlText(t.description || '-')}</td></tr>`;
+                });
+            }
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            alert('שגיאה בטעינת ההיסטוריה: ' + err.message);
+        }
+    }
+
+    // אייפרם נפרד לגמרי מ-NedarimFrame (טאב "הוראת קבע חדשה") - ראו ההערה על
+    // event.source בהאזנה של NedarimFrame למעלה בקובץ.
+    let libraryNedarimFrameLoaded = false;
+
+    function initLibraryNedarimFrame() {
+        if (libraryNedarimFrameLoaded) return;
+        libraryNedarimFrameLoaded = true;
+
+        window.addEventListener('message', function (event) {
+            const frame = document.getElementById('LibraryNedarimFrame');
+            if (!event.data || !event.data.Name || event.source !== frame.contentWindow) return;
+
+            if (event.data.Name === 'Height') {
+                frame.style.height = (parseInt(event.data.Value, 10) + 15) + 'px';
+            }
+            if (event.data.Name === 'TransactionResponse') {
+                onLibraryTransactionResponse(event.data.Value);
+            }
+        });
+
+        const frame = document.getElementById('LibraryNedarimFrame');
+        frame.onload = function () { postToLibraryNedarim({ Name: 'GetHeight' }); };
+        frame.src = 'https://www.matara.pro/nedarimplus/iframe/';
+    }
+
+    function postToLibraryNedarim(data) {
+        document.getElementById('LibraryNedarimFrame').contentWindow.postMessage(data, '*');
+    }
+
+    async function startLibraryTopup() {
+        const errorDiv = document.getElementById('libTopupError');
+        const successDiv = document.getElementById('libTopupSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        const amount = document.getElementById('libTopupAmount').value;
+        if (!amount || Number(amount) <= 0) {
+            errorDiv.innerText = 'יש להזין סכום תקין';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        const btn = document.getElementById('libTopupBtn');
+        btn.disabled = true;
+        btn.innerText = 'פותח טופס תשלום...';
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            const token = await currentUser.jwt();
+
+            // הסכום נקבע כאן, בשרת (library-personal-topup-init יוצר את העסקה מול
+            // נדרים פלוס מראש) - כך שאי אפשר לשנות אותו בצד הלקוח לפני התשלום בפועל.
+            const response = await fetch('/.netlify/functions/library-personal-topup-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ amount: Number(amount) })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'פתיחת עסקת התשלום נכשלה');
+
+            libraryPendingTopupToken = result.token;
+
+            initLibraryNedarimFrame();
+            document.getElementById('libIframeWrap').style.display = 'block';
+
+            btn.innerText = 'טוען טופס תשלום מאובטח...';
+            setTimeout(function () {
+                postToLibraryNedarim({ Name: 'FinishTransaction', Value: result.transactionId });
+                btn.innerText = 'ממתין להשלמת התשלום באייפרם למעלה ⬆️';
+            }, 600);
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+            btn.disabled = false;
+            btn.innerText = 'המשך לתשלום';
+        }
+    }
+
+    function onLibraryTransactionResponse(value) {
+        const errorDiv = document.getElementById('libTopupError');
+        const successDiv = document.getElementById('libTopupSuccess');
+        const btn = document.getElementById('libTopupBtn');
+
+        if (value.Status === 'Error') {
+            errorDiv.innerText = value.Message || 'התשלום נכשל - נסו שוב.';
+            errorDiv.style.display = 'block';
+            btn.disabled = false;
+            btn.innerText = 'המשך לתשלום';
+            return;
+        }
+
+        // תגובת האייפרם אינה מקור אמת (ניתנת לזיוף ע"י גולש עוין) - לא מציגים יתרה
+        // מעודכנת רק על סמך זה. שואלים את השרת שלנו האם ה-CallBack התקבל בפועל
+        // (ראו lib/kiosk-store.js, confirmPendingTopup), ורק אז מרעננים את היתרה.
+        successDiv.innerText = '✅ התשלום התקבל, מאמתים מול השרת...';
+        successDiv.style.display = 'block';
+        document.getElementById('libIframeWrap').style.display = 'none';
+        pollLibraryTopupStatus();
+    }
+
+    async function pollLibraryTopupStatus(attemptsLeft) {
+        if (attemptsLeft === undefined) attemptsLeft = 15; // עד כ-30 שניות (2 שניות בין ניסיונות)
+        const btn = document.getElementById('libTopupBtn');
+        const successDiv = document.getElementById('libTopupSuccess');
+
+        if (!libraryPendingTopupToken || attemptsLeft <= 0) {
+            btn.disabled = false;
+            btn.innerText = 'המשך לתשלום';
+            successDiv.innerText = 'התשלום התקבל באייפרם, אך האישור מהשרת מתעכב - היתרה תתעדכן אוטומטית תוך מספר דקות. ניתן לרענן את הדף.';
+            return;
+        }
+
+        try {
+            const currentUser = netlifyIdentity.currentUser();
+            const token = await currentUser.jwt();
+            const response = await fetch(`/.netlify/functions/library-topup-status?token=${encodeURIComponent(libraryPendingTopupToken)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+
+            if (response.ok && result.success && result.status === 'confirmed') {
+                successDiv.innerText = '✅ הטענת הכסף אושרה! היתרה עודכנה.';
+                libraryPendingTopupToken = null;
+                btn.disabled = false;
+                btn.innerText = 'המשך לתשלום';
+                libraryKioskLoaded = false;
+                checkLibraryKioskStatus();
+                return;
+            }
+
+            setTimeout(() => pollLibraryTopupStatus(attemptsLeft - 1), 2000);
+        } catch (err) {
+            setTimeout(() => pollLibraryTopupStatus(attemptsLeft - 1), 2000);
+        }
+    }
 </script>
 </body>
 </html>
