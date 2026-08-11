@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +20,13 @@ namespace KioskApp.Services
 
         private const uint SwpNoZOrder = 0x0004;
         private const int SwRestore = 9;
+
+        // רשת ביטחון: עוקבים אחרי *כל* התהליכים שהופעלו במהלך ה-session (לא רק
+        // האחרון) - כדי שניתוק תמיד יסגור את כולם, גם אם משתמש הצליח ללחוץ פעמיים
+        // בטעות על כפתור בחירת תוכנה (למשל בגלל עיכוב פוקוס בין חלונות) ונוצרו שני
+        // תהליכים בו-זמנית. קריטי בעמדה ציבורית: אסור שתוכנה/מסמך של משתמש קודם
+        // יישארו פתוחים למשתמש הבא, בשום תרחיש.
+        private static readonly ConcurrentBag<Process> TrackedProcesses = new();
 
         public static Process Launch(string exePath)
         {
@@ -38,6 +47,7 @@ namespace KioskApp.Services
                 throw new InvalidOperationException("הפעלת התוכנה נכשלה מסיבה לא ידועה.");
             }
 
+            TrackedProcesses.Add(process);
             return process;
         }
 
@@ -69,7 +79,7 @@ namespace KioskApp.Services
         }
 
         /// <summary>
-        /// סוגר את התוכנה שהופעלה בעת ניתוק/החלפת תוכנה - קריטי בעמדה ציבורית: אסור
+        /// סוגר תהליך בודד בעת ניתוק/החלפת תוכנה - קריטי בעמדה ציבורית: אסור
         /// שהתוכנה או המסמכים של משתמש קודם יישארו פתוחים למשתמש הבא. ראשית מנסים
         /// סגירה "מנומסת" (נותנת לתוכנה הזדמנות להציג "לשמור שינויים?" וכו'), ורק אם
         /// היא לא נסגרת בזמן סביר - Kill כפוי.
@@ -97,6 +107,26 @@ namespace KioskApp.Services
             {
                 // התהליך כבר לא קיים - אין מה לעשות
             }
+        }
+
+        /// <summary>
+        /// רשת הביטחון: סוגר את *כל* התהליכים שהופעלו במהלך ה-session הנוכחי,
+        /// לא רק את זה שה-Overlay עוקב אחריו כרגע. יש לקרוא לזה בניתוק (Logout) -
+        /// גם אם בגלל תקלה (למשל לחיצה כפולה על כפתור בחירת תוכנה) נוצרו כמה
+        /// תהליכים שה-Overlay לא ידע עליהם, כולם ייסגרו בכל זאת.
+        /// </summary>
+        public static async Task CloseAllTrackedAsync(TimeSpan? timeout = null)
+        {
+            // מעתיקים לרשימה קבועה כדי לא "לרדוף" אחרי ConcurrentBag שמשתנה תוך כדי איטרציה
+            var snapshot = TrackedProcesses.ToArray();
+            foreach (var process in snapshot)
+            {
+                await CloseGracefullyAsync(process, timeout);
+            }
+
+            // מנקים את הרשימה - תהליכים שנסגרו (או שכשלה סגירתם ונזרקו) לא צריכים
+            // להישאר בזיכרון לנצח לאורך כל ימי חיי העמדה
+            while (TrackedProcesses.TryTake(out _)) { }
         }
     }
 }
