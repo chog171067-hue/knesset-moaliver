@@ -79,7 +79,7 @@ async function findUserByUsername(event, username) {
   return Object.values(users).find(u => u.username.toLowerCase() === needle) || null;
 }
 
-async function createUser(event, { username, password }) {
+async function createUser(event, { username, password, displayName }) {
   const cleanUsername = String(username || '').trim();
   if (!cleanUsername) throw new Error('שם משתמש הוא שדה חובה');
   if (!password || String(password).length < 4) throw new Error('הסיסמה חייבת להכיל לפחות 4 תווים');
@@ -96,6 +96,10 @@ async function createUser(event, { username, password }) {
     users[id] = {
       id,
       username: cleanUsername,
+      // שם מלא, לתצוגה בממשק הניהול ולשליחה כ"שם משלם" לנדרים פלוס בהטענת
+      // כסף (ראו library-topup-init.js) - אופציונלי כדי לא לשבור משתמשים
+      // ישנים שנוצרו בלי השדה הזה.
+      displayName: String(displayName || '').trim(),
       passwordSalt: salt,
       passwordHash: hash,
       balance: 0,
