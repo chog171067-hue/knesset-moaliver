@@ -1,4 +1,4 @@
-// האזור האישי: היסטוריית עסקאות (הטענות/חיובים) של חשבון הקיוסק המקושר.
+// האזור האישי: היסטוריית עסקאות (הטענות/חיובים) של חשבון הקיוסק המקושר (לפי ת"ז).
 const { requirePersonalLibraryLink } = require('./lib/personal-library-auth');
 const { listUserTransactions } = require('./lib/kiosk-store');
 
@@ -9,7 +9,7 @@ exports.handler = async function (event, context) {
     return { statusCode: 405, headers, body: 'Method Not Allowed' };
   }
 
-  const auth = requirePersonalLibraryLink(context);
+  const auth = await requirePersonalLibraryLink(event, context);
   if (!auth.authorized) {
     return { statusCode: auth.statusCode, headers, body: JSON.stringify({ success: false, error: auth.error, linked: auth.linked }) };
   }
