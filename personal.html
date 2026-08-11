@@ -597,6 +597,7 @@
                     <div class="iframe-wrap" id="libIframeWrap">
                         <iframe id="LibraryNedarimFrame" scrolling="no"></iframe>
                     </div>
+                    <button class="btn" id="libSubmitPaymentBtn" onclick="submitLibraryPayment()" style="width:auto; padding:12px 30px; margin-top:15px; display:none;">שלחתי את הפרטים - בצע תשלום</button>
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">היסטוריית פעולות</h3>
                     <button class="history-btn" onclick="fetchLibraryPersonalHistory()">🔄 רענון</button>
@@ -1726,6 +1727,7 @@
     // --- טאב: חשבון קיוסק ספרייה ---
     let libraryKioskLoaded = false;
     let libraryPendingTopupToken = null;
+    let libraryPendingTransactionId = null;
 
     async function checkLibraryKioskStatus() {
         if (libraryKioskLoaded) return;
@@ -1874,15 +1876,22 @@
             if (!response.ok || !result.success) throw new Error(result.error || 'פתיחת עסקת התשלום נכשלה');
 
             libraryPendingTopupToken = result.token;
+            libraryPendingTransactionId = result.transactionId;
 
             initLibraryNedarimFrame();
             document.getElementById('libIframeWrap').style.display = 'block';
 
-            btn.innerText = 'טוען טופס תשלום מאובטח...';
-            setTimeout(function () {
-                postToLibraryNedarim({ Name: 'FinishTransaction', Value: result.transactionId });
-                btn.innerText = 'ממתין להשלמת התשלום באייפרם למעלה ⬆️';
-            }, 600);
+            // חשוב: לא שולחים FinishTransaction אוטומטית - הדף של נדרים פלוס אינו
+            // כולל כפתור שליחה משלו (הוא מיועד לרוץ בתוך אפליקציה מארחת), אבל
+            // שליחה אוטומטית מוקדם מדי (למשל אחרי השהיה קבועה) קורית לפני שהמשתמש
+            // הספיק למלא את פרטי הכרטיס, וגורמת לנדרים פלוס לדחות עם "לא הוקלד
+            // תוקף" וכדומה. לכן מציגים כפתור אמיתי, והמשתמש לוחץ עליו בעצמו רק
+            // אחרי שמילא את הפרטים למעלה.
+            btn.style.display = 'none';
+            const submitBtn = document.getElementById('libSubmitPaymentBtn');
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'שלחתי את הפרטים - בצע תשלום';
+            submitBtn.style.display = 'inline-block';
         } catch (err) {
             errorDiv.innerText = err.message;
             errorDiv.style.display = 'block';
@@ -1891,18 +1900,33 @@
         }
     }
 
+    // נקרא רק כשהמשתמש בעצמו לוחץ, אחרי שמילא את פרטי הכרטיס בטופס למעלה - לא
+    // אוטומטית. שולח לאייפרם של נדרים פלוס את פקודת FinishTransaction בפועל.
+    function submitLibraryPayment() {
+        if (!libraryPendingTransactionId) return;
+        const submitBtn = document.getElementById('libSubmitPaymentBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'שולח...';
+        postToLibraryNedarim({ Name: 'FinishTransaction', Value: libraryPendingTransactionId });
+    }
+
     function onLibraryTransactionResponse(value) {
         const errorDiv = document.getElementById('libTopupError');
         const successDiv = document.getElementById('libTopupSuccess');
         const btn = document.getElementById('libTopupBtn');
+        const submitBtn = document.getElementById('libSubmitPaymentBtn');
 
         if (value.Status === 'Error') {
             errorDiv.innerText = value.Message || 'התשלום נכשל - נסו שוב.';
             errorDiv.style.display = 'block';
             btn.disabled = false;
+            btn.style.display = 'inline-block';
             btn.innerText = 'המשך לתשלום';
+            submitBtn.style.display = 'none';
             return;
         }
+
+        submitBtn.style.display = 'none';
 
         // תגובת האייפרם אינה מקור אמת (ניתנת לזיוף ע"י גולש עוין) - לא מציגים יתרה
         // מעודכנת רק על סמך זה. שואלים את השרת שלנו האם ה-CallBack התקבל בפועל
@@ -1920,6 +1944,7 @@
 
         if (!libraryPendingTopupToken || attemptsLeft <= 0) {
             btn.disabled = false;
+            btn.style.display = 'inline-block';
             btn.innerText = 'המשך לתשלום';
             successDiv.innerText = 'התשלום התקבל באייפרם, אך האישור מהשרת מתעכב - היתרה תתעדכן אוטומטית תוך מספר דקות. ניתן לרענן את הדף.';
             return;
@@ -1936,7 +1961,9 @@
             if (response.ok && result.success && result.status === 'confirmed') {
                 successDiv.innerText = '✅ הטענת הכסף אושרה! היתרה עודכנה.';
                 libraryPendingTopupToken = null;
+                libraryPendingTransactionId = null;
                 btn.disabled = false;
+                btn.style.display = 'inline-block';
                 btn.innerText = 'המשך לתשלום';
                 libraryKioskLoaded = false;
                 checkLibraryKioskStatus();
