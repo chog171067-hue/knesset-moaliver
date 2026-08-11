@@ -398,7 +398,7 @@
                     <h3 style="font-size:15px; color:#1a365d; margin-top:0;">יצירת משתמש חדש</h3>
                     <form id="libCreateUserForm" onsubmit="return false;">
                         <div class="form-grid">
-                            <div class="field"><label>שם משתמש *</label><input type="text" id="libNewUsername" required></div>
+                            <div class="field"><label>תעודת זהות (שם המשתמש בקיוסק) *</label><input type="text" id="libNewUsername" required pattern="[0-9]{5,9}" title="יש להזין 5-9 ספרות" placeholder="לדוגמה: 123456789"></div>
                             <div class="field"><label>סיסמה ראשונית *</label><input type="text" id="libNewPassword" required></div>
                         </div>
                         <button class="btn" id="libCreateUserBtn" onclick="createLibraryUser()" style="width:auto; padding:12px 30px;">יצירת משתמש</button>
