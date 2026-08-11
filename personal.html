@@ -1773,35 +1773,7 @@
 
     
 
-        const btn = document.getElementById('libLinkBtn');
-        btn.disabled = true;
-        btn.innerText = 'מקשר...';
-
-        try {
-            const currentUser = netlifyIdentity.currentUser();
-            const token = await currentUser.jwt();
-
-            const response = await fetch('/.netlify/functions/library-personal-link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ username, password })
-            });
-            const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'הקישור נכשל');
-            }
-
-            libraryKioskLoaded = false; // כדי שהריענון הבא יטען את מסך החשבון המקושר במקום טופס הקישור
-            checkLibraryKioskStatus();
-        } catch (err) {
-            errorDiv.innerText = err.message;
-            errorDiv.style.display = 'block';
-        } finally {
-            btn.disabled = false;
-            btn.innerText = 'קישור חשבון';
-        }
-    }
-
+      
     async function fetchLibraryPersonalHistory() {
         const loadingDiv = document.getElementById('libHistoryLoading');
         const tableWrap = document.getElementById('libHistoryTableWrap');
