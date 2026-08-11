@@ -399,7 +399,8 @@
                     <form id="libCreateUserForm" onsubmit="return false;">
                         <div class="form-grid">
                             <div class="field"><label>תעודת זהות (שם המשתמש בקיוסק) *</label><input type="text" id="libNewUsername" required pattern="[0-9]{5,9}" title="יש להזין 5-9 ספרות" placeholder="לדוגמה: 123456789"></div>
-                            <div class="field"><label>סיסמה ראשונית *</label><input type="text" id="libNewPassword" required></div>
+<div class="field"><label>שם מלא</label><input type="text" id="libNewDisplayName" placeholder="ישראל ישראלי"></div>
+<div class="field"><label>סיסמה ראשונית *</label><input type="text" id="libNewPassword" required></div>
                         </div>
                         <button class="btn" id="libCreateUserBtn" onclick="createLibraryUser()" style="width:auto; padding:12px 30px;">יצירת משתמש</button>
                         <div class="form-error" id="libCreateUserError"></div>
@@ -1165,6 +1166,7 @@
         successDiv.style.display = 'none';
 
         const username = document.getElementById('libNewUsername').value.trim();
+        const displayName = document.getElementById('libNewDisplayName').value.trim();
         const password = document.getElementById('libNewPassword').value;
        if (!username || !password) {
     errorDiv.innerText = 'יש למלא תעודת זהות וסיסמה';
@@ -1185,7 +1187,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             await authedFetch('/.netlify/functions/library-admin-create-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, displayName })
             });
             successDiv.innerText = '✅ המשתמש נוצר בהצלחה.';
             successDiv.style.display = 'block';
