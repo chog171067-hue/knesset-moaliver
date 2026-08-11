@@ -571,21 +571,14 @@
             <!-- טאב: חשבון קיוסק ספרייה -->
             <div class="panel" id="tab-library-kiosk">
                 <h2>חשבון קיוסק הספרייה</h2>
-                <p class="panel-desc">קשרו את חשבון עמדת הקיוסק בספרייה (שם המשתמש שקיבלתם מהצוות) לחשבון האתר שלכם, כדי לצפות ביתרה, בהיסטוריה ולהטעין כסף מכאן.</p>
+                <p class="panel-desc">חשבון הקיוסק שלכם מזוהה אוטומטית לפי תעודת הזהות שלכם. אם עדיין אין לכם חשבון קיוסק, פנו לצוות הספרייה לפתיחתו.</p>
 
                 <div id="libLoading" class="loading">בודק סטטוס קישור...</div>
                 <div id="libGeneralError" class="form-error"></div>
 
                 <div id="libLinkSection" style="display:none;">
-                    <form id="libLinkForm" onsubmit="return false;">
-                        <div class="form-grid">
-                            <div class="field"><label>שם משתמש בקיוסק</label><input type="text" id="libLinkUsername" autocomplete="off"></div>
-                            <div class="field"><label>סיסמה</label><input type="password" id="libLinkPassword" autocomplete="off"></div>
-                        </div>
-                        <button class="btn" id="libLinkBtn" onclick="submitLibraryLink()" style="width:auto; padding:12px 30px;">קישור חשבון</button>
-                        <div class="form-error" id="libLinkError"></div>
-                    </form>
-                </div>
+    <div class="form-error" style="display:block; position:static;">לא נמצא חשבון קיוסק המשויך לתעודת הזהות שלך. פנה לצוות הספרייה לפתיחת חשבון.</div>
+</div>
 
                 <div id="libAccountSection" style="display:none;">
                     <div style="background:#f7fafc; border:1px solid #e2e8f0; border-radius:10px; padding:20px; text-align:center; max-width:220px; margin-bottom:20px;">
@@ -1778,17 +1771,7 @@
         }
     }
 
-    async function submitLibraryLink() {
-        const errorDiv = document.getElementById('libLinkError');
-        errorDiv.style.display = 'none';
-
-        const username = document.getElementById('libLinkUsername').value.trim();
-        const password = document.getElementById('libLinkPassword').value;
-        if (!username || !password) {
-            errorDiv.innerText = 'יש למלא שם משתמש וסיסמה של חשבון הקיוסק';
-            errorDiv.style.display = 'block';
-            return;
-        }
+    
 
         const btn = document.getElementById('libLinkBtn');
         btn.disabled = true;
