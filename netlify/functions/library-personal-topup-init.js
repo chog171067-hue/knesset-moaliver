@@ -1,7 +1,7 @@
 // האזור האישי: כפתור "הטענת כסף" - זהה בדיוק לזרימה שבעמדת הקיוסק
 // (library-topup-init.js), רק שה-userId לא מגיע מגוף הבקשה אלא נגזר אך ורק
-// מהחשבון המקושר של המשתמש המחובר - כדי שאי אפשר יהיה לטעון כסף לחשבון
-// קיוסק של מישהו אחר דרך קריאת API ישירה.
+// מהחשבון המקושר (לפי ת"ז) של המשתמש המחובר - כדי שאי אפשר יהיה לטעון כסף
+// לחשבון קיוסק של מישהו אחר דרך קריאת API ישירה.
 const { requirePersonalLibraryLink } = require('./lib/personal-library-auth');
 const { createPendingTopup } = require('./lib/kiosk-store');
 const { createServerTransaction } = require('./lib/library-nedarim');
@@ -19,7 +19,7 @@ exports.handler = async function (event, context) {
     return { statusCode: 405, headers, body: 'Method Not Allowed' };
   }
 
-  const auth = requirePersonalLibraryLink(context);
+  const auth = await requirePersonalLibraryLink(event, context);
   if (!auth.authorized) {
     return { statusCode: auth.statusCode, headers, body: JSON.stringify({ success: false, error: auth.error, linked: auth.linked }) };
   }
@@ -31,10 +31,13 @@ exports.handler = async function (event, context) {
     }
 
     const pending = await createPendingTopup(event, { userId: auth.kioskUserId, amount });
+    // שולחים שם מלא + ת"ז לנדרים פלוס - כדי לעמוד בדרישת "שם משלם" של המוסד
     const { transactionId } = await createServerTransaction({
       amount: pending.amount,
       param1: pending.token,
-      callbackUrl: buildCallbackUrl(event)
+      callbackUrl: buildCallbackUrl(event),
+      fullName: auth.fullName,
+      tz: auth.verifiedTz
     });
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, token: pending.token, transactionId }) };
