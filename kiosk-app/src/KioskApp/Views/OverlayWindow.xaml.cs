@@ -93,14 +93,17 @@ namespace KioskApp.Views
         }
 
         private async void OnLogoutClick(object sender, RoutedEventArgs e)
-        {
-            if (_process != null)
-            {
-                _process.Exited -= OnLaunchedProcessExited;
-                await ProcessLauncher.CloseGracefullyAsync(_process);
-            }
+{
+    if (_process != null)
+    {
+        _process.Exited -= OnLaunchedProcessExited;
+    }
 
-            App.Session.End();
+    // רשת ביטחון: סוגר את כל התהליכים שהופעלו ב-session הזה, לא רק את זה
+    // שה-Overlay עוקב אחריו - ראו ההערה המפורטת ב-ProcessLauncher.CloseAllTrackedAsync
+    await ProcessLauncher.CloseAllTrackedAsync();
+
+    App.Session.End();
 
             var login = new LoginWindow();
             Application.Current.MainWindow = login;
