@@ -18,8 +18,38 @@ namespace KioskApp.Services
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
         private const uint SwpNoZOrder = 0x0004;
+        private const uint SwpFrameChanged = 0x0020;
+        private const uint SwpNoActivate = 0x0010;
         private const int SwRestore = 9;
+        private const int GwlStyle = -16;
+
+        // מסירים את שלושת "כפתורי הבקרה" הרגילים של חלון Windows - מזעור, הגדלה,
+        // ותפריט המערכת (שכולל את כפתור הסגירה X, וגם חוסם ברוב התוכנות את Alt+F4).
+        // ראו סעיף "מסך מלא ללא אפשרות יציאה" - הוחלט לעשות זאת ברמת ה-Window Style
+        // של Windows, לא ברמת קוד התוכנה החיצונית (שאין לנו שליטה עליו). כפתור
+        // "ניתוק" ב-Overlay (שנשאר Topmost תמיד) ממשיך להיות דרך היציאה היחידה.
+        private const long WsMinimizeBox = 0x00020000L;
+        private const long WsMaximizeBox = 0x00010000L;
+        private const long WsSysMenu = 0x00080000L;
+
+        private static void RemoveWindowControls(IntPtr handle)
+        {
+            var style = GetWindowLongPtr64(handle, GwlStyle).ToInt64();
+            style &= ~(WsMinimizeBox | WsMaximizeBox | WsSysMenu);
+            SetWindowLongPtr64(handle, GwlStyle, new IntPtr(style));
+
+            // SWP_FRAMECHANGED מכריח את Windows "לצייר" מחדש את מסגרת החלון כדי
+            // שהשינוי בסטייל אכן יופיע ויתעדכן ויזואלית, לא רק ברמת הזיכרון הפנימי.
+            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0,
+                SwpNoZOrder | SwpNoActivate | SwpFrameChanged | 0x0001 | 0x0002); // SWP_NOSIZE | SWP_NOMOVE
+        }
 
         // רשת ביטחון: עוקבים אחרי *כל* התהליכים שהופעלו במהלך ה-session (לא רק
         // האחרון) - כדי שניתוק תמיד יסגור את כולם, גם אם משתמש הצליח ללחוץ פעמיים
@@ -71,6 +101,7 @@ namespace KioskApp.Services
                 {
                     ShowWindow(handle, SwRestore);
                     SetWindowPos(handle, IntPtr.Zero, 0, overlayHeight, screenWidth, screenHeight - overlayHeight, SwpNoZOrder);
+                    RemoveWindowControls(handle);
                     return;
                 }
 
