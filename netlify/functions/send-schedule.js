@@ -1,7 +1,7 @@
 const { getAdminStore } = require('./lib/blobs-store');
 
 // תצורת כל דפי התפילה: לכל דף - התוויות והקישורים (CSV) של הטבלאות שבו.
-// חשוב: מפתחות האובייקט (shabbat, yemothachol, beinhazmanim) חייבים להיות
+// חשוב: מפתחות האובייקט (shabbat, yemothachol) חייבים להיות
 // זהים לשמות קבצי ה-HTML (ללא הסיומת .html) כפי שמוגדרים ב-assets/header.js,
 // כי אלו בדיוק הערכים שהצ'קבוקסים בעמודים שולחים לכאן.
 const PAGE_CONFIG = {
@@ -21,14 +21,6 @@ const PAGE_CONFIG = {
             { title: 'שחרית - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=380588342&single=true&output=csv' },
             { title: 'מנחה - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
             { title: 'ערבית - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
-        ]
-    },
-    beinhazmanim: {
-        label: 'בין הזמנים',
-        tables: [
-            { title: 'שחרית - בין הזמנים', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqsR9YPqI3e8NPLqqbWZ0j_cK3Vbql9DwtSqrJZhpc_lDlNWvGSR-6L4mK8P-oXgNA3kiMi-Jp5s5J/pub?gid=0&single=true&output=csv' },
-            { title: 'מנחה - בין הזמנים', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqsR9YPqI3e8NPLqqbWZ0j_cK3Vbql9DwtSqrJZhpc_lDlNWvGSR-6L4mK8P-oXgNA3kiMi-Jp5s5J/pub?gid=1976712448&single=true&output=csv' },
-            { title: 'ערבית - בין הזמנים', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSqsR9YPqI3e8NPLqqbWZ0j_cK3Vbql9DwtSqrJZhpc_lDlNWvGSR-6L4mK8P-oXgNA3kiMi-Jp5s5J/pub?gid=905054164&single=true&output=csv' }
         ]
     }
 };
