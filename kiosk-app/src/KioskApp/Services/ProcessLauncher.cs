@@ -41,9 +41,25 @@ namespace KioskApp.Services
 
         private static void RemoveWindowControls(IntPtr handle)
         {
-            var style = GetWindowLongPtr64(handle, GwlStyle).ToInt64();
+            var beforeStyle = GetWindowLongPtr64(handle, GwlStyle).ToInt64();
+            var style = beforeStyle;
             style &= ~(WsMinimizeBox | WsMaximizeBox | WsSysMenu);
-            SetWindowLongPtr64(handle, GwlStyle, new IntPtr(style));
+
+            var result = SetWindowLongPtr64(handle, GwlStyle, new IntPtr(style));
+            var lastError = Marshal.GetLastWin32Error();
+
+            var afterStyle = GetWindowLongPtr64(handle, GwlStyle).ToInt64();
+
+            // לוג אבחון זמני - למחוק אחרי שנפתור את בעיית הכפתורים שלא נעלמים בפועל
+            try
+            {
+                var diagPath = Path.Combine(AppContext.BaseDirectory, "kiosk-app.log");
+                File.AppendAllText(diagPath,
+                    $"[{DateTime.Now:HH:mm:ss}] RemoveWindowControls: before=0x{beforeStyle:X8} " +
+                    $"requested=0x{style:X8} after=0x{afterStyle:X8} " +
+                    $"SetWindowLongPtr_result=0x{result.ToInt64():X8} lastError={lastError}\n");
+            }
+            catch { /* לא קריטי אם הלוג עצמו נכשל */ }
 
             // SWP_FRAMECHANGED מכריח את Windows "לצייר" מחדש את מסגרת החלון כדי
             // שהשינוי בסטייל אכן יופיע ויתעדכן ויזואלית, לא רק ברמת הזיכרון הפנימי.
