@@ -237,6 +237,7 @@
                 <li><button class="nav-btn" data-tab="tab-eligible" onclick="switchAdminTab('tab-eligible')"><span class="icon">➕</span> רשימת הזכאים</button></li>
                 <li><button class="nav-btn" data-tab="tab-visits" onclick="switchAdminTab('tab-visits')"><span class="icon">📊</span> כניסות לאתר</button></li>
                 <li><button class="nav-btn" data-tab="tab-library" onclick="switchAdminTab('tab-library')"><span class="icon">🖥️</span> קיוסק ספרייה</button></li>
+                <li><button class="nav-btn" data-tab="tab-donation" onclick="switchAdminTab('tab-donation')"><span class="icon">🎗️</span> ערב התרמה</button></li>
             </ul>
 
             <div class="sidebar-logout">
@@ -445,6 +446,57 @@
                 </div>
             </div>
 
+            <!-- טאב: ערב התרמה -->
+            <div class="panel" id="tab-donation">
+                <h2>ערב התרמה - ניהול פרופילים</h2>
+                <p class="panel-desc">
+                    כל פרופיל הוא סט מותאם (לוגו ימין, לוגו שמאל, סטריפ תחתון, וסף הסכום שממנו תרומה מוצגת במשבצת
+                    "גדולה" במסך התצוגה) שנשלח כקישור למי שמבקש את מערכת ערב ההתרמה. היעד הכספי עצמו תמיד נשאר
+                    ניתן להגדרה עצמאית ע"י מי שמפעיל את העמדה, ואינו חלק מהפרופיל כאן.
+                </p>
+
+                <h3 style="font-size:16px; color:#1a365d; margin-top:0;" id="donationFormTitle">פרופיל חדש</h3>
+                <form id="donationForm" onsubmit="return false;">
+                    <input type="hidden" id="donEditId">
+                    <div class="form-grid">
+                        <div class="field full"><label>שם לזיהוי (לשימושך בלבד, לא מוצג למקבל הקישור) *</label><input type="text" id="donName" placeholder="לדוגמה: משפחת כהן - חתונה, 12.3.2026"></div>
+                        <div class="field"><label>סף סכום לתרומה "גדולה" (₪) *</label><input type="number" id="donThreshold" min="1" value="8000"></div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>לוגו ימין *</label>
+                            <input type="file" accept="image/*" id="donLogoRight" onchange="previewDonationImage(this,'donLogoRightPreview','logoRight')">
+                            <br><img id="donLogoRightPreview" style="max-height:60px; margin-top:6px; display:none;">
+                        </div>
+                        <div class="field">
+                            <label>לוגו שמאל *</label>
+                            <input type="file" accept="image/*" id="donLogoLeft" onchange="previewDonationImage(this,'donLogoLeftPreview','logoLeft')">
+                            <br><img id="donLogoLeftPreview" style="max-height:60px; margin-top:6px; display:none;">
+                        </div>
+                        <div class="field">
+                            <label>סטריפ תחתון *</label>
+                            <input type="file" accept="image/*" id="donStrip" onchange="previewDonationImage(this,'donStripPreview','strip')">
+                            <br><img id="donStripPreview" style="max-height:60px; margin-top:6px; display:none;">
+                        </div>
+                    </div>
+                    <p class="panel-desc" style="margin-top:0;">בעריכת פרופיל קיים: אין צורך להעלות מחדש תמונה שלא השתנתה - התמונה הקיימת תישמר כמות שהיא.</p>
+                    <button class="btn" id="donSaveBtn" onclick="saveDonationProfile()" style="width:auto; padding:12px 30px;">שמירה ויצירת קישורים</button>
+                    <button class="history-btn" id="donCancelEditBtn" onclick="resetDonationForm()" style="display:none;">ביטול עריכה</button>
+                    <div class="form-error" id="donFormError"></div>
+                    <div class="success-box" id="donFormSuccess"></div>
+                </form>
+
+                <h3 style="font-size:16px; color:#1a365d; margin-top:30px;">פרופילים קיימים</h3>
+                <button class="history-btn" onclick="fetchDonationProfiles()">🔄 רענון</button>
+                <div id="donListLoading" class="loading">טוען נתונים...</div>
+                <div id="donListTableWrap" class="table-scroll" style="display:none;">
+                    <table class="history-table">
+                        <thead><tr><th>שם</th><th>סף סכום</th><th>עודכן</th><th>קישורים</th><th></th></tr></thead>
+                        <tbody id="donListTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
         </section>
     </div>
 </main>
@@ -536,7 +588,7 @@
     updateAdminHeaderVar();
     window.addEventListener('resize', updateAdminHeaderVar);
 
-    let visitsLoaded = false, emailReqLoaded = false, eligibleLoaded = false, libraryUsersLoaded = false;
+    let visitsLoaded = false, emailReqLoaded = false, eligibleLoaded = false, libraryUsersLoaded = false, donationLoaded = false;
 
     function switchAdminTab(tabId) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -548,6 +600,7 @@
         if (tabId === 'tab-eligible' && !eligibleLoaded) fetchEligibleList();
         if (tabId === 'tab-visits' && !visitsLoaded) fetchVisitStats();
         if (tabId === 'tab-library' && !libraryUsersLoaded) { libraryUsersLoaded = true; fetchLibraryUsers(); }
+        if (tabId === 'tab-donation' && !donationLoaded) { donationLoaded = true; fetchDonationProfiles(); }
 
         if (tabId === 'tab-gabai') {
             fetchGabaiThreads();
@@ -1433,6 +1486,217 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         } finally {
             btn.disabled = false;
             btn.innerText = 'שמירת רשימת תוכנות';
+        }
+    }
+
+    // --- טאב: ערב התרמה ---
+    let donationProfiles = [];
+    // תמונות (כ-data URL) שנבחרו בטופס הפתוח כרגע בלבד - נשלחות לשרת רק אם
+    // הוחלפו בפועל; בעריכת פרופיל קיים בלי להעלות תמונה חדשה נשאר null,
+    // וה-Function שומר על התמונה הקיימת (ראו saveProfile ב-donation-app-store.js).
+    let donationImageCache = { logoLeft: null, logoRight: null, strip: null };
+
+    function resizeImageFile(file, maxDim) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('קובץ התמונה פגום'));
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > maxDim || height > maxDim) {
+                        const scale = maxDim / Math.max(width, height);
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function previewDonationImage(input, previewId, cacheKey) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+            const dataUrl = await resizeImageFile(file, 500);
+            donationImageCache[cacheKey] = dataUrl;
+            const img = document.getElementById(previewId);
+            img.src = dataUrl;
+            img.style.display = 'inline-block';
+        } catch (err) {
+            alert('שגיאה בטעינת התמונה: ' + err.message);
+        }
+    }
+
+    function resetDonationForm() {
+        document.getElementById('donEditId').value = '';
+        document.getElementById('donationForm').reset();
+        document.getElementById('donThreshold').value = 8000;
+        document.getElementById('donationFormTitle').innerText = 'פרופיל חדש';
+        document.getElementById('donCancelEditBtn').style.display = 'none';
+        ['donLogoRightPreview', 'donLogoLeftPreview', 'donStripPreview'].forEach(id => {
+            const img = document.getElementById(id);
+            img.removeAttribute('src');
+            img.style.display = 'none';
+        });
+        donationImageCache = { logoLeft: null, logoRight: null, strip: null };
+        document.getElementById('donFormError').style.display = 'none';
+        document.getElementById('donFormSuccess').style.display = 'none';
+    }
+
+    async function fetchDonationProfiles() {
+        const loadingDiv = document.getElementById('donListLoading');
+        const tableWrap = document.getElementById('donListTableWrap');
+        loadingDiv.style.display = 'block';
+        tableWrap.style.display = 'none';
+        try {
+            const result = await authedFetch('/.netlify/functions/admin-donation-configs', { method: 'GET' });
+            donationProfiles = result.list;
+            renderDonationProfilesTable();
+            loadingDiv.style.display = 'none';
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            alert('שגיאה בטעינת הרשימה: ' + err.message);
+        }
+    }
+
+    function donationLink(page, id) {
+        return `${location.origin}/donation-app/${page}.html?event=${id}`;
+    }
+
+    function copyDonationLink(link) {
+        navigator.clipboard.writeText(link).then(
+            () => alert('הקישור הועתק:\n' + link),
+            () => prompt('העתק את הקישור:', link)
+        );
+    }
+
+    function renderDonationProfilesTable() {
+        const tbody = document.getElementById('donListTableBody');
+        if (donationProfiles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">עדיין לא נוצרו פרופילים.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = donationProfiles.map(p => {
+            const updated = p.updatedAt ? new Date(p.updatedAt).toLocaleString('he-IL') : '-';
+            const controlLink = donationLink('control', p.id);
+            const displayLink = donationLink('display', p.id);
+            return `
+                <tr>
+                    <td>${escapeHtml(p.name)}</td>
+                    <td>${p.threshold} ₪</td>
+                    <td>${updated}</td>
+                    <td>
+                        <button class="view-card-btn" onclick="copyDonationLink('${controlLink}')">📋 קישור שליטה</button>
+                        <button class="view-card-btn" onclick="copyDonationLink('${displayLink}')">📋 קישור תצוגה</button>
+                    </td>
+                    <td>
+                        <button class="history-btn" onclick="editDonationProfile('${p.id}')">עריכה</button>
+                        <button class="remove-btn" onclick="deleteDonationProfile('${p.id}')">מחיקה</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function editDonationProfile(id) {
+        try {
+            const result = await authedFetch('/.netlify/functions/admin-donation-configs?id=' + encodeURIComponent(id), { method: 'GET' });
+            const p = result.profile;
+
+            document.getElementById('donEditId').value = p.id;
+            document.getElementById('donName').value = p.name;
+            document.getElementById('donThreshold').value = p.threshold;
+            donationImageCache = { logoLeft: null, logoRight: null, strip: null };
+
+            const setPreview = (previewId, src) => {
+                const img = document.getElementById(previewId);
+                img.src = src;
+                img.style.display = 'inline-block';
+            };
+            setPreview('donLogoRightPreview', p.logoRight);
+            setPreview('donLogoLeftPreview', p.logoLeft);
+            setPreview('donStripPreview', p.strip);
+
+            document.getElementById('donationFormTitle').innerText = 'עריכת פרופיל: ' + p.name;
+            document.getElementById('donCancelEditBtn').style.display = 'inline-block';
+            document.getElementById('donFormError').style.display = 'none';
+            document.getElementById('donFormSuccess').style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (err) {
+            alert('שגיאה בטעינת הפרופיל: ' + err.message);
+        }
+    }
+
+    async function deleteDonationProfile(id) {
+        if (!confirm('למחוק את הפרופיל? מי שכבר פתח את הקישורים שלו בעבר ימשיך לעבוד אצלו במצב אופליין עם ההגדרות האחרונות שנשמרו, אך קישור חדש (שטרם נפתח) יפסיק לעבוד.')) return;
+        try {
+            await authedFetch('/.netlify/functions/admin-donation-configs', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            fetchDonationProfiles();
+        } catch (err) {
+            alert('שגיאה במחיקה: ' + err.message);
+        }
+    }
+
+    async function saveDonationProfile() {
+        const errorDiv = document.getElementById('donFormError');
+        const successDiv = document.getElementById('donFormSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        const id = document.getElementById('donEditId').value || undefined;
+        const name = document.getElementById('donName').value.trim();
+        const threshold = document.getElementById('donThreshold').value;
+
+        if (!name) {
+            errorDiv.innerText = 'יש להזין שם לזיהוי הפרופיל';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        if (!id && (!donationImageCache.logoLeft || !donationImageCache.logoRight || !donationImageCache.strip)) {
+            errorDiv.innerText = 'ליצירת פרופיל חדש יש להעלות את שני הלוגואים ואת הסטריפ';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        const btn = document.getElementById('donSaveBtn');
+        btn.disabled = true;
+        btn.innerText = 'שומר...';
+
+        try {
+            await authedFetch('/.netlify/functions/admin-donation-configs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id, name, threshold,
+                    logoLeft: donationImageCache.logoLeft,
+                    logoRight: donationImageCache.logoRight,
+                    strip: donationImageCache.strip
+                })
+            });
+            successDiv.innerText = '✅ נשמר בהצלחה. הקישורים המעודכנים מוכנים בטבלה למטה.';
+            successDiv.style.display = 'block';
+            resetDonationForm();
+            fetchDonationProfiles();
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'שמירה ויצירת קישורים';
         }
     }
 </script>

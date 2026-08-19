@@ -1,0 +1,19 @@
+{
+  "name": "עמדת שליטה - ערב התרמה",
+  "short_name": "עמדת שליטה",
+  "description": "עמדת ניהול והזנת תרומות לערב התרמה",
+  "start_url": "control.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f7f6",
+  "theme_color": "#1a365d",
+  "dir": "rtl",
+  "lang": "he",
+  "icons": [
+    { "src": "icons/icon-control-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-control-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-control-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-control-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
