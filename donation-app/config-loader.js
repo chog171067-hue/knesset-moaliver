@@ -45,25 +45,50 @@ async function loadDonationConfig() {
 // לכידת אירוע ההתקנה כאפליקציה נפרדת (רק כרום/edge תומכים) - כדי שנוכל להציג
 // כפתור "התקן כאפליקציה" גלוי בדף עצמו במקום לסמוך על כך שמישהו ישים לב לסמל
 // הקטן בשורת הכתובת. זו בדיוק הדרך לתת לכל דף סמל נפרד בשורת המשימות.
+//
+// חשוב: הדפדפן לא תמיד מפעיל את האירוע הזה - יש לו קריטריוני "מעורבות" פנימיים
+// (בין השאר: בביקור ממש ראשון באתר, או אחרי שהמשתמש כבר סגר הצעת התקנה בעבר)
+// שאתר לא יכול לעקוף. לכן אי אפשר להבטיח שהכפתור תמיד יופיע - אבל כן אפשר
+// להבטיח שתמיד תהיה דרך פעילה להתקין: אם אחרי כמה שניות האירוע לא הופעל,
+// מוצגת במקום הכפתור הנחיה קבועה להתקנה ידנית דרך תפריט הדפדפן.
 let deferredInstallPrompt = null;
+
+function isRunningStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function showInstallButton() {
+  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'inline-block'; });
+  document.querySelectorAll('.installFallbackHint').forEach(hint => { hint.style.display = 'none'; });
+}
+
+function hideInstallUi() {
+  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'none'; });
+  document.querySelectorAll('.installFallbackHint').forEach(hint => { hint.style.display = 'none'; });
+}
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'inline-block'; });
+  showInstallButton();
 });
 
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'none'; });
-});
+window.addEventListener('appinstalled', hideInstallUi);
 
 async function triggerInstallPrompt() {
   if (!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
-  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'none'; });
+  hideInstallUi();
+}
+
+if (!isRunningStandalone()) {
+  setTimeout(() => {
+    if (!deferredInstallPrompt) {
+      document.querySelectorAll('.installFallbackHint').forEach(hint => { hint.style.display = 'block'; });
+    }
+  }, 2500);
 }
 
 // חשוב: לא בולעים כאן שגיאות בשקט - אם ה-Service Worker לא נרשם/מופעל בהצלחה,
