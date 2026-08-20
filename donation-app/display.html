@@ -70,16 +70,17 @@
     <div id="imageSetupOverlay">
         <div class="box">
             <h2>הגדרת תמונות (חד-פעמי)</h2>
-            <p>בחר/י מהמחשב הזה את שלושת קבצי התמונה שקיבלת ממנהל המערכת (לוגו ימין, לוגו שמאל, סטריפ תחתון). הבחירה נשמרת במחשב הזה בלבד ולא תידרש שוב.</p>
+            <p>בחר/י מהמחשב הזה את קבצי התמונה שקיבלת ממנהל המערכת. הבחירה נשמרת במחשב הזה בלבד ולא תידרש שוב.</p>
             <div class="field"><label>לוגו ימין</label><input type="file" accept="image/*" id="setupLogoRight"></div>
             <div class="field"><label>לוגו שמאל</label><input type="file" accept="image/*" id="setupLogoLeft"></div>
             <div class="field"><label>סטריפ תחתון</label><input type="file" accept="image/*" id="setupStrip"></div>
+            <div class="field"><label>תמונת רקע (אופציונלי)</label><input type="file" accept="image/*" id="setupBackground"></div>
             <button onclick="completeImageSetup()">שמירה והמשך</button>
             <div id="imageSetupError"></div>
         </div>
     </div>
 
-    <img src="../background.jpg" class="bg">
+    <img id="bgImg" class="bg" style="display: none;">
     <img id="logoLeft" class="logo" style="left: 20px;">
     <img id="logoRight" class="logo" style="right: 20px;">
     <img id="stripImg" class="strip">
@@ -162,6 +163,11 @@
             document.getElementById('logoLeft').src = images.logoLeft;
             document.getElementById('logoRight').src = images.logoRight;
             document.getElementById('stripImg').src = images.strip;
+            if (images.background) {
+                const bg = document.getElementById('bgImg');
+                bg.src = images.background;
+                bg.style.display = 'block';
+            }
         }
 
         let pendingEventId = null;
@@ -178,18 +184,20 @@
             const rightFile = document.getElementById('setupLogoRight').files[0];
             const leftFile = document.getElementById('setupLogoLeft').files[0];
             const stripFile = document.getElementById('setupStrip').files[0];
+            const backgroundFile = document.getElementById('setupBackground').files[0]; // אופציונלי
 
             if (!rightFile || !leftFile || !stripFile) {
-                errorDiv.innerText = 'יש לבחור את שלושת קבצי התמונה';
+                errorDiv.innerText = 'יש לבחור לפחות את לוגו ימין, לוגו שמאל והסטריפ';
                 errorDiv.style.display = 'block';
                 return;
             }
 
             try {
-                const [logoRight, logoLeft, strip] = await Promise.all([
-                    readFileAsDataUrl(rightFile), readFileAsDataUrl(leftFile), readFileAsDataUrl(stripFile)
+                const [logoRight, logoLeft, strip, background] = await Promise.all([
+                    readFileAsDataUrl(rightFile), readFileAsDataUrl(leftFile), readFileAsDataUrl(stripFile),
+                    backgroundFile ? readFileAsDataUrl(backgroundFile) : Promise.resolve(null)
                 ]);
-                const images = { logoRight, logoLeft, strip };
+                const images = { logoRight, logoLeft, strip, background };
                 localStorage.setItem(localImagesKey(pendingEventId), JSON.stringify(images));
                 document.getElementById('imageSetupOverlay').style.display = 'none';
                 applyImages(images);
