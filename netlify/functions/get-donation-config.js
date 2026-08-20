@@ -1,7 +1,14 @@
-// קריאה ציבורית (בלי צורך בהתחברות) של פרופיל "ערב התרמה" - לוגואים, סטריפ
-// וסף הסכום - לפי מזהה אירוע. זו בדיוק הקריאה היחידה ש-control.html/display.html
-// (donation-app/) מבצעים כדי לטעון את ההגדרות שנעולות עבורם; הם שומרים את
-// התוצאה מקומית (localStorage) כדי להמשיך לעבוד גם בלי רשת בפעמים הבאות.
+// קריאה ציבורית (בלי צורך בהתחברות) של פרופיל "ערב התרמה" - שם וסף הסכום -
+// לפי מזהה אירוע. זו הקריאה ש-control.html/display.html (donation-app/) מבצעים
+// כדי לטעון את ההגדרות שנעולות עבורם; הם שומרים את התוצאה מקומית (localStorage)
+// כדי להמשיך לעבוד גם בלי רשת בפעמים הבאות.
+//
+// בכוונה לא מחזירים כאן את הלוגואים/הסטריפ (למרות ששמורים בפרופיל בשרת): תמונות
+// שמגיעות דרך קריאת רשת כזו מטושטשות אצל חלק מהמשתמשים ע"י תוכנות סינון תוכן
+// (כמו נטפרי), גם כשהן מוטבעות כ-base64 בתוך JSON. לכן הלוגו/סטריפ נבחרים אצל
+// display.html מקומית מהמחשב של המשתמש (ראו שם) ולא עוברים ברשת בכלל בשלב הזה -
+// admin-donation-configs.js (המוגן בהתחברות מנהל) הוא היחיד שמחזיר את התמונות,
+// לצורך הורדתן ע"י המנהל לשליחה ישירה למקבל הקישור.
 const { getConfigById } = require('./lib/donation-app-store');
 
 exports.handler = async function (event, context) {
@@ -30,9 +37,6 @@ exports.handler = async function (event, context) {
         config: {
           id: record.id,
           name: record.name,
-          logoLeft: record.logoLeft,
-          logoRight: record.logoRight,
-          strip: record.strip,
           threshold: record.threshold
         }
       })

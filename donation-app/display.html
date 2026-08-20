@@ -39,6 +39,24 @@
         }
         #notConfiguredOverlay h2 { color: #c0392b; }
         #notConfiguredOverlay p { line-height: 1.6; color: #555; }
+
+        #imageSetupOverlay {
+            display: none; position: fixed; inset: 0; background: #f4e4bc; z-index: 9998;
+            align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; font-family: sans-serif;
+        }
+        #imageSetupOverlay .box {
+            background: #fff; border-radius: 12px; padding: 30px; max-width: 480px; width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: right; direction: rtl; box-sizing: border-box;
+        }
+        #imageSetupOverlay h2 { color: #1a2a3a; margin-top: 0; }
+        #imageSetupOverlay p { line-height: 1.6; color: #555; }
+        #imageSetupOverlay .field { margin-bottom: 14px; }
+        #imageSetupOverlay label { display: block; font-weight: bold; margin-bottom: 4px; color: #1a2a3a; }
+        #imageSetupOverlay button {
+            background: #b31d32; color: #fff; border: none; padding: 12px 24px; border-radius: 6px;
+            font-weight: bold; cursor: pointer; font-size: 15px;
+        }
+        #imageSetupError { color: #c0392b; margin-top: 12px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
@@ -46,6 +64,18 @@
         <div class="box">
             <h2>המסך עדיין לא הוגדר</h2>
             <p>יש לפתוח את הקישור שקיבלת ממנהל המערכת - בפעם הראשונה בלבד, כשיש חיבור לאינטרנט. לאחר מכן המסך ימשיך לעבוד גם בלי רשת.</p>
+        </div>
+    </div>
+
+    <div id="imageSetupOverlay">
+        <div class="box">
+            <h2>הגדרת תמונות (חד-פעמי)</h2>
+            <p>בחר/י מהמחשב הזה את שלושת קבצי התמונה שקיבלת ממנהל המערכת (לוגו ימין, לוגו שמאל, סטריפ תחתון). הבחירה נשמרת במחשב הזה בלבד ולא תידרש שוב.</p>
+            <div class="field"><label>לוגו ימין</label><input type="file" accept="image/*" id="setupLogoRight"></div>
+            <div class="field"><label>לוגו שמאל</label><input type="file" accept="image/*" id="setupLogoLeft"></div>
+            <div class="field"><label>סטריפ תחתון</label><input type="file" accept="image/*" id="setupStrip"></div>
+            <button onclick="completeImageSetup()">שמירה והמשך</button>
+            <div id="imageSetupError"></div>
         </div>
     </div>
 
@@ -108,23 +138,89 @@
             lastDisplayed = displayed;
         }
 
+        // הלוגו/סטריפ לא מגיעים מהשרת (ראו get-donation-config.js) - הם נבחרים כאן
+        // ישירות מהמחשב של המשתמש (input type=file), כדי לא לעבור ברשת בכלל
+        // ולעקוף טשטוש תמונות ע"י תוכנות סינון תוכן. נשמרים לפי מזהה האירוע,
+        // כך שאם ייפתח פרופיל אחר על אותו מחשב הוא יבקש בחירה נפרדת משלו.
+        function localImagesKey(id) { return 'donationAppLocalImages_' + id; }
+
+        function loadLocalImages(id) {
+            const raw = localStorage.getItem(localImagesKey(id));
+            return raw ? JSON.parse(raw) : null;
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function applyImages(images) {
+            document.getElementById('logoLeft').src = images.logoLeft;
+            document.getElementById('logoRight').src = images.logoRight;
+            document.getElementById('stripImg').src = images.strip;
+        }
+
+        let pendingEventId = null;
+
+        function showImageSetupScreen(eventId) {
+            pendingEventId = eventId;
+            document.getElementById('imageSetupOverlay').style.display = 'flex';
+        }
+
+        async function completeImageSetup() {
+            const errorDiv = document.getElementById('imageSetupError');
+            errorDiv.style.display = 'none';
+
+            const rightFile = document.getElementById('setupLogoRight').files[0];
+            const leftFile = document.getElementById('setupLogoLeft').files[0];
+            const stripFile = document.getElementById('setupStrip').files[0];
+
+            if (!rightFile || !leftFile || !stripFile) {
+                errorDiv.innerText = 'יש לבחור את שלושת קבצי התמונה';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const [logoRight, logoLeft, strip] = await Promise.all([
+                    readFileAsDataUrl(rightFile), readFileAsDataUrl(leftFile), readFileAsDataUrl(stripFile)
+                ]);
+                const images = { logoRight, logoLeft, strip };
+                localStorage.setItem(localImagesKey(pendingEventId), JSON.stringify(images));
+                document.getElementById('imageSetupOverlay').style.display = 'none';
+                applyImages(images);
+                configReady = true;
+                update();
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+
         async function init() {
             const config = await loadDonationConfig();
             if (!config) {
                 document.getElementById('notConfiguredOverlay').style.display = 'flex';
                 return;
             }
-
-            document.getElementById('logoLeft').src = config.logoLeft;
-            document.getElementById('logoRight').src = config.logoRight;
-            document.getElementById('stripImg').src = config.strip;
             SECURE_THRESHOLD = Number(config.threshold) || 8000;
 
-            configReady = true;
-            update();
             // מאזין לשינויים ב-localStorage מחלונות אחרים
             window.addEventListener('storage', () => { if (configReady) update(); });
             setInterval(() => { if (configReady) update(); }, 1000);
+
+            const localImages = loadLocalImages(config.id);
+            if (localImages) {
+                applyImages(localImages);
+                configReady = true;
+                update();
+            } else {
+                showImageSetupScreen(config.id);
+            }
         }
         init();
     </script>
