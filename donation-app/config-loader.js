@@ -42,6 +42,23 @@ async function loadDonationConfig() {
   return cached ? JSON.parse(cached) : null;
 }
 
+// חשוב: לא בולעים כאן שגיאות בשקט - אם ה-Service Worker לא נרשם/מופעל בהצלחה,
+// העמדה *תיראה* תקינה כשיש רשת אבל תיכשל לגמרי כשאין (כי אין מי שיגיש את
+// control.html/display.html עצמם מהמטמון). לכן כל שלב מדווח למסוף (F12 → Console)
+// כדי שאפשר יהיה לאבחן בעיה בלי ניחושים.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    console.log('[donation-app] Service Worker נרשם, scope:', reg.scope);
+    reg.addEventListener('updatefound', () => {
+      const installing = reg.installing;
+      if (!installing) return;
+      installing.addEventListener('statechange', () => {
+        console.log('[donation-app] מצב Service Worker:', installing.state);
+      });
+    });
+  }).catch(err => {
+    console.error('[donation-app] רישום Service Worker נכשל - העמדה לא תעבוד בלי רשת:', err);
+  });
+} else {
+  console.error('[donation-app] הדפדפן הזה לא תומך ב-Service Worker - העמדה לא תעבוד בלי רשת.');
 }

@@ -17,7 +17,18 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => console.log('[donation-app] sw.js: כל קבצי המעטפת נשמרו במטמון בהצלחה'))
+      .catch(err => {
+        // addAll הוא "הכל-או-כלום" - אם קובץ אחד ב-APP_SHELL מחזיר שגיאה (404 וכו'),
+        // ההתקנה כולה נכשלת בלי שום קובץ נשמר, וזו הסיבה השכיחה ביותר לכך שהעמדה
+        // "עובדת" כשיש רשת אבל נופלת לגמרי כשאין.
+        console.error('[donation-app] sw.js: התקנת המטמון נכשלה -', err);
+        throw err;
+      })
+  );
   self.skipWaiting();
 });
 
