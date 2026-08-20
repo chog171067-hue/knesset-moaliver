@@ -46,7 +46,11 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin || !APP_SHELL.some(f => url.pathname.endsWith('/' + f))) return;
 
+  // ignoreSearch: הקבצים נשמרו במטמון לפי הכתובת "הנקייה" (בלי ?event=...),
+  // אבל הקישור ששולחים לנמען כן מכיל את זה - בלי ignoreSearch, פתיחה חוזרת
+  // של אותו קישור המקורי (לא רק רענון של דף שכבר פתוח) לא הייתה מוצאת התאמה
+  // במטמון ונופלת לרשת, שנכשלת כשאין חיבור.
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    caches.match(event.request, { ignoreSearch: true }).then(cached => cached || fetch(event.request))
   );
 });
