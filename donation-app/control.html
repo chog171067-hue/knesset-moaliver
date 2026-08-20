@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>ניהול התרמה - עמדת שליטה</title>
+
+    <link rel="manifest" href="manifest-control.json">
+    <link rel="icon" href="icons/icon-control-192.png" type="image/png">
+    <link rel="shortcut icon" href="icons/icon-control-192.png" type="image/png">
+    <meta name="theme-color" content="#1a365d">
+
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f7f6; }
+        .panel { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { padding: 10px; margin: 5px; border: 1px solid #ddd; border-radius: 6px; }
+        button { padding: 8px 12px; cursor: pointer; border: none; border-radius: 6px; color: white; font-weight: bold; margin: 2px; }
+        .btn-green { background: #27ae60; }
+        .btn-red { background: #e74c3c; }
+        .btn-blue { background: #2980b9; }
+        .btn-orange { background: #f39c12; }
+        .item { background: #fff; border-bottom: 1px solid #eee; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        #searchBox { width: 95%; padding: 12px; margin-bottom: 15px; border: 2px solid #2980b9; border-radius: 6px; font-size: 16px; }
+        #profileName { font-size: 14px; color: #718096; font-weight: normal; }
+
+        #notConfiguredOverlay {
+            display: none; position: fixed; inset: 0; background: #f4f7f6; z-index: 9999;
+            align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+        }
+        #notConfiguredOverlay .box {
+            background: #fff; border-radius: 12px; padding: 30px; max-width: 480px; text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #notConfiguredOverlay h2 { color: #c0392b; }
+        #notConfiguredOverlay p { line-height: 1.6; color: #555; }
+    </style>
+</head>
+<body>
+    <div id="notConfiguredOverlay">
+        <div class="box">
+            <h2>העמדה עדיין לא הוגדרה</h2>
+            <p>יש לפתוח את הקישור שקיבלת ממנהל המערכת - בפעם הראשונה בלבד, כשיש חיבור לאינטרנט. לאחר מכן העמדה תמשיך לעבוד גם בלי רשת.</p>
+        </div>
+    </div>
+
+    <h1>עמדת שליטה ובקרה <span id="profileName"></span></h1>
+
+    <button class="btn-red" onclick="resetDonationData()">איפוס מערכת</button>
+    <button class="btn-blue" onclick="exportData()">הורד דוח תרומות (Excel)</button>
+
+    <div class="panel">
+        <h3>הגדרת יעד כספי</h3>
+        <input type="number" id="goalAmount" placeholder="סכום יעד">
+        <button class="btn-green" onclick="updateGoal()">עדכן יעד</button>
+    </div>
+
+    <div class="panel">
+        <h3>הזנת תרומה חדשה</h3>
+        <input type="text" id="name" placeholder="שם התורם">
+        <input type="number" id="amount" placeholder="סכום">
+        <button class="btn-green" onclick="addToQueue()">הוסף לרשימת המתנה</button>
+    </div>
+
+    <div class="panel">
+        <h3>רשימת המתנה</h3>
+        <div id="queueList"></div>
+    </div>
+
+    <div class="panel">
+        <h3>תרומות ששודרו (עריכה וחיפוש)</h3>
+        <input type="text" id="searchBox" placeholder="חיפוש חכם (שם או סכום)..." onkeyup="renderDisplayed()">
+        <div id="displayedList"></div>
+    </div>
+
+    <script src="config-loader.js"></script>
+    <script>
+        // איפוס נתוני התרומות בלבד (רשימת המתנה, תרומות ששודרו, יעד) - בכוונה לא
+        // נוגע בהגדרות הפרופיל (donationAppEventId / donationAppConfig_*) שנשמרו
+        // ע"י config-loader.js, כדי שהעמדה תמשיך לעבוד אופליין גם אחרי איפוס.
+        function resetDonationData() {
+            if (!confirm('איפוס מערכת? פעולה זו תמחק את רשימת ההמתנה, התרומות ששודרו ואת היעד שהוגדר. הלוגו והעיצוב לא ייפגעו.')) return;
+            localStorage.removeItem('queue');
+            localStorage.removeItem('displayed');
+            localStorage.removeItem('goal');
+            Object.keys(localStorage).filter(k => k.startsWith('green_')).forEach(k => localStorage.removeItem(k));
+            location.reload();
+        }
+
+        function updateGoal() {
+            let goal = document.getElementById('goalAmount').value;
+            if(!goal) return;
+            localStorage.setItem('goal', goal);
+            alert('היעד עודכן ל-' + goal);
+        }
+
+        function addToQueue() {
+            let name = document.getElementById('name').value;
+            let amount = document.getElementById('amount').value;
+            if(!name || !amount) return;
+            let queue = JSON.parse(localStorage.getItem('queue')) || [];
+            queue.push({name, amount, timestamp: Date.now()});
+            localStorage.setItem('queue', JSON.stringify(queue));
+            document.getElementById('name').value = '';
+            document.getElementById('amount').value = '';
+            renderQueue();
+        }
+
+        function broadcast(index) {
+            let queue = JSON.parse(localStorage.getItem('queue'));
+            let item = queue.splice(index, 1)[0];
+            item.timestamp = Date.now();
+            let displayed = JSON.parse(localStorage.getItem('displayed')) || [];
+            displayed.push(item);
+            localStorage.setItem('displayed', JSON.stringify(displayed));
+            localStorage.setItem('queue', JSON.stringify(queue));
+            renderQueue();
+            renderDisplayed();
+        }
+
+        function editField(index, field) {
+            let displayed = JSON.parse(localStorage.getItem('displayed'));
+            let item = displayed[index];
+            let val = prompt("ערוך " + (field === 'name' ? "שם:" : "סכום:"), item[field]);
+            if (val !== null) {
+                item[field] = val;
+                item.timestamp = Date.now();
+                localStorage.setItem('displayed', JSON.stringify(displayed));
+                renderDisplayed();
+            }
+        }
+
+        function renderQueue() {
+            let queue = JSON.parse(localStorage.getItem('queue')) || [];
+            document.getElementById('queueList').innerHTML = queue.map((d, i) =>
+                `<div class="item"><strong>${d.name}</strong> - ${d.amount} ₪
+                 <button class="btn-green" onclick="broadcast(${i})">שדר</button></div>`).join('');
+        }
+
+        function renderDisplayed() {
+            let displayed = JSON.parse(localStorage.getItem('displayed')) || [];
+            let search = document.getElementById('searchBox').value.toLowerCase();
+            let filtered = displayed.filter(d =>
+                d.name.toLowerCase().includes(search) ||
+                d.amount.toString().includes(search)
+            );
+            document.getElementById('displayedList').innerHTML = filtered.map((d) => {
+                let originalIndex = displayed.indexOf(d);
+                return `<div class="item">
+                            <strong>${d.name}</strong> - ${d.amount} ₪
+                            <div>
+                                <button class="btn-blue" onclick="editField(${originalIndex}, 'name')">ערוך שם</button>
+                                <button class="btn-orange" onclick="editField(${originalIndex}, 'amount')">ערוך סכום</button>
+                            </div>
+                        </div>`;
+            }).join('');
+        }
+
+        function exportData() {
+            let displayed = JSON.parse(localStorage.getItem('displayed')) || [];
+            let csvContent = "﻿שם התורם,סכום\n" + displayed.map(d => `${d.name},${d.amount}`).join('\n');
+            let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            let url = URL.createObjectURL(blob);
+            let link = document.createElement("a");
+            link.href = url;
+            link.download = "דוח_תרומות.csv";
+            link.click();
+        }
+
+        async function init() {
+            const config = await loadDonationConfig();
+            if (!config) {
+                document.getElementById('notConfiguredOverlay').style.display = 'flex';
+                return;
+            }
+            if (config.name) document.getElementById('profileName').textContent = '– ' + config.name;
+
+            renderQueue();
+            renderDisplayed();
+            setInterval(renderQueue, 2000);
+        }
+        init();
+    </script>
+</body>
+</html>

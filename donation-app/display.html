@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>מערכת התרמה - תצוגה</title>
+
+    <link rel="manifest" href="manifest-display.json">
+    <link rel="icon" href="icons/icon-display-192.png" type="image/png">
+    <link rel="shortcut icon" href="icons/icon-display-192.png" type="image/png">
+    <meta name="theme-color" content="#b31d32">
+
+    <style>
+        body { margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: sans-serif; background-color: #f4e4bc; }
+        .highlight-green { background-color: #27ae60 !important; color: #ffffff !important; border-color: #1e8449 !important; transform: scale(1.05); transition: all 0.3s ease; }
+        .bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; object-fit: cover; }
+        .logo { position: fixed; top: 20px; width: 250px; z-index: 100; }
+        .strip { position: fixed; bottom: 0; left: 0; width: 100%; z-index: 100; }
+        #header-area { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); width: 450px; text-align: center; z-index: 100; }
+        .stat-text { font-size: 24px; font-weight: bold; color: #1a2a3a; margin-bottom: 5px; }
+        .progress-container { width: 100%; background: #dcdde1; height: 30px; border-radius: 15px; overflow: hidden; border: 2px solid #bdc3c7; }
+        #progressBar { height: 100%; width: 0%; background: #b31d32; transition: width 0.5s; }
+        #percentText { font-size: 18px; font-weight: bold; color: #1a2a3a; margin-top: 5px; }
+        #content-wrapper { padding: 130px 40px 110px 40px; height: 100vh; box-sizing: border-box; }
+        #main-grid { display: grid; grid-template-columns: 1fr 0.5fr 1fr; gap: 20px; width: 100%; height: 100%; }
+        .big-col { display: flex; flex-direction: column; gap: 8px; }
+        .big-box { background-color: #e3c99e; padding: 10px; border-radius: 10px; text-align: center; border: 3px solid #1a2a3a; color: #1a2a3a; font-weight: bold; font-size: 18px; }
+        .big-name { font-size: 22px; display: block; margin-bottom: 2px; }
+        .small-box { background: rgba(255,255,255,0.8); padding: 5px; border-radius: 8px; text-align: center; border: 2px solid #b31d32; font-size: 14px; color: #1a2a3a; }
+
+        #notConfiguredOverlay {
+            display: none; position: fixed; inset: 0; background: #f4e4bc; z-index: 9999;
+            align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+        }
+        #notConfiguredOverlay .box {
+            background: #fff; border-radius: 12px; padding: 30px; max-width: 480px; text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: sans-serif;
+        }
+        #notConfiguredOverlay h2 { color: #c0392b; }
+        #notConfiguredOverlay p { line-height: 1.6; color: #555; }
+
+        #imageSetupOverlay {
+            display: none; position: fixed; inset: 0; background: #f4e4bc; z-index: 9998;
+            align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; font-family: sans-serif;
+        }
+        #imageSetupOverlay .box {
+            background: #fff; border-radius: 12px; padding: 30px; max-width: 480px; width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: right; direction: rtl; box-sizing: border-box;
+        }
+        #imageSetupOverlay h2 { color: #1a2a3a; margin-top: 0; }
+        #imageSetupOverlay p { line-height: 1.6; color: #555; }
+        #imageSetupOverlay .field { margin-bottom: 14px; }
+        #imageSetupOverlay label { display: block; font-weight: bold; margin-bottom: 4px; color: #1a2a3a; }
+        #imageSetupOverlay button {
+            background: #b31d32; color: #fff; border: none; padding: 12px 24px; border-radius: 6px;
+            font-weight: bold; cursor: pointer; font-size: 15px;
+        }
+        #imageSetupError { color: #c0392b; margin-top: 12px; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+    <div id="notConfiguredOverlay">
+        <div class="box">
+            <h2>המסך עדיין לא הוגדר</h2>
+            <p>יש לפתוח את הקישור שקיבלת ממנהל המערכת - בפעם הראשונה בלבד, כשיש חיבור לאינטרנט. לאחר מכן המסך ימשיך לעבוד גם בלי רשת.</p>
+        </div>
+    </div>
+
+    <div id="imageSetupOverlay">
+        <div class="box">
+            <h2>הגדרת תמונות (חד-פעמי)</h2>
+            <p>בחר/י מהמחשב הזה את קבצי התמונה שקיבלת ממנהל המערכת. כל התמונות אופציונליות - אפשר לדלג על כל אחת מהן ולהשאיר את המקום הזה ריק. הבחירה נשמרת במחשב הזה בלבד ולא תידרש שוב.</p>
+            <div class="field"><label>לוגו ימין (אופציונלי)</label><input type="file" accept="image/*" id="setupLogoRight"></div>
+            <div class="field"><label>לוגו שמאל (אופציונלי)</label><input type="file" accept="image/*" id="setupLogoLeft"></div>
+            <div class="field"><label>סטריפ תחתון (אופציונלי)</label><input type="file" accept="image/*" id="setupStrip"></div>
+            <div class="field"><label>תמונת רקע (אופציונלי)</label><input type="file" accept="image/*" id="setupBackground"></div>
+            <button onclick="completeImageSetup()">שמירה והמשך</button>
+            <div id="imageSetupError"></div>
+        </div>
+    </div>
+
+    <img id="bgImg" class="bg" style="display: none;">
+    <img id="logoLeft" class="logo" style="left: 20px; display: none;">
+    <img id="logoRight" class="logo" style="right: 20px; display: none;">
+    <img id="stripImg" class="strip" style="display: none;">
+    <div id="header-area">
+        <div class="stat-text">נאסף: <span id="totalSum">0</span> ₪ | יעד: <span id="goalDisplay">0</span> ₪</div>
+        <div class="progress-container"><div id="progressBar"></div></div>
+        <div id="percentText">0% הושלמו</div>
+    </div>
+    <div id="content-wrapper">
+        <div id="main-grid">
+            <div id="big-donations-right" class="big-col"></div>
+            <div id="small-donations-center" class="big-col"></div>
+            <div id="big-donations-left" class="big-col"></div>
+        </div>
+    </div>
+
+    <script src="config-loader.js"></script>
+    <script>
+        let SECURE_THRESHOLD = 8000; // ערך ברירת מחדל בלבד - מוחלף מיד ע"י ערך הפרופיל בטעינה
+        let configReady = false;
+        let lastDisplayed = [];
+        function formatNumber(num) { return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+        function addTitle(name) { return name.trim().startsWith("הרב ") ? name.trim() : "הרב " + name.trim(); }
+
+        function update() {
+            let displayed = JSON.parse(localStorage.getItem('displayed')) || [];
+            let goal = localStorage.getItem('goal') || 10000;
+            let total = displayed.reduce((sum, d) => sum + Number(d.amount), 0);
+            document.getElementById('totalSum').innerText = formatNumber(total);
+            document.getElementById('goalDisplay').innerText = formatNumber(goal);
+            document.getElementById('progressBar').style.width = Math.min((total / goal) * 100, 100) + '%';
+            document.getElementById('percentText').innerText = Math.round((total / goal) * 100) + "% הושלמו";
+
+            let right = document.getElementById('big-donations-right');
+            let left = document.getElementById('big-donations-left');
+            let center = document.getElementById('small-donations-center');
+            right.innerHTML = ''; left.innerHTML = ''; center.innerHTML = '';
+
+            let sorted = [...displayed].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            sorted.forEach((d) => {
+                let lastItem = lastDisplayed.find(item => item.timestamp === d.timestamp);
+                if (lastItem && Number(d.amount) > Number(lastItem.amount)) {
+                    localStorage.setItem('green_' + d.timestamp, Date.now());
+                }
+                let greenStartTime = localStorage.getItem('green_' + d.timestamp);
+                let isGreen = greenStartTime && (Date.now() - greenStartTime < 5000);
+                let boxClass = Number(d.amount) >= SECURE_THRESHOLD ? 'big-box' : 'small-box';
+                if (isGreen) boxClass += ' highlight-green';
+                let html = Number(d.amount) >= SECURE_THRESHOLD ?
+                    `<div class="${boxClass}"><span class="big-name">${addTitle(d.name)}</span>${formatNumber(d.amount)} ₪</div>` :
+                    `<div class="${boxClass}"><b>${addTitle(d.name)}</b><br>${formatNumber(d.amount)} ₪</div>`;
+                if (Number(d.amount) >= SECURE_THRESHOLD) {
+                    if (right.children.length <= left.children.length) right.innerHTML += html; else left.innerHTML += html;
+                } else { center.innerHTML += html; }
+            });
+            lastDisplayed = displayed;
+        }
+
+        // הלוגו/סטריפ לא מגיעים מהשרת (ראו get-donation-config.js) - הם נבחרים כאן
+        // ישירות מהמחשב של המשתמש (input type=file), כדי לא לעבור ברשת בכלל
+        // ולעקוף טשטוש תמונות ע"י תוכנות סינון תוכן. נשמרים לפי מזהה האירוע,
+        // כך שאם ייפתח פרופיל אחר על אותו מחשב הוא יבקש בחירה נפרדת משלו.
+        function localImagesKey(id) { return 'donationAppLocalImages_' + id; }
+
+        function loadLocalImages(id) {
+            const raw = localStorage.getItem(localImagesKey(id));
+            return raw ? JSON.parse(raw) : null;
+        }
+
+        // תמיד מקטינים/דוחסים לפני השמירה - קובץ תמונה גולמי (למשל צילום ישיר
+        // ממצלמה, כמה MB) עלול לבד לחרוג ממכסת האחסון של localStorage (בד"כ
+        // כ-5-10MB לכל האתר יחד), במיוחד עם 3-4 תמונות ביחד.
+        function resizeImageFile(file, maxDim, format, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('קובץ התמונה פגום'));
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > maxDim || height > maxDim) {
+                            const scale = maxDim / Math.max(width, height);
+                            width = Math.round(width * scale);
+                            height = Math.round(height * scale);
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL(format || 'image/png', quality));
+                    };
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // כל תמונה אופציונלית - אם לא נבחרה, האלמנט המתאים פשוט נשאר מוסתר.
+        function applyImages(images) {
+            const setImg = (id, src) => {
+                const el = document.getElementById(id);
+                if (src) { el.src = src; el.style.display = 'block'; }
+                else { el.style.display = 'none'; }
+            };
+            setImg('logoLeft', images.logoLeft);
+            setImg('logoRight', images.logoRight);
+            setImg('stripImg', images.strip);
+            setImg('bgImg', images.background);
+        }
+
+        let pendingEventId = null;
+
+        function showImageSetupScreen(eventId) {
+            pendingEventId = eventId;
+            document.getElementById('imageSetupOverlay').style.display = 'flex';
+        }
+
+        async function completeImageSetup() {
+            const errorDiv = document.getElementById('imageSetupError');
+            errorDiv.style.display = 'none';
+
+            // כל ארבעת השדות אופציונליים - אפשר להמשיך גם בלי לבחור אף קובץ.
+            const rightFile = document.getElementById('setupLogoRight').files[0];
+            const leftFile = document.getElementById('setupLogoLeft').files[0];
+            const stripFile = document.getElementById('setupStrip').files[0];
+            const backgroundFile = document.getElementById('setupBackground').files[0];
+
+            try {
+                const [logoRight, logoLeft, strip, background] = await Promise.all([
+                    rightFile ? resizeImageFile(rightFile, 500) : Promise.resolve(null),
+                    leftFile ? resizeImageFile(leftFile, 500) : Promise.resolve(null),
+                    stripFile ? resizeImageFile(stripFile, 500) : Promise.resolve(null),
+                    backgroundFile ? resizeImageFile(backgroundFile, 1600, 'image/jpeg', 0.85) : Promise.resolve(null)
+                ]);
+                const images = { logoRight, logoLeft, strip, background };
+                localStorage.setItem(localImagesKey(pendingEventId), JSON.stringify(images));
+                document.getElementById('imageSetupOverlay').style.display = 'none';
+                applyImages(images);
+                configReady = true;
+                update();
+            } catch (err) {
+                if (err.name === 'QuotaExceededError') {
+                    errorDiv.innerText = 'התמונות גדולות מדי לשמירה בדפדפן הזה. נסה קבצים קטנים יותר (או בפחות רזולוציה).';
+                } else {
+                    errorDiv.innerText = err.message;
+                }
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function init() {
+            const config = await loadDonationConfig();
+            if (!config) {
+                document.getElementById('notConfiguredOverlay').style.display = 'flex';
+                return;
+            }
+            SECURE_THRESHOLD = Number(config.threshold) || 8000;
+
+            // מאזין לשינויים ב-localStorage מחלונות אחרים
+            window.addEventListener('storage', () => { if (configReady) update(); });
+            setInterval(() => { if (configReady) update(); }, 1000);
+
+            const localImages = loadLocalImages(config.id);
+            if (localImages) {
+                applyImages(localImages);
+                configReady = true;
+                update();
+            } else {
+                showImageSetupScreen(config.id);
+            }
+        }
+        init();
+    </script>
+</body>
+</html>
