@@ -2,6 +2,7 @@
   "name": "מסך תצוגה - ערב התרמה",
   "short_name": "מסך תצוגה",
   "description": "מסך תצוגה לקהל לערב התרמה",
+  "id": "display",
   "start_url": "display.html",
   "scope": "./",
   "display": "standalone",

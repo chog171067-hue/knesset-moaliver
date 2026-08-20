@@ -2,6 +2,7 @@
   "name": "עמדת שליטה - ערב התרמה",
   "short_name": "עמדת שליטה",
   "description": "עמדת ניהול והזנת תרומות לערב התרמה",
+  "id": "control",
   "start_url": "control.html",
   "scope": "./",
   "display": "standalone",
