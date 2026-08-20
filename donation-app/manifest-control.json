@@ -4,7 +4,7 @@
   "description": "עמדת ניהול והזנת תרומות לערב התרמה",
   "id": "control",
   "start_url": "control.html",
-  "scope": "./",
+  "scope": "./control.html",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#f4f7f6",
