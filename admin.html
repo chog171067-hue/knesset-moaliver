@@ -450,9 +450,9 @@
             <div class="panel" id="tab-donation">
                 <h2>ערב התרמה - ניהול פרופילים</h2>
                 <p class="panel-desc">
-                    כל פרופיל הוא סט מותאם (לוגו ימין, לוגו שמאל, סטריפ תחתון, תמונת רקע אופציונלית, וסף הסכום
-                    שממנו תרומה מוצגת במשבצת "גדולה" במסך התצוגה) לנמען מסוים. היעד הכספי עצמו תמיד נשאר ניתן
-                    להגדרה עצמאית ע"י מי שמפעיל את העמדה, ואינו חלק מהפרופיל כאן.
+                    כל פרופיל הוא סט מותאם (לוגו ימין, לוגו שמאל, סטריפ תחתון, תמונת רקע - כל התמונות אופציונליות,
+                    ניתן לדלג על כל אחת מהן - וסף הסכום שממנו תרומה מוצגת במשבצת "גדולה" במסך התצוגה) לנמען מסוים.
+                    היעד הכספי עצמו תמיד נשאר ניתן להגדרה עצמאית ע"י מי שמפעיל את העמדה, ואינו חלק מהפרופיל כאן.
                 </p>
                 <p class="panel-desc">
                     <b>חשוב:</b> את קישורי השליטה/תצוגה אפשר לשלוח ישירות (הם רק טוענים שם וסף סכום - נתונים שלא
@@ -476,17 +476,17 @@
                     </div>
                     <div class="form-grid">
                         <div class="field">
-                            <label>לוגו ימין *</label>
+                            <label>לוגו ימין (אופציונלי)</label>
                             <input type="file" accept="image/*" id="donLogoRight" onchange="previewDonationImage(this,'donLogoRightPreview','logoRight')">
                             <br><img id="donLogoRightPreview" style="max-height:60px; margin-top:6px; display:none;">
                         </div>
                         <div class="field">
-                            <label>לוגו שמאל *</label>
+                            <label>לוגו שמאל (אופציונלי)</label>
                             <input type="file" accept="image/*" id="donLogoLeft" onchange="previewDonationImage(this,'donLogoLeftPreview','logoLeft')">
                             <br><img id="donLogoLeftPreview" style="max-height:60px; margin-top:6px; display:none;">
                         </div>
                         <div class="field">
-                            <label>סטריפ תחתון *</label>
+                            <label>סטריפ תחתון (אופציונלי)</label>
                             <input type="file" accept="image/*" id="donStrip" onchange="previewDonationImage(this,'donStripPreview','strip')">
                             <br><img id="donStripPreview" style="max-height:60px; margin-top:6px; display:none;">
                         </div>
@@ -1603,18 +1603,22 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         a.remove();
     }
 
-    // מוריד את שלושת קבצי התמונה של הפרופיל כקבצים אמיתיים (לא כקישור) - כדי
-    // שתוכל לשלוח אותם ישירות לנמען (וואטסאפ/מייל), שיבחר אותם מקומית במחשב שלו
-    // ב-display.html. ראו את ההסבר בראש טאב זה למה זה לא עובר דרך הקישור עצמו.
+    // מוריד את קבצי התמונה שהוגדרו בפועל לפרופיל (כל תמונה אופציונלית, כך שיכול
+    // להיות שחלקן לא קיימות) כקבצים אמיתיים (לא כקישור) - כדי שתוכל לשלוח אותם
+    // ישירות לנמען (וואטסאפ/מייל), שיבחר אותם מקומית במחשב שלו ב-display.html.
+    // ראו את ההסבר בראש טאב זה למה זה לא עובר דרך הקישור עצמו.
     async function downloadDonationImages(id) {
         try {
             const result = await authedFetch('/.netlify/functions/admin-donation-configs?id=' + encodeURIComponent(id), { method: 'GET' });
             const p = result.profile;
             const safeName = String(p.name || 'פרופיל').replace(/[\\/:*?"<>|]/g, '_');
-            downloadDataUrl(p.logoRight, `${safeName} - לוגו ימין.png`);
-            downloadDataUrl(p.logoLeft, `${safeName} - לוגו שמאל.png`);
-            downloadDataUrl(p.strip, `${safeName} - סטריפ.png`);
+            if (p.logoRight) downloadDataUrl(p.logoRight, `${safeName} - לוגו ימין.png`);
+            if (p.logoLeft) downloadDataUrl(p.logoLeft, `${safeName} - לוגו שמאל.png`);
+            if (p.strip) downloadDataUrl(p.strip, `${safeName} - סטריפ.png`);
             if (p.background) downloadDataUrl(p.background, `${safeName} - רקע.jpg`);
+            if (!p.logoRight && !p.logoLeft && !p.strip && !p.background) {
+                alert('לפרופיל הזה לא הועלו תמונות כלל.');
+            }
         } catch (err) {
             alert('שגיאה בהורדת התמונות: ' + err.message);
         }
@@ -1716,11 +1720,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
 
         if (!name) {
             errorDiv.innerText = 'יש להזין שם לזיהוי הפרופיל';
-            errorDiv.style.display = 'block';
-            return;
-        }
-        if (!id && (!donationImageCache.logoLeft || !donationImageCache.logoRight || !donationImageCache.strip)) {
-            errorDiv.innerText = 'ליצירת פרופיל חדש יש להעלות את שני הלוגואים ואת הסטריפ';
             errorDiv.style.display = 'block';
             return;
         }

@@ -70,17 +70,15 @@ async function saveProfile(event, input, savedBy) {
     return existing;
   }
 
-  if (!input.logoLeft || !input.logoRight || !input.strip) {
-    throw new Error('ליצירת פרופיל חדש יש להעלות את שני הלוגואים ואת תמונת הסטריפ');
-  }
-
+  // כל התמונות אופציונליות - control.html/display.html מציגים בלי בעיה
+  // פרופיל בלי חלק (או בלי כל) התמונות, פשוט לא יוצגו האלמנטים המתאימים.
   const record = {
     id: crypto.randomBytes(6).toString('hex'),
     name: String(input.name).trim(),
     threshold: numThreshold,
-    logoLeft: input.logoLeft,
-    logoRight: input.logoRight,
-    strip: input.strip,
+    logoLeft: input.logoLeft || null,
+    logoRight: input.logoRight || null,
+    strip: input.strip || null,
     background: input.background || null,
     createdAt: now,
     updatedAt: now,
