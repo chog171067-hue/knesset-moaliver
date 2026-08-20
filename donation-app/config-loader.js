@@ -42,6 +42,30 @@ async function loadDonationConfig() {
   return cached ? JSON.parse(cached) : null;
 }
 
+// לכידת אירוע ההתקנה כאפליקציה נפרדת (רק כרום/edge תומכים) - כדי שנוכל להציג
+// כפתור "התקן כאפליקציה" גלוי בדף עצמו במקום לסמוך על כך שמישהו ישים לב לסמל
+// הקטן בשורת הכתובת. זו בדיוק הדרך לתת לכל דף סמל נפרד בשורת המשימות.
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'inline-block'; });
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'none'; });
+});
+
+async function triggerInstallPrompt() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.querySelectorAll('.installAppBtn').forEach(btn => { btn.style.display = 'none'; });
+}
+
 // חשוב: לא בולעים כאן שגיאות בשקט - אם ה-Service Worker לא נרשם/מופעל בהצלחה,
 // העמדה *תיראה* תקינה כשיש רשת אבל תיכשל לגמרי כשאין (כי אין מי שיגיש את
 // control.html/display.html עצמם מהמטמון). לכן כל שלב מדווח למסוף (F12 → Console)
