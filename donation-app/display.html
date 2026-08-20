@@ -150,11 +150,31 @@
             return raw ? JSON.parse(raw) : null;
         }
 
-        function readFileAsDataUrl(file) {
+        // תמיד מקטינים/דוחסים לפני השמירה - קובץ תמונה גולמי (למשל צילום ישיר
+        // ממצלמה, כמה MB) עלול לבד לחרוג ממכסת האחסון של localStorage (בד"כ
+        // כ-5-10MB לכל האתר יחד), במיוחד עם 3-4 תמונות ביחד.
+        function resizeImageFile(file, maxDim, format, quality) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
                 reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('קובץ התמונה פגום'));
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > maxDim || height > maxDim) {
+                            const scale = maxDim / Math.max(width, height);
+                            width = Math.round(width * scale);
+                            height = Math.round(height * scale);
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL(format || 'image/png', quality));
+                    };
+                    img.src = reader.result;
+                };
                 reader.readAsDataURL(file);
             });
         }
@@ -194,8 +214,8 @@
 
             try {
                 const [logoRight, logoLeft, strip, background] = await Promise.all([
-                    readFileAsDataUrl(rightFile), readFileAsDataUrl(leftFile), readFileAsDataUrl(stripFile),
-                    backgroundFile ? readFileAsDataUrl(backgroundFile) : Promise.resolve(null)
+                    resizeImageFile(rightFile, 500), resizeImageFile(leftFile, 500), resizeImageFile(stripFile, 500),
+                    backgroundFile ? resizeImageFile(backgroundFile, 1600, 'image/jpeg', 0.85) : Promise.resolve(null)
                 ]);
                 const images = { logoRight, logoLeft, strip, background };
                 localStorage.setItem(localImagesKey(pendingEventId), JSON.stringify(images));
@@ -204,7 +224,11 @@
                 configReady = true;
                 update();
             } catch (err) {
-                errorDiv.innerText = err.message;
+                if (err.name === 'QuotaExceededError') {
+                    errorDiv.innerText = 'התמונות גדולות מדי לשמירה בדפדפן הזה. נסה קבצים קטנים יותר (או בפחות רזולוציה).';
+                } else {
+                    errorDiv.innerText = err.message;
+                }
                 errorDiv.style.display = 'block';
             }
         }
