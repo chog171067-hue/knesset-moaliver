@@ -450,21 +450,15 @@
             <div class="panel" id="tab-donation">
                 <h2>ערב התרמה - ניהול פרופילים</h2>
                 <p class="panel-desc">
-                    כל פרופיל הוא סט מותאם (לוגו ימין, לוגו שמאל, סטריפ תחתון, תמונת רקע - כל התמונות אופציונליות,
-                    ניתן לדלג על כל אחת מהן - וסף הסכום שממנו תרומה מוצגת במשבצת "גדולה" במסך התצוגה) לנמען מסוים.
+                    כל פרופיל הוא שם לזיהוי + סף הסכום שממנו תרומה מוצגת במשבצת "גדולה" במסך התצוגה, לנמען מסוים.
                     היעד הכספי עצמו תמיד נשאר ניתן להגדרה עצמאית ע"י מי שמפעיל את העמדה, ואינו חלק מהפרופיל כאן.
                 </p>
                 <p class="panel-desc">
                     <b>חשוב:</b> את קישורי השליטה/תצוגה אפשר לשלוח ישירות (הם רק טוענים שם וסף סכום - נתונים שלא
-                    מטושטשים ע"י תוכנות סינון כמו נטפרי). את קבצי התמונה, לעומת זאת, יש לשלוח לנמען <b>בנפרד</b>
-                    (וואטסאפ/מייל, כתמונות רגילות) - כדי שיוכל לבחור אותן מהמחשב שלו בפעם הראשונה שהוא פותח את
-                    מסך התצוגה, בלי שהן יעברו ברשת בכלל.
-                </p>
-                <p class="panel-desc">
-                    כפתור "⬇️ תמונות" למטה מוריד את התמונות ששמורות בשרת - אבל אם יש לך את תוכנת נטפרי (או דומה)
-                    גם על המחשב שלך, ההורדה עצמה עלולה לצאת מטושטשת (הסינון פועל על התעבורה מהשרת, לא משנה
-                    שמדובר בהורדה ולא בהצגה). במקרה כזה <b>עדיף להשתמש בקבצי התמונה המקוריים ששלך</b> (אלה
-                    שהעלית לכאן מלכתחילה) ולשלוח אותם לנמען ישירות, במקום את הקבצים שהורדת מכאן.
+                    מטושטשים ע"י תוכנות סינון כמו נטפרי). את קבצי הלוגו/סטריפ/רקע יש לשלוח לנמען <b>בנפרד</b>
+                    (וואטסאפ/מייל, כתמונות רגילות מהמחשב שלך) - כדי שיוכל לבחור אותן בעצמו בפעם הראשונה שהוא פותח
+                    את מסך התצוגה, בלי שהן יעברו ברשת בכלל (תמונה שעוברת דרך שרת האתר עלולה לחזור מטושטשת אם גם
+                    אצלך פועלת תוכנת סינון כמו נטפרי - זו הסיבה שהמערכת הזו לא מבקשת ממך להעלות תמונות בכלל).
                 </p>
 
                 <h3 style="font-size:16px; color:#1a365d; margin-top:0;" id="donationFormTitle">פרופיל חדש</h3>
@@ -474,29 +468,6 @@
                         <div class="field full"><label>שם לזיהוי (לשימושך בלבד, לא מוצג למקבל הקישור) *</label><input type="text" id="donName" placeholder="לדוגמה: משפחת כהן - חתונה, 12.3.2026"></div>
                         <div class="field"><label>סף סכום לתרומה "גדולה" (₪) *</label><input type="number" id="donThreshold" min="1" value="8000"></div>
                     </div>
-                    <div class="form-grid">
-                        <div class="field">
-                            <label>לוגו ימין (אופציונלי)</label>
-                            <input type="file" accept="image/*" id="donLogoRight" onchange="previewDonationImage(this,'donLogoRightPreview','logoRight')">
-                            <br><img id="donLogoRightPreview" style="max-height:60px; margin-top:6px; display:none;">
-                        </div>
-                        <div class="field">
-                            <label>לוגו שמאל (אופציונלי)</label>
-                            <input type="file" accept="image/*" id="donLogoLeft" onchange="previewDonationImage(this,'donLogoLeftPreview','logoLeft')">
-                            <br><img id="donLogoLeftPreview" style="max-height:60px; margin-top:6px; display:none;">
-                        </div>
-                        <div class="field">
-                            <label>סטריפ תחתון (אופציונלי)</label>
-                            <input type="file" accept="image/*" id="donStrip" onchange="previewDonationImage(this,'donStripPreview','strip')">
-                            <br><img id="donStripPreview" style="max-height:60px; margin-top:6px; display:none;">
-                        </div>
-                        <div class="field">
-                            <label>תמונת רקע (אופציונלי)</label>
-                            <input type="file" accept="image/*" id="donBackground" onchange="previewDonationImage(this,'donBackgroundPreview','background')">
-                            <br><img id="donBackgroundPreview" style="max-height:60px; margin-top:6px; display:none;">
-                        </div>
-                    </div>
-                    <p class="panel-desc" style="margin-top:0;">בעריכת פרופיל קיים: אין צורך להעלות מחדש תמונה שלא השתנתה - התמונה הקיימת תישמר כמות שהיא.</p>
                     <button class="btn" id="donSaveBtn" onclick="saveDonationProfile()" style="width:auto; padding:12px 30px;">שמירה ויצירת קישורים</button>
                     <button class="history-btn" id="donCancelEditBtn" onclick="resetDonationForm()" style="display:none;">ביטול עריכה</button>
                     <div class="form-error" id="donFormError"></div>
@@ -1508,54 +1479,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
 
     // --- טאב: ערב התרמה ---
     let donationProfiles = [];
-    // תמונות (כ-data URL) שנבחרו בטופס הפתוח כרגע בלבד - נשלחות לשרת רק אם
-    // הוחלפו בפועל; בעריכת פרופיל קיים בלי להעלות תמונה חדשה נשאר null,
-    // וה-Function שומר על התמונה הקיימת (ראו saveProfile ב-donation-app-store.js).
-    let donationImageCache = { logoLeft: null, logoRight: null, strip: null, background: null };
-
-    function resizeImageFile(file, maxDim, format, quality) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-            reader.onload = () => {
-                const img = new Image();
-                img.onerror = () => reject(new Error('קובץ התמונה פגום'));
-                img.onload = () => {
-                    let { width, height } = img;
-                    if (width > maxDim || height > maxDim) {
-                        const scale = maxDim / Math.max(width, height);
-                        width = Math.round(width * scale);
-                        height = Math.round(height * scale);
-                    }
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL(format || 'image/png', quality));
-                };
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    }
-
-    async function previewDonationImage(input, previewId, cacheKey) {
-        const file = input.files && input.files[0];
-        if (!file) return;
-        try {
-            // תמונת רקע ממלאת מסך שלם - צריכה רזולוציה גבוהה יותר מלוגו/סטריפ, ונשמרת
-            // כ-JPEG (במקום PNG) כי זה הרבה יותר קל-משקל לתמונות רקע/צילום.
-            const dataUrl = cacheKey === 'background'
-                ? await resizeImageFile(file, 1600, 'image/jpeg', 0.85)
-                : await resizeImageFile(file, 500);
-            donationImageCache[cacheKey] = dataUrl;
-            const img = document.getElementById(previewId);
-            img.src = dataUrl;
-            img.style.display = 'inline-block';
-        } catch (err) {
-            alert('שגיאה בטעינת התמונה: ' + err.message);
-        }
-    }
 
     function resetDonationForm() {
         document.getElementById('donEditId').value = '';
@@ -1563,12 +1486,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         document.getElementById('donThreshold').value = 8000;
         document.getElementById('donationFormTitle').innerText = 'פרופיל חדש';
         document.getElementById('donCancelEditBtn').style.display = 'none';
-        ['donLogoRightPreview', 'donLogoLeftPreview', 'donStripPreview', 'donBackgroundPreview'].forEach(id => {
-            const img = document.getElementById(id);
-            img.removeAttribute('src');
-            img.style.display = 'none';
-        });
-        donationImageCache = { logoLeft: null, logoRight: null, strip: null, background: null };
         document.getElementById('donFormError').style.display = 'none';
         document.getElementById('donFormSuccess').style.display = 'none';
     }
@@ -1592,36 +1509,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
 
     function donationLink(page, id) {
         return `${location.origin}/donation-app/${page}.html?event=${id}`;
-    }
-
-    function downloadDataUrl(dataUrl, filename) {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-    }
-
-    // מוריד את קבצי התמונה שהוגדרו בפועל לפרופיל (כל תמונה אופציונלית, כך שיכול
-    // להיות שחלקן לא קיימות) כקבצים אמיתיים (לא כקישור) - כדי שתוכל לשלוח אותם
-    // ישירות לנמען (וואטסאפ/מייל), שיבחר אותם מקומית במחשב שלו ב-display.html.
-    // ראו את ההסבר בראש טאב זה למה זה לא עובר דרך הקישור עצמו.
-    async function downloadDonationImages(id) {
-        try {
-            const result = await authedFetch('/.netlify/functions/admin-donation-configs?id=' + encodeURIComponent(id), { method: 'GET' });
-            const p = result.profile;
-            const safeName = String(p.name || 'פרופיל').replace(/[\\/:*?"<>|]/g, '_');
-            if (p.logoRight) downloadDataUrl(p.logoRight, `${safeName} - לוגו ימין.png`);
-            if (p.logoLeft) downloadDataUrl(p.logoLeft, `${safeName} - לוגו שמאל.png`);
-            if (p.strip) downloadDataUrl(p.strip, `${safeName} - סטריפ.png`);
-            if (p.background) downloadDataUrl(p.background, `${safeName} - רקע.jpg`);
-            if (!p.logoRight && !p.logoLeft && !p.strip && !p.background) {
-                alert('לפרופיל הזה לא הועלו תמונות כלל.');
-            }
-        } catch (err) {
-            alert('שגיאה בהורדת התמונות: ' + err.message);
-        }
     }
 
     function copyDonationLink(link) {
@@ -1649,7 +1536,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
                     <td>
                         <button class="view-card-btn" onclick="copyDonationLink('${controlLink}')">📋 קישור שליטה</button>
                         <button class="view-card-btn" onclick="copyDonationLink('${displayLink}')">📋 קישור תצוגה</button>
-                        <button class="view-card-btn" onclick="downloadDonationImages('${p.id}')">⬇️ תמונות</button>
                     </td>
                     <td>
                         <button class="history-btn" onclick="editDonationProfile('${p.id}')">עריכה</button>
@@ -1668,21 +1554,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             document.getElementById('donEditId').value = p.id;
             document.getElementById('donName').value = p.name;
             document.getElementById('donThreshold').value = p.threshold;
-            donationImageCache = { logoLeft: null, logoRight: null, strip: null, background: null };
-            ['donLogoRightPreview', 'donLogoLeftPreview', 'donStripPreview', 'donBackgroundPreview'].forEach(id => {
-                document.getElementById(id).style.display = 'none';
-            });
-
-            const setPreview = (previewId, src) => {
-                if (!src) return;
-                const img = document.getElementById(previewId);
-                img.src = src;
-                img.style.display = 'inline-block';
-            };
-            setPreview('donLogoRightPreview', p.logoRight);
-            setPreview('donLogoLeftPreview', p.logoLeft);
-            setPreview('donStripPreview', p.strip);
-            setPreview('donBackgroundPreview', p.background);
 
             document.getElementById('donationFormTitle').innerText = 'עריכת פרופיל: ' + p.name;
             document.getElementById('donCancelEditBtn').style.display = 'inline-block';
@@ -1732,13 +1603,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             await authedFetch('/.netlify/functions/admin-donation-configs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id, name, threshold,
-                    logoLeft: donationImageCache.logoLeft,
-                    logoRight: donationImageCache.logoRight,
-                    strip: donationImageCache.strip,
-                    background: donationImageCache.background
-                })
+                body: JSON.stringify({ id, name, threshold })
             });
             successDiv.innerText = '✅ נשמר בהצלחה. הקישורים המעודכנים מוכנים בטבלה למטה.';
             successDiv.style.display = 'block';
