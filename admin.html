@@ -450,13 +450,13 @@
             <div class="panel" id="tab-donation">
                 <h2>ערב התרמה - ניהול פרופילים</h2>
                 <p class="panel-desc">
-                    כל פרופיל הוא סט מותאם (לוגו ימין, לוגו שמאל, סטריפ תחתון, וסף הסכום שממנו תרומה מוצגת במשבצת
-                    "גדולה" במסך התצוגה) לנמען מסוים. היעד הכספי עצמו תמיד נשאר ניתן להגדרה עצמאית ע"י מי שמפעיל
-                    את העמדה, ואינו חלק מהפרופיל כאן.
+                    כל פרופיל הוא סט מותאם (לוגו ימין, לוגו שמאל, סטריפ תחתון, תמונת רקע אופציונלית, וסף הסכום
+                    שממנו תרומה מוצגת במשבצת "גדולה" במסך התצוגה) לנמען מסוים. היעד הכספי עצמו תמיד נשאר ניתן
+                    להגדרה עצמאית ע"י מי שמפעיל את העמדה, ואינו חלק מהפרופיל כאן.
                 </p>
                 <p class="panel-desc">
                     <b>חשוב:</b> את קישורי השליטה/תצוגה אפשר לשלוח ישירות (הם רק טוענים שם וסף סכום - נתונים שלא
-                    מטושטשים ע"י תוכנות סינון כמו נטפרי). את שלושת קבצי התמונה, לעומת זאת, יש להוריד (כפתור
+                    מטושטשים ע"י תוכנות סינון כמו נטפרי). את קבצי התמונה, לעומת זאת, יש להוריד (כפתור
                     "⬇️ תמונות" בטבלה למטה) ולשלוח לנמען <b>בנפרד</b> (וואטסאפ/מייל, כתמונות רגילות) - כדי שיוכל
                     לבחור אותן מהמחשב שלו בפעם הראשונה שהוא פותח את מסך התצוגה, בלי שהן יעברו ברשת בכלל.
                 </p>
@@ -483,6 +483,11 @@
                             <label>סטריפ תחתון *</label>
                             <input type="file" accept="image/*" id="donStrip" onchange="previewDonationImage(this,'donStripPreview','strip')">
                             <br><img id="donStripPreview" style="max-height:60px; margin-top:6px; display:none;">
+                        </div>
+                        <div class="field">
+                            <label>תמונת רקע (אופציונלי)</label>
+                            <input type="file" accept="image/*" id="donBackground" onchange="previewDonationImage(this,'donBackgroundPreview','background')">
+                            <br><img id="donBackgroundPreview" style="max-height:60px; margin-top:6px; display:none;">
                         </div>
                     </div>
                     <p class="panel-desc" style="margin-top:0;">בעריכת פרופיל קיים: אין צורך להעלות מחדש תמונה שלא השתנתה - התמונה הקיימת תישמר כמות שהיא.</p>
@@ -1500,9 +1505,9 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     // תמונות (כ-data URL) שנבחרו בטופס הפתוח כרגע בלבד - נשלחות לשרת רק אם
     // הוחלפו בפועל; בעריכת פרופיל קיים בלי להעלות תמונה חדשה נשאר null,
     // וה-Function שומר על התמונה הקיימת (ראו saveProfile ב-donation-app-store.js).
-    let donationImageCache = { logoLeft: null, logoRight: null, strip: null };
+    let donationImageCache = { logoLeft: null, logoRight: null, strip: null, background: null };
 
-    function resizeImageFile(file, maxDim) {
+    function resizeImageFile(file, maxDim, format, quality) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
@@ -1520,7 +1525,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
                     canvas.width = width;
                     canvas.height = height;
                     canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/png'));
+                    resolve(canvas.toDataURL(format || 'image/png', quality));
                 };
                 img.src = reader.result;
             };
@@ -1532,7 +1537,11 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         const file = input.files && input.files[0];
         if (!file) return;
         try {
-            const dataUrl = await resizeImageFile(file, 500);
+            // תמונת רקע ממלאת מסך שלם - צריכה רזולוציה גבוהה יותר מלוגו/סטריפ, ונשמרת
+            // כ-JPEG (במקום PNG) כי זה הרבה יותר קל-משקל לתמונות רקע/צילום.
+            const dataUrl = cacheKey === 'background'
+                ? await resizeImageFile(file, 1600, 'image/jpeg', 0.85)
+                : await resizeImageFile(file, 500);
             donationImageCache[cacheKey] = dataUrl;
             const img = document.getElementById(previewId);
             img.src = dataUrl;
@@ -1548,12 +1557,12 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         document.getElementById('donThreshold').value = 8000;
         document.getElementById('donationFormTitle').innerText = 'פרופיל חדש';
         document.getElementById('donCancelEditBtn').style.display = 'none';
-        ['donLogoRightPreview', 'donLogoLeftPreview', 'donStripPreview'].forEach(id => {
+        ['donLogoRightPreview', 'donLogoLeftPreview', 'donStripPreview', 'donBackgroundPreview'].forEach(id => {
             const img = document.getElementById(id);
             img.removeAttribute('src');
             img.style.display = 'none';
         });
-        donationImageCache = { logoLeft: null, logoRight: null, strip: null };
+        donationImageCache = { logoLeft: null, logoRight: null, strip: null, background: null };
         document.getElementById('donFormError').style.display = 'none';
         document.getElementById('donFormSuccess').style.display = 'none';
     }
@@ -1599,6 +1608,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             downloadDataUrl(p.logoRight, `${safeName} - לוגו ימין.png`);
             downloadDataUrl(p.logoLeft, `${safeName} - לוגו שמאל.png`);
             downloadDataUrl(p.strip, `${safeName} - סטריפ.png`);
+            if (p.background) downloadDataUrl(p.background, `${safeName} - רקע.jpg`);
         } catch (err) {
             alert('שגיאה בהורדת התמונות: ' + err.message);
         }
@@ -1648,9 +1658,13 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             document.getElementById('donEditId').value = p.id;
             document.getElementById('donName').value = p.name;
             document.getElementById('donThreshold').value = p.threshold;
-            donationImageCache = { logoLeft: null, logoRight: null, strip: null };
+            donationImageCache = { logoLeft: null, logoRight: null, strip: null, background: null };
+            ['donLogoRightPreview', 'donLogoLeftPreview', 'donStripPreview', 'donBackgroundPreview'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
 
             const setPreview = (previewId, src) => {
+                if (!src) return;
                 const img = document.getElementById(previewId);
                 img.src = src;
                 img.style.display = 'inline-block';
@@ -1658,6 +1672,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             setPreview('donLogoRightPreview', p.logoRight);
             setPreview('donLogoLeftPreview', p.logoLeft);
             setPreview('donStripPreview', p.strip);
+            setPreview('donBackgroundPreview', p.background);
 
             document.getElementById('donationFormTitle').innerText = 'עריכת פרופיל: ' + p.name;
             document.getElementById('donCancelEditBtn').style.display = 'inline-block';
@@ -1716,7 +1731,8 @@ if (!/^[0-9]{5,9}$/.test(username)) {
                     id, name, threshold,
                     logoLeft: donationImageCache.logoLeft,
                     logoRight: donationImageCache.logoRight,
-                    strip: donationImageCache.strip
+                    strip: donationImageCache.strip,
+                    background: donationImageCache.background
                 })
             });
             successDiv.innerText = '✅ נשמר בהצלחה. הקישורים המעודכנים מוכנים בטבלה למטה.';

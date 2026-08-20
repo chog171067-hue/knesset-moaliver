@@ -32,13 +32,13 @@ async function getConfigById(event, id) {
   return profiles.find(p => p.id === id) || null;
 }
 
-function validateProfileInput({ name, threshold, logoLeft, logoRight, strip }) {
+function validateProfileInput({ name, threshold, logoLeft, logoRight, strip, background }) {
   if (!name || !String(name).trim()) throw new Error('יש להזין שם לזיהוי הפרופיל');
 
   const numThreshold = Number(threshold);
   if (!Number.isFinite(numThreshold) || numThreshold <= 0) throw new Error('סף הסכום חייב להיות מספר חיובי');
 
-  for (const [label, val] of [['לוגו ימין', logoRight], ['לוגו שמאל', logoLeft], ['סטריפ', strip]]) {
+  for (const [label, val] of [['לוגו ימין', logoRight], ['לוגו שמאל', logoLeft], ['סטריפ', strip], ['רקע', background]]) {
     if (val && typeof val === 'string' && val.length > MAX_IMAGE_BASE64_LEN) {
       throw new Error(`התמונה "${label}" גדולה מדי - יש להקטין/לדחוס אותה`);
     }
@@ -62,6 +62,7 @@ async function saveProfile(event, input, savedBy) {
     if (input.logoLeft) existing.logoLeft = input.logoLeft;
     if (input.logoRight) existing.logoRight = input.logoRight;
     if (input.strip) existing.strip = input.strip;
+    if (input.background) existing.background = input.background;
     existing.updatedAt = now;
     existing.updatedBy = savedBy || existing.updatedBy || null;
 
@@ -80,6 +81,7 @@ async function saveProfile(event, input, savedBy) {
     logoLeft: input.logoLeft,
     logoRight: input.logoRight,
     strip: input.strip,
+    background: input.background || null,
     createdAt: now,
     updatedAt: now,
     createdBy: savedBy || null,
