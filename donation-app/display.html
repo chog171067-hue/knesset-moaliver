@@ -39,12 +39,18 @@
         #donation-zones { display: flex; flex-direction: column; gap: 10px; height: 100%; }
         .donation-zone {
             --gap: 10px;
-            display: flex; flex-wrap: wrap; gap: var(--gap); align-content: flex-start;
+            /* align-content: stretch - כשאיזור לא מלא (למשל 3 תרומות מתוך 10
+               אפשריות), השורות הקיימות מתמתחות למלא את כל הגובה שהוקצה לאיזור,
+               במקום להישאר קטנות ולהשאיר "שטח מת" מתחתן. זה מה שנותן להם את
+               הגודל ההיברידי שמגיב לגודל המסך בפועל, גם בגובה. */
+            display: flex; flex-wrap: wrap; gap: var(--gap); align-content: stretch;
             flex: 1 1 0;
         }
         .zone-tier-3, .zone-tier-4 { flex: 2 1 0; } /* איזורים עם שתי שורות מקבלים פי 2 מהגובה */
         .donation-box {
-            flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));
+            /* flex-grow (1, לא 0) - כך גם שורה חלקית (למשל 3 מתוך 5 עמודות)
+               מתמתחת לרוחב המלא של האיזור במקום להשאיר שטח מת בסוף השורה. */
+            flex: 1 1 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));
             box-sizing: border-box; border-radius: 10px; font-weight: bold; color: #1a2a3a; text-align: center;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
