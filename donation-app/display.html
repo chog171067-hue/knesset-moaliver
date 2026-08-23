@@ -126,6 +126,17 @@
             font-weight: bold; cursor: pointer; font-size: 15px;
         }
         #imageSetupError { color: #c0392b; margin-top: 12px; font-weight: bold; display: none; }
+        .clearImgLabel { display: none; font-weight: normal !important; font-size: 13px; margin-top: 4px; color: #555; }
+        .clearImgLabel input { margin-left: 6px; }
+
+        /* כפתור קטן ושקוף-למחצה לפתיחת מסך שינוי התמונות אחרי ההגדרה הראשונית -
+           לא בולט כי המסך הזה מוקרן לקהל, אבל נגיש למי שמפעיל את המחשב. */
+        #imageSettingsBtn {
+            display: none; position: fixed; bottom: 12px; left: 12px; z-index: 150;
+            width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+            background: #1a2a3a; color: #fff; font-size: 16px; opacity: 0.3;
+        }
+        #imageSettingsBtn:hover { opacity: 1; }
     </style>
 </head>
 <body>
@@ -138,13 +149,26 @@
 
     <div id="imageSetupOverlay">
         <div class="box">
-            <h2>הגדרת תמונות (חד-פעמי)</h2>
-            <p>בחר/י מהמחשב הזה את קבצי התמונה שקיבלת ממנהל המערכת. כל התמונות אופציונליות - אפשר לדלג על כל אחת מהן ולהשאיר את המקום הזה ריק. הבחירה נשמרת במחשב הזה בלבד ולא תידרש שוב.</p>
-            <div class="field"><label>לוגו ימין (אופציונלי)</label><input type="file" accept="image/*" id="setupLogoRight"></div>
-            <div class="field"><label>לוגו שמאל (אופציונלי)</label><input type="file" accept="image/*" id="setupLogoLeft"></div>
-            <div class="field"><label>סטריפ תחתון (אופציונלי)</label><input type="file" accept="image/*" id="setupStrip"></div>
-            <div class="field"><label>תמונת רקע (אופציונלי)</label><input type="file" accept="image/*" id="setupBackground"></div>
+            <h2 id="imageSetupTitle">הגדרת תמונות (חד-פעמי)</h2>
+            <p id="imageSetupIntro">בחר/י מהמחשב הזה את קבצי התמונה שקיבלת ממנהל המערכת. כל התמונות אופציונליות - אפשר לדלג על כל אחת מהן ולהשאיר את המקום הזה ריק. הבחירה נשמרת במחשב הזה בלבד ולא תידרש שוב.</p>
+            <div class="field">
+                <label>לוגו ימין (אופציונלי)</label><input type="file" accept="image/*" id="setupLogoRight">
+                <label class="clearImgLabel"><input type="checkbox" id="clearLogoRight">הסר תמונה קיימת (בלי להחליף)</label>
+            </div>
+            <div class="field">
+                <label>לוגו שמאל (אופציונלי)</label><input type="file" accept="image/*" id="setupLogoLeft">
+                <label class="clearImgLabel"><input type="checkbox" id="clearLogoLeft">הסר תמונה קיימת (בלי להחליף)</label>
+            </div>
+            <div class="field">
+                <label>סטריפ תחתון (אופציונלי)</label><input type="file" accept="image/*" id="setupStrip">
+                <label class="clearImgLabel"><input type="checkbox" id="clearStrip">הסר תמונה קיימת (בלי להחליף)</label>
+            </div>
+            <div class="field">
+                <label>תמונת רקע (אופציונלי)</label><input type="file" accept="image/*" id="setupBackground">
+                <label class="clearImgLabel"><input type="checkbox" id="clearBackground">הסר תמונה קיימת (בלי להחליף)</label>
+            </div>
             <button onclick="completeImageSetup()">שמירה והמשך</button>
+            <button id="imageSetupCancelBtn" style="display:none; background:#718096;" onclick="cancelImageSetup()">ביטול</button>
             <button class="installAppBtn" style="display:none; background:#1a2a3a;" onclick="triggerInstallPrompt()">📥 התקן כאפליקציה נפרדת (מומלץ)</button>
             <div class="installFallbackHint" style="display:none; font-size:13px; color:#718096; margin-top:10px;">
                 להתקנה כאפליקציה נפרדת (עם סמל משלה בשורת המשימות): לחצו על שלוש הנקודות (⋮) בפינה הימנית העליונה של הדפדפן ← "התקנת מסך תצוגה...".
@@ -152,6 +176,8 @@
             <div id="imageSetupError"></div>
         </div>
     </div>
+
+    <button id="imageSettingsBtn" title="שינוי לוגואים / רקע / סטריפ" onclick="openImageSettings()">⚙️</button>
 
     <img id="bgImg" class="bg" style="display: none;">
     <img id="logoLeft" class="logo" style="left: 20px; display: none;">
@@ -298,10 +324,32 @@
         }
 
         let pendingEventId = null;
+        let currentConfig = null;
+        // true כשהמסך נפתח מחדש (אחרי הגדרה ראשונית) דרך כפתור ה-⚙, כדי
+        // שהודעות הטקסט, כפתור הביטול ותיבות "הסר תמונה קיימת" יוצגו,
+        // ושדה שנשאר ריק ישמור על התמונה הקיימת שלו במקום למחוק אותה.
+        let isEditingImages = false;
 
         function showImageSetupScreen(eventId) {
             pendingEventId = eventId;
             document.getElementById('imageSetupOverlay').style.display = 'flex';
+        }
+
+        // נקרא מכפתור ה-⚙ שמופיע אחרי שהמסך כבר מוגדר, כדי לאפשר להחליף או
+        // להסיר לוגו/רקע/סטריפ בכל שלב - לא רק בכניסה הראשונית.
+        function openImageSettings() {
+            isEditingImages = true;
+            pendingEventId = currentConfig.id;
+            document.getElementById('imageSetupTitle').innerText = 'שינוי תמונות';
+            document.getElementById('imageSetupIntro').innerText = 'ניתן לבחור קובץ חדש כדי להחליף תמונה קיימת, לסמן "הסר תמונה קיימת" כדי למחוק בלי להחליף, או פשוט להשאיר שדה ריק כדי שהתמונה הקיימת שלו תישאר כפי שהיא.';
+            document.querySelectorAll('.clearImgLabel').forEach(el => el.style.display = 'block');
+            document.getElementById('imageSetupCancelBtn').style.display = 'inline-block';
+            document.getElementById('imageSetupOverlay').style.display = 'flex';
+        }
+
+        function cancelImageSetup() {
+            isEditingImages = false;
+            document.getElementById('imageSetupOverlay').style.display = 'none';
         }
 
         async function completeImageSetup() {
@@ -314,18 +362,24 @@
             const stripFile = document.getElementById('setupStrip').files[0];
             const backgroundFile = document.getElementById('setupBackground').files[0];
 
+            // במצב עריכה (לא הגדרה ראשונית): שדה ריק ולא מסומן "הסר" = משאירים
+            // את התמונה הקיימת כמות שהיא, במקום למחוק אותה כמו בהגדרה ראשונית.
+            const existing = isEditingImages ? (loadLocalImages(pendingEventId) || {}) : {};
+            const keep = (key, clearId) => (isEditingImages && !document.getElementById(clearId).checked) ? (existing[key] || null) : null;
+
             try {
                 const [logoRight, logoLeft, strip, background] = await Promise.all([
-                    rightFile ? resizeImageFile(rightFile, 500) : Promise.resolve(null),
-                    leftFile ? resizeImageFile(leftFile, 500) : Promise.resolve(null),
-                    stripFile ? resizeImageFile(stripFile, 500) : Promise.resolve(null),
-                    backgroundFile ? resizeImageFile(backgroundFile, 1600, 'image/jpeg', 0.85) : Promise.resolve(null)
+                    rightFile ? resizeImageFile(rightFile, 500) : Promise.resolve(keep('logoRight', 'clearLogoRight')),
+                    leftFile ? resizeImageFile(leftFile, 500) : Promise.resolve(keep('logoLeft', 'clearLogoLeft')),
+                    stripFile ? resizeImageFile(stripFile, 500) : Promise.resolve(keep('strip', 'clearStrip')),
+                    backgroundFile ? resizeImageFile(backgroundFile, 1600, 'image/jpeg', 0.85) : Promise.resolve(keep('background', 'clearBackground'))
                 ]);
                 const images = { logoRight, logoLeft, strip, background };
                 localStorage.setItem(localImagesKey(pendingEventId), JSON.stringify(images));
                 document.getElementById('imageSetupOverlay').style.display = 'none';
                 applyImages(images);
                 configReady = true;
+                isEditingImages = false;
                 update();
             } catch (err) {
                 if (err.name === 'QuotaExceededError') {
@@ -343,6 +397,8 @@
                 document.getElementById('notConfiguredOverlay').style.display = 'flex';
                 return;
             }
+            currentConfig = config;
+            document.getElementById('imageSettingsBtn').style.display = 'block';
             // מאזין לשינויים ב-localStorage מחלונות אחרים
             window.addEventListener('storage', () => { if (configReady) update(); });
             setInterval(() => { if (configReady) update(); }, 1000);
