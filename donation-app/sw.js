@@ -3,7 +3,12 @@
 // אינטרנט אחרי שנפתחו לפחות פעם אחת עם חיבור. נתוני התרומות עצמם וההגדרות
 // (לוגואים וכו') לא עוברים דרך כאן בכלל - אלה ב-localStorage בלבד
 // (ראו control.html/display.html ו-config-loader.js).
-const CACHE_NAME = 'donation-app-shell-v1';
+// חשוב: יש להעלות את המספר הזה בכל פעם שמשנים תוכן של קובץ כלשהו ב-APP_SHELL
+// (control.html, display.html, config-loader.js, מניפסטים, אייקונים). ה-Service
+// Worker בודק אם יש גרסה חדשה רק לפי שינוי *בבתים של sw.js עצמו* - אם רק
+// display.html משתנה בלי לגעת בקובץ הזה, הדפדפן לא מזהה שום עדכון וממשיך
+// להגיש לנצח את הגרסה הישנה שנשמרה במטמון, גם אחרי שהקובץ באתר כבר התעדכן.
+const CACHE_NAME = 'donation-app-shell-v2';
 const APP_SHELL = [
   'control.html',
   'display.html',
