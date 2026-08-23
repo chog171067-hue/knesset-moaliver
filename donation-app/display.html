@@ -35,26 +35,35 @@
 
         /* חמישה "איזורים" קבועים לפי גובה התרומה, כל אחד עם מספר משבצות קבוע
            (FIFO - תרומה חדשה דוחקת את הישנה ביותר באיזור שלה החוצה). ה-cols
-           לכל איזור מוגדר כמשתנה CSS ישירות ב-HTML, כי הוא קבוע ולא תלוי בנתונים. */
-        #donation-zones { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+           לכל איזור מוגדר כמשתנה CSS ישירות ב-HTML, כי הוא קבוע ולא תלוי בנתונים.
+
+           כל המשבצות (גם ריקות, בלי תרומה עדיין) תמיד מוצגות - ראו update()
+           למטה. ככה מספר המשבצות (ומכאן מספר השורות) בכל איזור קבוע לגמרי
+           ולא תלוי בכמות התרומות שנכנסו בפועל, וגובה המשבצות נשאר תמיד
+           בפרופורציה נכונה בין האיזורים (הכי גדול למעלה, יורד אחד-אחד),
+           בלי "שטח מת" ובלי שאיזור דל בתרומות "יתנפח" על חשבון האחרים. */
+        #donation-zones { display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 22px); height: 100%; }
         .donation-zone {
             --gap: 10px;
-            /* align-content: stretch - כשאיזור לא מלא (למשל 3 תרומות מתוך 10
-               אפשריות), השורות הקיימות מתמתחות למלא את כל הגובה שהוקצה לאיזור,
-               במקום להישאר קטנות ולהשאיר "שטח מת" מתחתן. זה מה שנותן להם את
-               הגודל ההיברידי שמגיב לגודל המסך בפועל, גם בגובה. */
             display: flex; flex-wrap: wrap; gap: var(--gap); align-content: stretch;
-            flex: 1 1 0;
         }
-        .zone-tier-3, .zone-tier-4 { flex: 2 1 0; } /* איזורים עם שתי שורות מקבלים פי 2 מהגובה */
+        /* משקל הגובה (flex-grow) של כל איזור = מספר השורות בו כפול "יחידת
+           גובה לשורה" שיורדת בהדרגה מאיזור 1 (5) עד איזור 5 (1). כך כל שורה
+           באיזור 1 גבוהה יותר משורה באיזור 2, וכן הלאה - גם כשהאיזורים
+           הבאים אחריו מכילים יותר שורות (איזור 3/4). */
+        .zone-tier-1 { flex: 5 1 0; }  /* שורה 1 * יחידה 5 */
+        .zone-tier-2 { flex: 4 1 0; }  /* שורה 1 * יחידה 4 */
+        .zone-tier-3 { flex: 6 1 0; }  /* 2 שורות * יחידה 3 */
+        .zone-tier-4 { flex: 4 1 0; }  /* 2 שורות * יחידה 2 */
+        .zone-tier-5 { flex: 1 1 0; }  /* שורה 1 * יחידה 1 */
         .donation-box {
-            /* flex-grow (1, לא 0) - כך גם שורה חלקית (למשל 3 מתוך 5 עמודות)
-               מתמתחת לרוחב המלא של האיזור במקום להשאיר שטח מת בסוף השורה. */
             flex: 1 1 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));
             box-sizing: border-box; border-radius: 10px; font-weight: bold; color: #1a2a3a; text-align: center;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .donation-name { display: block; }
+        /* משבצת ריקה (עדיין לא נכנסה אליה תרומה) - "ממתינה", בלי טקסט */
+        .donation-box.empty { opacity: 0.4; border-style: dashed !important; background: rgba(255,255,255,0.25) !important; }
 
         .zone-tier-1 .donation-box { background: rgba(240, 220, 179, 0.45); border: 3px solid var(--swatch-5); padding: clamp(10px, 1.4vh, 20px) 8px; }
         .zone-tier-1 .donation-name { font-size: clamp(16px, 2vw, 28px); margin-bottom: 4px; }
@@ -209,14 +218,25 @@
                     .filter(d => Number(d.amount) >= zone.min && Number(d.amount) < zone.max)
                     .slice(0, zone.capacity);
 
-                document.getElementById(zone.id).innerHTML = zoneItems.map(d => {
+                // תמיד מציגים בדיוק capacity משבצות - גם ריקות (בלי תרומה)
+                // כדי שמספר השורות בכל איזור יהיה קבוע, ראו ההערה על
+                // .donation-zone ב-<style>. תרומה חדשה נכנסת למשבצת הראשונה
+                // (הכי חדשה) ודוחקת את הוותיקות אחורה, עד לפינוי מהאיזור.
+                const boxesHtml = [];
+                for (let i = 0; i < zone.capacity; i++) {
+                    const d = zoneItems[i];
+                    if (!d) {
+                        boxesHtml.push('<div class="donation-box empty"></div>');
+                        continue;
+                    }
                     currentTimestamps.add(d.timestamp);
                     const isNew = !animatedTimestamps.has(d.timestamp);
-                    return `<div class="donation-box${isNew ? ' enter' : ''}">
+                    boxesHtml.push(`<div class="donation-box${isNew ? ' enter' : ''}">
                                 <span class="donation-name">${addTitle(d.name)}</span>
                                 <span class="donation-amount">${formatNumber(d.amount)} ₪</span>
-                            </div>`;
-                }).join('');
+                            </div>`);
+                }
+                document.getElementById(zone.id).innerHTML = boxesHtml.join('');
             });
 
             currentTimestamps.forEach(ts => animatedTimestamps.add(ts));
