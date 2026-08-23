@@ -8,7 +8,7 @@
 // Worker בודק אם יש גרסה חדשה רק לפי שינוי *בבתים של sw.js עצמו* - אם רק
 // display.html משתנה בלי לגעת בקובץ הזה, הדפדפן לא מזהה שום עדכון וממשיך
 // להגיש לנצח את הגרסה הישנה שנשמרה במטמון, גם אחרי שהקובץ באתר כבר התעדכן.
-const CACHE_NAME = 'donation-app-shell-v2';
+const CACHE_NAME = 'donation-app-shell-v3';
 const APP_SHELL = [
   'control.html',
   'display.html',
