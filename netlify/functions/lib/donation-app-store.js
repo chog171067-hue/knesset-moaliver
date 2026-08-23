@@ -1,6 +1,6 @@
-// אחסון פרופילי "ערב התרמה" - שם לזיהוי וסף הסכום שנעולים לכל מקבל קישור
-// ל-control.html/display.html (ראו donation-app/). מקור אמת יחיד: מסמך JSON
-// בודד ב-Blobs עם כל הפרופילים, באותה שיטה שכבר נמצאת בשימוש ברשימת הזכאים
+// אחסון פרופילי "ערב התרמה" - שם לזיהוי בלבד, לכל מקבל קישור ל-control.html/
+// display.html (ראו donation-app/). מקור אמת יחיד: מסמך JSON בודד ב-Blobs עם
+// כל הפרופילים, באותה שיטה שכבר נמצאת בשימוש ברשימת הזכאים
 // (admin-eligible-list.js) - כמות הפרופילים הצפויה קטנה, כך שאין צורך במסמך
 // נפרד לכל פרופיל.
 //
@@ -8,6 +8,10 @@
 // חלק מהמשתמשים ע"י תוכנות סינון תוכן (כמו נטפרי), גם כשמוטבעות כ-base64
 // בתוך JSON. לכן המנהל שולח אותן לנמען ישירות (וואטסאפ/מייל), והנמען בוחר
 // אותן מקומית במחשב שלו ב-display.html - בלי שהן יעברו ברשת בכלל.
+//
+// גם סף הסכום *לא* חלק מהפרופיל: מסך התצוגה מחלק תרומות לחמישה איזורים לפי
+// סכומים קבועים (1,200 / 600 / 360 / 180 ₪, ראו display.html) שזהים לכל
+// האירועים - לא ניתנים להגדרה פר-פרופיל.
 const { getStore, connectLambda } = require('@netlify/blobs');
 const crypto = require('crypto');
 
@@ -22,7 +26,7 @@ async function listProfiles(event) {
   const store = getDonationStore(event);
   const profiles = (await store.get(STORE_KEY, { type: 'json' })) || [];
   return profiles
-    .map(p => ({ id: p.id, name: p.name, threshold: p.threshold, updatedAt: p.updatedAt }))
+    .map(p => ({ id: p.id, name: p.name, updatedAt: p.updatedAt }))
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 }
 
@@ -32,17 +36,12 @@ async function getConfigById(event, id) {
   return profiles.find(p => p.id === id) || null;
 }
 
-function validateProfileInput({ name, threshold }) {
+function validateProfileInput({ name }) {
   if (!name || !String(name).trim()) throw new Error('יש להזין שם לזיהוי הפרופיל');
-
-  const numThreshold = Number(threshold);
-  if (!Number.isFinite(numThreshold) || numThreshold <= 0) throw new Error('סף הסכום חייב להיות מספר חיובי');
-
-  return numThreshold;
 }
 
 async function saveProfile(event, input, savedBy) {
-  const numThreshold = validateProfileInput(input);
+  validateProfileInput(input);
   const store = getDonationStore(event);
   const profiles = (await store.get(STORE_KEY, { type: 'json' })) || [];
   const now = new Date().toISOString();
@@ -52,7 +51,6 @@ async function saveProfile(event, input, savedBy) {
     if (!existing) throw new Error('הפרופיל לעדכון לא נמצא');
 
     existing.name = String(input.name).trim();
-    existing.threshold = numThreshold;
     existing.updatedAt = now;
     existing.updatedBy = savedBy || existing.updatedBy || null;
 
@@ -63,7 +61,6 @@ async function saveProfile(event, input, savedBy) {
   const record = {
     id: crypto.randomBytes(6).toString('hex'),
     name: String(input.name).trim(),
-    threshold: numThreshold,
     createdAt: now,
     updatedAt: now,
     createdBy: savedBy || null,

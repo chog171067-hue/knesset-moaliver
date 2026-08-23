@@ -3,7 +3,7 @@
 // אינטרנט אחרי שנפתחו לפחות פעם אחת עם חיבור. נתוני התרומות עצמם וההגדרות
 // (לוגואים וכו') לא עוברים דרך כאן בכלל - אלה ב-localStorage בלבד
 // (ראו control.html/display.html ו-config-loader.js).
-const CACHE_NAME = 'donation-app-shell-v1';
+const CACHE_NAME = 'donation-app-shell-v4';
 const APP_SHELL = [
   'control.html',
   'display.html',
@@ -39,18 +39,25 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Cache-first, ורק עבור קבצי מעטפת האפליקציה עצמה. בקשות אחרות (כמו הפונקציה
+// Network-first, ורק עבור קבצי מעטפת האפליקציה עצמה. בקשות אחרות (כמו הפונקציה
 // get-donation-config, שחייבת תמיד לנסות רשת קודם - הלוגיקה הזו כבר קיימת
 // ב-config-loader.js עצמו) לא נוגעים בהן כאן בכלל.
+//
+// בכוונה *לא* cache-first: אם יש רשת - תמיד מביאים ומציגים את הגרסה העדכנית
+// ביותר, ומרעננים איתה את המטמון (כדי שהעותק השמור להמשך אופליין גם יתעדכן).
+// רק כשאין רשת בכלל (כשל ברמת fetch עצמו) נופלים להעתק השמור. כך אין יותר
+// תלות בזיכרון לעדכן ידנית מספר גרסה ב-sw.js בכל שינוי, וגם אין צורך
+// שהמשתמש "ינקה" ידנית Service Worker תקוע - זה פשוט תמיד מציג את מה שבאמת
+// קיים באתר, כל עוד יש חיבור.
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin || !APP_SHELL.some(f => url.pathname.endsWith('/' + f))) return;
 
-  // ignoreSearch: הקבצים נשמרו במטמון לפי הכתובת "הנקייה" (בלי ?event=...),
-  // אבל הקישור ששולחים לנמען כן מכיל את זה - בלי ignoreSearch, פתיחה חוזרת
-  // של אותו קישור המקורי (לא רק רענון של דף שכבר פתוח) לא הייתה מוצאת התאמה
-  // במטמון ונופלת לרשת, שנכשלת כשאין חיבור.
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then(cached => cached || fetch(event.request))
+    fetch(event.request).then(networkResponse => {
+      const responseCopy = networkResponse.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseCopy));
+      return networkResponse;
+    }).catch(() => caches.match(event.request, { ignoreSearch: true }))
   );
 });
