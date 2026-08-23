@@ -450,15 +450,16 @@
             <div class="panel" id="tab-donation">
                 <h2>ערב התרמה - ניהול פרופילים</h2>
                 <p class="panel-desc">
-                    כל פרופיל הוא שם לזיהוי + סף הסכום שממנו תרומה מוצגת במשבצת "גדולה" במסך התצוגה, לנמען מסוים.
-                    היעד הכספי עצמו תמיד נשאר ניתן להגדרה עצמאית ע"י מי שמפעיל את העמדה, ואינו חלק מהפרופיל כאן.
+                    כל פרופיל הוא שם לזיהוי בלבד, לנמען מסוים. מסך התצוגה מחלק תרומות לחמישה איזורים לפי סכומים
+                    קבועים (1,200 / 600 / 360 / 180 ₪) - זהים לכל האירועים, לא ניתנים להגדרה כאן. היעד הכספי עצמו
+                    תמיד נשאר ניתן להגדרה עצמאית ע"י מי שמפעיל את העמדה.
                 </p>
                 <p class="panel-desc">
-                    <b>חשוב:</b> את קישורי השליטה/תצוגה אפשר לשלוח ישירות (הם רק טוענים שם וסף סכום - נתונים שלא
-                    מטושטשים ע"י תוכנות סינון כמו נטפרי). את קבצי הלוגו/סטריפ/רקע יש לשלוח לנמען <b>בנפרד</b>
-                    (וואטסאפ/מייל, כתמונות רגילות מהמחשב שלך) - כדי שיוכל לבחור אותן בעצמו בפעם הראשונה שהוא פותח
-                    את מסך התצוגה, בלי שהן יעברו ברשת בכלל (תמונה שעוברת דרך שרת האתר עלולה לחזור מטושטשת אם גם
-                    אצלך פועלת תוכנת סינון כמו נטפרי - זו הסיבה שהמערכת הזו לא מבקשת ממך להעלות תמונות בכלל).
+                    <b>חשוב:</b> את קישורי השליטה/תצוגה אפשר לשלוח ישירות (הם רק טוענים שם - נתון שלא מטושטש ע"י
+                    תוכנות סינון כמו נטפרי). את קבצי הלוגו/סטריפ/רקע יש לשלוח לנמען <b>בנפרד</b> (וואטסאפ/מייל,
+                    כתמונות רגילות מהמחשב שלך) - כדי שיוכל לבחור אותן בעצמו בפעם הראשונה שהוא פותח את מסך התצוגה,
+                    בלי שהן יעברו ברשת בכלל (תמונה שעוברת דרך שרת האתר עלולה לחזור מטושטשת אם גם אצלך פועלת תוכנת
+                    סינון כמו נטפרי - זו הסיבה שהמערכת הזו לא מבקשת ממך להעלות תמונות בכלל).
                 </p>
 
                 <h3 style="font-size:16px; color:#1a365d; margin-top:0;" id="donationFormTitle">פרופיל חדש</h3>
@@ -466,7 +467,6 @@
                     <input type="hidden" id="donEditId">
                     <div class="form-grid">
                         <div class="field full"><label>שם לזיהוי (לשימושך בלבד, לא מוצג למקבל הקישור) *</label><input type="text" id="donName" placeholder="לדוגמה: משפחת כהן - חתונה, 12.3.2026"></div>
-                        <div class="field"><label>סף סכום לתרומה "גדולה" (₪) *</label><input type="number" id="donThreshold" min="1" value="8000"></div>
                     </div>
                     <button class="btn" id="donSaveBtn" onclick="saveDonationProfile()" style="width:auto; padding:12px 30px;">שמירה ויצירת קישורים</button>
                     <button class="history-btn" id="donCancelEditBtn" onclick="resetDonationForm()" style="display:none;">ביטול עריכה</button>
@@ -479,7 +479,7 @@
                 <div id="donListLoading" class="loading">טוען נתונים...</div>
                 <div id="donListTableWrap" class="table-scroll" style="display:none;">
                     <table class="history-table">
-                        <thead><tr><th>שם</th><th>סף סכום</th><th>עודכן</th><th>קישורים</th><th></th></tr></thead>
+                        <thead><tr><th>שם</th><th>עודכן</th><th>קישורים</th><th></th></tr></thead>
                         <tbody id="donListTableBody"></tbody>
                     </table>
                 </div>
@@ -1483,7 +1483,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     function resetDonationForm() {
         document.getElementById('donEditId').value = '';
         document.getElementById('donationForm').reset();
-        document.getElementById('donThreshold').value = 8000;
         document.getElementById('donationFormTitle').innerText = 'פרופיל חדש';
         document.getElementById('donCancelEditBtn').style.display = 'none';
         document.getElementById('donFormError').style.display = 'none';
@@ -1521,7 +1520,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     function renderDonationProfilesTable() {
         const tbody = document.getElementById('donListTableBody');
         if (donationProfiles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">עדיין לא נוצרו פרופילים.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="color:#718096;">עדיין לא נוצרו פרופילים.</td></tr>';
             return;
         }
         tbody.innerHTML = donationProfiles.map(p => {
@@ -1531,7 +1530,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             return `
                 <tr>
                     <td>${escapeHtml(p.name)}</td>
-                    <td>${p.threshold} ₪</td>
                     <td>${updated}</td>
                     <td>
                         <button class="view-card-btn" onclick="copyDonationLink('${controlLink}')">📋 קישור שליטה</button>
@@ -1553,7 +1551,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
 
             document.getElementById('donEditId').value = p.id;
             document.getElementById('donName').value = p.name;
-            document.getElementById('donThreshold').value = p.threshold;
 
             document.getElementById('donationFormTitle').innerText = 'עריכת פרופיל: ' + p.name;
             document.getElementById('donCancelEditBtn').style.display = 'inline-block';
@@ -1587,7 +1584,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
 
         const id = document.getElementById('donEditId').value || undefined;
         const name = document.getElementById('donName').value.trim();
-        const threshold = document.getElementById('donThreshold').value;
 
         if (!name) {
             errorDiv.innerText = 'יש להזין שם לזיהוי הפרופיל';
@@ -1603,7 +1599,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             await authedFetch('/.netlify/functions/admin-donation-configs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, name, threshold })
+                body: JSON.stringify({ id, name })
             });
             successDiv.innerText = '✅ נשמר בהצלחה. הקישורים המעודכנים מוכנים בטבלה למטה.';
             successDiv.style.display = 'block';

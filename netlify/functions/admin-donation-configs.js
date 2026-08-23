@@ -1,8 +1,8 @@
-// דף ניהול - טאב "ערב התרמה": ניהול פרופילים (לוגו ימין, לוגו שמאל, סטריפ,
-// סף סכום) לכל מקבל קישור למערכת ההתרמה (donation-app/control.html + display.html).
-// GET בלי id: רשימה קלה (בלי תמונות), לטבלה בדף הניהול.
-// GET עם id: פרופיל מלא כולל תמונות (לטעינה מחדש לטופס עריכה).
-// POST: יצירה (בלי id בגוף) או עדכון (עם id בגוף).
+// דף ניהול - טאב "ערב התרמה": ניהול פרופילים (שם לזיהוי בלבד - ראו
+// donation-app-store.js למה תמונות וסף סכום לא חלק מהפרופיל) לכל מקבל קישור
+// למערכת ההתרמה (donation-app/control.html + display.html).
+// GET בלי id: רשימה, לטבלה בדף הניהול. GET עם id: פרופיל בודד (לטעינה מחדש
+// לטופס עריכה). POST: יצירה (בלי id בגוף) או עדכון (עם id בגוף).
 // DELETE: מחיקת פרופיל.
 const { listProfiles, getConfigById, saveProfile, deleteProfile } = require('./lib/donation-app-store');
 const { requireAdmin } = require('./lib/admin-auth');
