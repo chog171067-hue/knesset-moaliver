@@ -1626,16 +1626,16 @@
         }
     }
 
-    // --- טאב חריג: מעקב תרומות ימים נוראים תשפ"ז (מוצג רק למשתמש מורשה אחד) ---
+    // --- טאב חריג: מעקב תרומות ימים נוראים תשפ"ז (מוצג רק למשתמשים מורשים) ---
     // הבדיקה כאן היא רק כדי להראות/להסתיר את כפתור התפריט - ההרשאה האמיתית
     // נאכפת בשרת (get-yamim-noraim-tracking.js) לפי ה-verified_tz שבטוקן המאומת.
-    const YAMIM_NORAIM_TRACKING_AUTHORIZED_TZ = '066426834';
+    const YAMIM_NORAIM_TRACKING_AUTHORIZED_TZS = ['066426834', '207139759'];
     let yamimNoraimTrackingLoaded = false;
 
     function checkYamimNoraimTrackingAccess() {
         const user = netlifyIdentity.currentUser();
         const meta = user && user.app_metadata;
-        const isAuthorized = meta && String(meta.verified_tz || '').trim() === YAMIM_NORAIM_TRACKING_AUTHORIZED_TZ;
+        const isAuthorized = meta && YAMIM_NORAIM_TRACKING_AUTHORIZED_TZS.includes(String(meta.verified_tz || '').trim());
 
         document.getElementById('yamimNoraimTrackingNavItem').style.display = isAuthorized ? 'block' : 'none';
         document.getElementById('yamimNoraimTrackingDivider').style.display = isAuthorized ? 'block' : 'none';

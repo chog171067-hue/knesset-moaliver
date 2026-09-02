@@ -1,10 +1,10 @@
-// טאב אישי חריג ("מעקב תרומות ימים נוראים תשפ"ז") שנחשף בממשק רק למשתמש מורשה ספציפי אחד
-// (מזוהה לפי ת"ז מקושרת) - מציג לו את כל התורמים (ולא רק את עצמו) שנתרמו תחת
+// טאב אישי חריג ("מעקב תרומות ימים נוראים תשפ"ז") שנחשף בממשק רק למשתמשים מורשים ספציפיים
+// (מזוהים לפי ת"ז מקושרת) - מציג להם את כל התורמים (ולא רק את עצמם) שנתרמו תחת
 // הקטגוריה הנתונה, מתוך שני המוסדות. ראו assets/../personal.html לצד הלקוח.
 
 const { fetchAllKevot, fetchAllDonationHistory } = require('./lib/nedarim');
 
-const AUTHORIZED_TZ = '066426834';
+const AUTHORIZED_TZS = ['066426834', '207139759'];
 const TRACKED_CATEGORY = 'ימים נוראים תשפ"ז';
 
 function matchesCategory(rawCategory) {
@@ -29,7 +29,7 @@ exports.handler = async function (event, context) {
     };
   }
 
-  if (authedTz !== AUTHORIZED_TZ) {
+  if (!AUTHORIZED_TZS.includes(authedTz)) {
     return {
       statusCode: 403,
       headers: corsHeaders,
