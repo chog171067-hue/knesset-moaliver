@@ -124,6 +124,9 @@
         .badge-success { background-color: #c6f6d5; color: #22543d; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-danger { background-color: #fed7d7; color: #742a2a; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .summary-info { background: #ebf8ff; padding: 10px; border-radius: 6px; font-size: 14px; color: #2b6cb0; margin-bottom: 10px; font-weight: bold; }
+        .date-filter-bar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+        .date-filter-bar .field { width: 170px; margin: 0; }
+        .date-filter-bar .history-btn { margin-top: 0; }
 
         /* --- טפסים כלליים (הו"ק חדשה / עדכון כרטיס / קבלות) --- */
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 15px; }
@@ -423,6 +426,15 @@
                 <h2>היסטוריית תרומות</h2>
                 <p class="panel-desc">כל התרומות שביצעת למוסדות בית הכנסת - כולל תרומות חד-פעמיות שאינן קשורות להוראת קבע.</p>
                 <div id="dhSummary" class="summary-info" style="display:none;"></div>
+
+                <div class="date-filter-bar">
+                    <div class="field"><label>מתאריך</label><input type="date" id="dhDateFrom"></div>
+                    <div class="field"><label>עד תאריך</label><input type="date" id="dhDateTo"></div>
+                    <button class="history-btn" onclick="applyDhDateFilter()">סינון לפי טווח</button>
+                    <button class="history-btn" onclick="clearDhDateFilter()">נקה סינון</button>
+                </div>
+                <div id="dhRangeSummary" class="summary-info" style="display:none;"></div>
+
                 <div id="dhLoading" class="loading">טוען היסטוריית תרומות...</div>
                 <div id="dhError" class="form-error"></div>
                 <div id="dhTableWrap" style="display:none;">
@@ -518,6 +530,13 @@
                     </table>
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
+                    <div class="date-filter-bar">
+                        <div class="field"><label>מתאריך</label><input type="date" id="ytDateFrom"></div>
+                        <div class="field"><label>עד תאריך</label><input type="date" id="ytDateTo"></div>
+                        <button class="history-btn" onclick="applyYtDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="clearYtDateFilter()">נקה סינון</button>
+                    </div>
+                    <div id="ytRangeSummary" class="summary-info" style="display:none;"></div>
                     <table class="history-table">
                         <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th><th>מוסד</th></tr></thead>
                         <tbody id="ytHistoryTableBody"></tbody>
@@ -543,6 +562,13 @@
                     </table>
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
+                    <div class="date-filter-bar">
+                        <div class="field"><label>מתאריך</label><input type="date" id="crDateFrom"></div>
+                        <div class="field"><label>עד תאריך</label><input type="date" id="crDateTo"></div>
+                        <button class="history-btn" onclick="applyCrDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="clearCrDateFilter()">נקה סינון</button>
+                    </div>
+                    <div id="crRangeSummary" class="summary-info" style="display:none;"></div>
                     <table class="history-table">
                         <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th><th>מוסד</th></tr></thead>
                         <tbody id="crHistoryTableBody"></tbody>
@@ -568,6 +594,13 @@
                     </table>
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
+                    <div class="date-filter-bar">
+                        <div class="field"><label>מתאריך</label><input type="date" id="igDateFrom"></div>
+                        <div class="field"><label>עד תאריך</label><input type="date" id="igDateTo"></div>
+                        <button class="history-btn" onclick="applyIgDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="clearIgDateFilter()">נקה סינון</button>
+                    </div>
+                    <div id="igRangeSummary" class="summary-info" style="display:none;"></div>
                     <table class="history-table">
                         <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th><th>מוסד</th></tr></thead>
                         <tbody id="igHistoryTableBody"></tbody>
@@ -593,6 +626,13 @@
                     </table>
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
+                    <div class="date-filter-bar">
+                        <div class="field"><label>מתאריך</label><input type="date" id="ynDateFrom"></div>
+                        <div class="field"><label>עד תאריך</label><input type="date" id="ynDateTo"></div>
+                        <button class="history-btn" onclick="applyYnDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="clearYnDateFilter()">נקה סינון</button>
+                    </div>
+                    <div id="ynRangeSummary" class="summary-info" style="display:none;"></div>
                     <table class="history-table">
                         <thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th><th>מוסד</th></tr></thead>
                         <tbody id="ynHistoryTableBody"></tbody>
@@ -709,6 +749,65 @@
         button.classList.toggle('open');
         const subnav = button.nextElementSibling;
         subnav.classList.toggle('collapsed');
+    }
+
+    // --- כלים משותפים לסינון טבלאות היסטוריית תרומות לפי טווח תאריכים (בכל הטאבים) ---
+    // מפרש תאריך בפורמט DD/MM/YYYY (עם או בלי שעה) שמוחזר מהשרת, לאובייקט Date.
+    function parseHistoryDateStr(value) {
+        const str = String(value || '').trim();
+        const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+            const [, day, month, year] = match;
+            return new Date(Number(year), Number(month) - 1, Number(day));
+        }
+        const fallback = new Date(str);
+        return isNaN(fallback) ? null : fallback;
+    }
+
+    function filterHistoryByDateRange(history, fromValue, toValue) {
+        if (!fromValue && !toValue) return history;
+        const fromDate = fromValue ? new Date(fromValue + 'T00:00:00') : null;
+        const toDate = toValue ? new Date(toValue + 'T23:59:59') : null;
+        return history.filter(t => {
+            const d = parseHistoryDateStr(t.date);
+            if (!d) return false;
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        });
+    }
+
+    // מרנדר טבלת היסטוריה עם עמודת "שם" (טאבי המעקב: איגוד/ישיבה/חדר קפה/ימים נוראים)
+    function renderTrackingHistoryTable(tbodyId, history) {
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+        if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בטווח שנבחר.</td></tr>';
+            return;
+        }
+        history.forEach(t => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${t.date || '-'}</td>
+                    <td>${t.name || '-'}</td>
+                    <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
+                    <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
+                    <td>${t.mosadName || '-'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function updateRangeSummary(elId, history) {
+        const el = document.getElementById(elId);
+        if (!history.length) {
+            el.style.display = 'block';
+            el.innerText = 'לא נמצאו תרומות בטווח שנבחר.';
+            return;
+        }
+        const total = history.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        el.style.display = 'block';
+        el.innerText = `בטווח שנבחר: ${history.length} תרומות, בסך כולל של ${total.toLocaleString()} ₪`;
     }
 
     // --- ניווט בין הטאבים בסרגל הצד ---
@@ -967,12 +1066,48 @@
     }
 
     // --- היסטוריית תרומות מלאה (כולל חד-פעמיות) ---
+    let dhHistoryRaw = [];
+
+    function renderDonationHistoryTable(history) {
+        const tbody = document.getElementById('dhTableBody');
+        tbody.innerHTML = '';
+        if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בטווח שנבחר.</td></tr>';
+            return;
+        }
+        history.forEach(t => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${t.date || '-'}</td>
+                    <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
+                    <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
+                    <td>${t.category || '-'}</td>
+                    <td>${t.mosadName || '-'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function applyDhDateFilter() {
+        const from = document.getElementById('dhDateFrom').value;
+        const to = document.getElementById('dhDateTo').value;
+        const filtered = filterHistoryByDateRange(dhHistoryRaw, from, to);
+        renderDonationHistoryTable(filtered);
+        updateRangeSummary('dhRangeSummary', filtered);
+    }
+
+    function clearDhDateFilter() {
+        document.getElementById('dhDateFrom').value = '';
+        document.getElementById('dhDateTo').value = '';
+        document.getElementById('dhRangeSummary').style.display = 'none';
+        renderDonationHistoryTable(dhHistoryRaw);
+    }
+
     async function fetchDonationHistory(forceRefresh) {
         const loadingDiv = document.getElementById('dhLoading');
         const errorDiv = document.getElementById('dhError');
         const tableWrap = document.getElementById('dhTableWrap');
         const summaryDiv = document.getElementById('dhSummary');
-        const tbody = document.getElementById('dhTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -995,26 +1130,12 @@
             }
 
             donationHistoryLoaded = true;
+            dhHistoryRaw = result.history;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.count} תרומות, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
 
-            tbody.innerHTML = '';
-            if (result.history.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות קודמות.</td></tr>';
-            } else {
-                result.history.forEach(t => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${t.date || '-'}</td>
-                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
-                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
-                            <td>${t.category || '-'}</td>
-                            <td>${t.mosadName || '-'}</td>
-                        </tr>
-                    `;
-                });
-            }
+            clearDhDateFilter();
             tableWrap.style.display = 'block';
         } catch (err) {
             loadingDiv.style.display = 'none';
@@ -1371,13 +1492,29 @@
         document.getElementById('yeshivaTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
     }
 
+    let ytHistoryRaw = [];
+
+    function applyYtDateFilter() {
+        const from = document.getElementById('ytDateFrom').value;
+        const to = document.getElementById('ytDateTo').value;
+        const filtered = filterHistoryByDateRange(ytHistoryRaw, from, to);
+        renderTrackingHistoryTable('ytHistoryTableBody', filtered);
+        updateRangeSummary('ytRangeSummary', filtered);
+    }
+
+    function clearYtDateFilter() {
+        document.getElementById('ytDateFrom').value = '';
+        document.getElementById('ytDateTo').value = '';
+        document.getElementById('ytRangeSummary').style.display = 'none';
+        renderTrackingHistoryTable('ytHistoryTableBody', ytHistoryRaw);
+    }
+
     async function fetchYeshivaTracking() {
         const loadingDiv = document.getElementById('ytLoading');
         const errorDiv = document.getElementById('ytError');
         const summaryDiv = document.getElementById('ytSummary');
         const contentWrap = document.getElementById('ytContentWrap');
         const kevotBody = document.getElementById('ytKevotTableBody');
-        const historyBody = document.getElementById('ytHistoryTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1400,6 +1537,7 @@
             }
 
             yeshivaTrackingLoaded = true;
+            ytHistoryRaw = result.history;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
@@ -1421,22 +1559,7 @@
                 });
             }
 
-            historyBody.innerHTML = '';
-            if (result.history.length === 0) {
-                historyBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בקטגוריה זו.</td></tr>';
-            } else {
-                result.history.forEach(t => {
-                    historyBody.innerHTML += `
-                        <tr>
-                            <td>${t.date || '-'}</td>
-                            <td>${t.name || '-'}</td>
-                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
-                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
-                            <td>${t.mosadName || '-'}</td>
-                        </tr>
-                    `;
-                });
-            }
+            clearYtDateFilter();
 
             contentWrap.style.display = 'block';
         } catch (err) {
@@ -1461,13 +1584,29 @@
         document.getElementById('coffeeRoomTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
     }
 
+    let crHistoryRaw = [];
+
+    function applyCrDateFilter() {
+        const from = document.getElementById('crDateFrom').value;
+        const to = document.getElementById('crDateTo').value;
+        const filtered = filterHistoryByDateRange(crHistoryRaw, from, to);
+        renderTrackingHistoryTable('crHistoryTableBody', filtered);
+        updateRangeSummary('crRangeSummary', filtered);
+    }
+
+    function clearCrDateFilter() {
+        document.getElementById('crDateFrom').value = '';
+        document.getElementById('crDateTo').value = '';
+        document.getElementById('crRangeSummary').style.display = 'none';
+        renderTrackingHistoryTable('crHistoryTableBody', crHistoryRaw);
+    }
+
     async function fetchCoffeeRoomTracking() {
         const loadingDiv = document.getElementById('crLoading');
         const errorDiv = document.getElementById('crError');
         const summaryDiv = document.getElementById('crSummary');
         const contentWrap = document.getElementById('crContentWrap');
         const kevotBody = document.getElementById('crKevotTableBody');
-        const historyBody = document.getElementById('crHistoryTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1490,6 +1629,7 @@
             }
 
             coffeeRoomTrackingLoaded = true;
+            crHistoryRaw = result.history;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
@@ -1511,22 +1651,7 @@
                 });
             }
 
-            historyBody.innerHTML = '';
-            if (result.history.length === 0) {
-                historyBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בקטגוריה זו.</td></tr>';
-            } else {
-                result.history.forEach(t => {
-                    historyBody.innerHTML += `
-                        <tr>
-                            <td>${t.date || '-'}</td>
-                            <td>${t.name || '-'}</td>
-                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
-                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
-                            <td>${t.mosadName || '-'}</td>
-                        </tr>
-                    `;
-                });
-            }
+            clearCrDateFilter();
 
             contentWrap.style.display = 'block';
         } catch (err) {
@@ -1551,13 +1676,29 @@
         document.getElementById('igudTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
     }
 
+    let igHistoryRaw = [];
+
+    function applyIgDateFilter() {
+        const from = document.getElementById('igDateFrom').value;
+        const to = document.getElementById('igDateTo').value;
+        const filtered = filterHistoryByDateRange(igHistoryRaw, from, to);
+        renderTrackingHistoryTable('igHistoryTableBody', filtered);
+        updateRangeSummary('igRangeSummary', filtered);
+    }
+
+    function clearIgDateFilter() {
+        document.getElementById('igDateFrom').value = '';
+        document.getElementById('igDateTo').value = '';
+        document.getElementById('igRangeSummary').style.display = 'none';
+        renderTrackingHistoryTable('igHistoryTableBody', igHistoryRaw);
+    }
+
     async function fetchIgudTracking() {
         const loadingDiv = document.getElementById('igLoading');
         const errorDiv = document.getElementById('igError');
         const summaryDiv = document.getElementById('igSummary');
         const contentWrap = document.getElementById('igContentWrap');
         const kevotBody = document.getElementById('igKevotTableBody');
-        const historyBody = document.getElementById('igHistoryTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1580,6 +1721,7 @@
             }
 
             igudTrackingLoaded = true;
+            igHistoryRaw = result.history;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
@@ -1601,22 +1743,7 @@
                 });
             }
 
-            historyBody.innerHTML = '';
-            if (result.history.length === 0) {
-                historyBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בקטגוריה זו.</td></tr>';
-            } else {
-                result.history.forEach(t => {
-                    historyBody.innerHTML += `
-                        <tr>
-                            <td>${t.date || '-'}</td>
-                            <td>${t.name || '-'}</td>
-                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
-                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
-                            <td>${t.mosadName || '-'}</td>
-                        </tr>
-                    `;
-                });
-            }
+            clearIgDateFilter();
 
             contentWrap.style.display = 'block';
         } catch (err) {
@@ -1641,13 +1768,29 @@
         document.getElementById('yamimNoraimTrackingDivider').style.display = isAuthorized ? 'block' : 'none';
     }
 
+    let ynHistoryRaw = [];
+
+    function applyYnDateFilter() {
+        const from = document.getElementById('ynDateFrom').value;
+        const to = document.getElementById('ynDateTo').value;
+        const filtered = filterHistoryByDateRange(ynHistoryRaw, from, to);
+        renderTrackingHistoryTable('ynHistoryTableBody', filtered);
+        updateRangeSummary('ynRangeSummary', filtered);
+    }
+
+    function clearYnDateFilter() {
+        document.getElementById('ynDateFrom').value = '';
+        document.getElementById('ynDateTo').value = '';
+        document.getElementById('ynRangeSummary').style.display = 'none';
+        renderTrackingHistoryTable('ynHistoryTableBody', ynHistoryRaw);
+    }
+
     async function fetchYamimNoraimTracking() {
         const loadingDiv = document.getElementById('ynLoading');
         const errorDiv = document.getElementById('ynError');
         const summaryDiv = document.getElementById('ynSummary');
         const contentWrap = document.getElementById('ynContentWrap');
         const kevotBody = document.getElementById('ynKevotTableBody');
-        const historyBody = document.getElementById('ynHistoryTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1670,6 +1813,7 @@
             }
 
             yamimNoraimTrackingLoaded = true;
+            ynHistoryRaw = result.history;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
@@ -1691,22 +1835,7 @@
                 });
             }
 
-            historyBody.innerHTML = '';
-            if (result.history.length === 0) {
-                historyBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו תרומות בקטגוריה זו.</td></tr>';
-            } else {
-                result.history.forEach(t => {
-                    historyBody.innerHTML += `
-                        <tr>
-                            <td>${t.date || '-'}</td>
-                            <td>${t.name || '-'}</td>
-                            <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
-                            <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
-                            <td>${t.mosadName || '-'}</td>
-                        </tr>
-                    `;
-                });
-            }
+            clearYnDateFilter();
 
             contentWrap.style.display = 'block';
         } catch (err) {
