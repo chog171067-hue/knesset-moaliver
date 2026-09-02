@@ -531,9 +531,10 @@
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
                     <div class="date-filter-bar">
+                        <div class="field"><label>חיפוש לפי שם</label><input type="text" id="ytNameSearch" placeholder="הקלד שם תורם..." oninput="applyYtDateFilter()"></div>
                         <div class="field"><label>מתאריך</label><input type="date" id="ytDateFrom"></div>
                         <div class="field"><label>עד תאריך</label><input type="date" id="ytDateTo"></div>
-                        <button class="history-btn" onclick="applyYtDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="applyYtDateFilter()">סינון</button>
                         <button class="history-btn" onclick="clearYtDateFilter()">נקה סינון</button>
                     </div>
                     <div id="ytRangeSummary" class="summary-info" style="display:none;"></div>
@@ -563,9 +564,10 @@
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
                     <div class="date-filter-bar">
+                        <div class="field"><label>חיפוש לפי שם</label><input type="text" id="crNameSearch" placeholder="הקלד שם תורם..." oninput="applyCrDateFilter()"></div>
                         <div class="field"><label>מתאריך</label><input type="date" id="crDateFrom"></div>
                         <div class="field"><label>עד תאריך</label><input type="date" id="crDateTo"></div>
-                        <button class="history-btn" onclick="applyCrDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="applyCrDateFilter()">סינון</button>
                         <button class="history-btn" onclick="clearCrDateFilter()">נקה סינון</button>
                     </div>
                     <div id="crRangeSummary" class="summary-info" style="display:none;"></div>
@@ -595,9 +597,10 @@
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
                     <div class="date-filter-bar">
+                        <div class="field"><label>חיפוש לפי שם</label><input type="text" id="igNameSearch" placeholder="הקלד שם תורם..." oninput="applyIgDateFilter()"></div>
                         <div class="field"><label>מתאריך</label><input type="date" id="igDateFrom"></div>
                         <div class="field"><label>עד תאריך</label><input type="date" id="igDateTo"></div>
-                        <button class="history-btn" onclick="applyIgDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="applyIgDateFilter()">סינון</button>
                         <button class="history-btn" onclick="clearIgDateFilter()">נקה סינון</button>
                     </div>
                     <div id="igRangeSummary" class="summary-info" style="display:none;"></div>
@@ -627,9 +630,10 @@
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:25px;">היסטוריית תרומות</h3>
                     <div class="date-filter-bar">
+                        <div class="field"><label>חיפוש לפי שם</label><input type="text" id="ynNameSearch" placeholder="הקלד שם תורם..." oninput="applyYnDateFilter()"></div>
                         <div class="field"><label>מתאריך</label><input type="date" id="ynDateFrom"></div>
                         <div class="field"><label>עד תאריך</label><input type="date" id="ynDateTo"></div>
-                        <button class="history-btn" onclick="applyYnDateFilter()">סינון לפי טווח</button>
+                        <button class="history-btn" onclick="applyYnDateFilter()">סינון</button>
                         <button class="history-btn" onclick="clearYnDateFilter()">נקה סינון</button>
                     </div>
                     <div id="ynRangeSummary" class="summary-info" style="display:none;"></div>
@@ -777,6 +781,13 @@
         });
     }
 
+    // מסנן לפי שם התורם (התאמה חלקית, לא תלוית אותיות גדולות/קטנות)
+    function filterHistoryByName(history, nameQuery) {
+        const q = (nameQuery || '').trim().toLowerCase();
+        if (!q) return history;
+        return history.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+
     // מרנדר טבלת היסטוריה עם עמודת "שם" (טאבי המעקב: איגוד/ישיבה/חדר קפה/ימים נוראים)
     function renderTrackingHistoryTable(tbodyId, history) {
         const tbody = document.getElementById(tbodyId);
@@ -793,6 +804,27 @@
                     <td>${t.amount ? t.amount + ' ₪' : '-'}</td>
                     <td>${t.isKeva ? 'הוראת קבע' : (t.type || 'חד פעמי')}</td>
                     <td>${t.mosadName || '-'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    // מרנדר טבלת "הוראות קבע פעילות" (טאבי המעקב), לפי הנתונים שמועברים
+    function renderTrackingKevotTable(tbodyId, kevot) {
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+        if (kevot.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
+            return;
+        }
+        kevot.forEach(k => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${k.name || '-'}</td>
+                    <td>${k.mosadName || '-'}</td>
+                    <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
+                    <td>${k.nextDate || '-'}</td>
+                    <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
                 </tr>
             `;
         });
@@ -1493,20 +1525,26 @@
     }
 
     let ytHistoryRaw = [];
+    let ytKevotRaw = [];
 
     function applyYtDateFilter() {
         const from = document.getElementById('ytDateFrom').value;
         const to = document.getElementById('ytDateTo').value;
-        const filtered = filterHistoryByDateRange(ytHistoryRaw, from, to);
+        const nameQuery = document.getElementById('ytNameSearch').value;
+        let filtered = filterHistoryByDateRange(ytHistoryRaw, from, to);
+        filtered = filterHistoryByName(filtered, nameQuery);
         renderTrackingHistoryTable('ytHistoryTableBody', filtered);
         updateRangeSummary('ytRangeSummary', filtered);
+        renderTrackingKevotTable('ytKevotTableBody', filterHistoryByName(ytKevotRaw, nameQuery));
     }
 
     function clearYtDateFilter() {
         document.getElementById('ytDateFrom').value = '';
         document.getElementById('ytDateTo').value = '';
+        document.getElementById('ytNameSearch').value = '';
         document.getElementById('ytRangeSummary').style.display = 'none';
         renderTrackingHistoryTable('ytHistoryTableBody', ytHistoryRaw);
+        renderTrackingKevotTable('ytKevotTableBody', ytKevotRaw);
     }
 
     async function fetchYeshivaTracking() {
@@ -1514,7 +1552,6 @@
         const errorDiv = document.getElementById('ytError');
         const summaryDiv = document.getElementById('ytSummary');
         const contentWrap = document.getElementById('ytContentWrap');
-        const kevotBody = document.getElementById('ytKevotTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1538,26 +1575,10 @@
 
             yeshivaTrackingLoaded = true;
             ytHistoryRaw = result.history;
+            ytKevotRaw = result.kevot;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
-
-            kevotBody.innerHTML = '';
-            if (result.kevot.length === 0) {
-                kevotBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
-            } else {
-                result.kevot.forEach(k => {
-                    kevotBody.innerHTML += `
-                        <tr>
-                            <td>${k.name || '-'}</td>
-                            <td>${k.mosadName || '-'}</td>
-                            <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
-                            <td>${k.nextDate || '-'}</td>
-                            <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
-                        </tr>
-                    `;
-                });
-            }
 
             clearYtDateFilter();
 
@@ -1585,20 +1606,26 @@
     }
 
     let crHistoryRaw = [];
+    let crKevotRaw = [];
 
     function applyCrDateFilter() {
         const from = document.getElementById('crDateFrom').value;
         const to = document.getElementById('crDateTo').value;
-        const filtered = filterHistoryByDateRange(crHistoryRaw, from, to);
+        const nameQuery = document.getElementById('crNameSearch').value;
+        let filtered = filterHistoryByDateRange(crHistoryRaw, from, to);
+        filtered = filterHistoryByName(filtered, nameQuery);
         renderTrackingHistoryTable('crHistoryTableBody', filtered);
         updateRangeSummary('crRangeSummary', filtered);
+        renderTrackingKevotTable('crKevotTableBody', filterHistoryByName(crKevotRaw, nameQuery));
     }
 
     function clearCrDateFilter() {
         document.getElementById('crDateFrom').value = '';
         document.getElementById('crDateTo').value = '';
+        document.getElementById('crNameSearch').value = '';
         document.getElementById('crRangeSummary').style.display = 'none';
         renderTrackingHistoryTable('crHistoryTableBody', crHistoryRaw);
+        renderTrackingKevotTable('crKevotTableBody', crKevotRaw);
     }
 
     async function fetchCoffeeRoomTracking() {
@@ -1606,7 +1633,6 @@
         const errorDiv = document.getElementById('crError');
         const summaryDiv = document.getElementById('crSummary');
         const contentWrap = document.getElementById('crContentWrap');
-        const kevotBody = document.getElementById('crKevotTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1630,26 +1656,10 @@
 
             coffeeRoomTrackingLoaded = true;
             crHistoryRaw = result.history;
+            crKevotRaw = result.kevot;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
-
-            kevotBody.innerHTML = '';
-            if (result.kevot.length === 0) {
-                kevotBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
-            } else {
-                result.kevot.forEach(k => {
-                    kevotBody.innerHTML += `
-                        <tr>
-                            <td>${k.name || '-'}</td>
-                            <td>${k.mosadName || '-'}</td>
-                            <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
-                            <td>${k.nextDate || '-'}</td>
-                            <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
-                        </tr>
-                    `;
-                });
-            }
 
             clearCrDateFilter();
 
@@ -1677,20 +1687,26 @@
     }
 
     let igHistoryRaw = [];
+    let igKevotRaw = [];
 
     function applyIgDateFilter() {
         const from = document.getElementById('igDateFrom').value;
         const to = document.getElementById('igDateTo').value;
-        const filtered = filterHistoryByDateRange(igHistoryRaw, from, to);
+        const nameQuery = document.getElementById('igNameSearch').value;
+        let filtered = filterHistoryByDateRange(igHistoryRaw, from, to);
+        filtered = filterHistoryByName(filtered, nameQuery);
         renderTrackingHistoryTable('igHistoryTableBody', filtered);
         updateRangeSummary('igRangeSummary', filtered);
+        renderTrackingKevotTable('igKevotTableBody', filterHistoryByName(igKevotRaw, nameQuery));
     }
 
     function clearIgDateFilter() {
         document.getElementById('igDateFrom').value = '';
         document.getElementById('igDateTo').value = '';
+        document.getElementById('igNameSearch').value = '';
         document.getElementById('igRangeSummary').style.display = 'none';
         renderTrackingHistoryTable('igHistoryTableBody', igHistoryRaw);
+        renderTrackingKevotTable('igKevotTableBody', igKevotRaw);
     }
 
     async function fetchIgudTracking() {
@@ -1698,7 +1714,6 @@
         const errorDiv = document.getElementById('igError');
         const summaryDiv = document.getElementById('igSummary');
         const contentWrap = document.getElementById('igContentWrap');
-        const kevotBody = document.getElementById('igKevotTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1722,26 +1737,10 @@
 
             igudTrackingLoaded = true;
             igHistoryRaw = result.history;
+            igKevotRaw = result.kevot;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
-
-            kevotBody.innerHTML = '';
-            if (result.kevot.length === 0) {
-                kevotBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
-            } else {
-                result.kevot.forEach(k => {
-                    kevotBody.innerHTML += `
-                        <tr>
-                            <td>${k.name || '-'}</td>
-                            <td>${k.mosadName || '-'}</td>
-                            <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
-                            <td>${k.nextDate || '-'}</td>
-                            <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
-                        </tr>
-                    `;
-                });
-            }
 
             clearIgDateFilter();
 
@@ -1769,20 +1768,26 @@
     }
 
     let ynHistoryRaw = [];
+    let ynKevotRaw = [];
 
     function applyYnDateFilter() {
         const from = document.getElementById('ynDateFrom').value;
         const to = document.getElementById('ynDateTo').value;
-        const filtered = filterHistoryByDateRange(ynHistoryRaw, from, to);
+        const nameQuery = document.getElementById('ynNameSearch').value;
+        let filtered = filterHistoryByDateRange(ynHistoryRaw, from, to);
+        filtered = filterHistoryByName(filtered, nameQuery);
         renderTrackingHistoryTable('ynHistoryTableBody', filtered);
         updateRangeSummary('ynRangeSummary', filtered);
+        renderTrackingKevotTable('ynKevotTableBody', filterHistoryByName(ynKevotRaw, nameQuery));
     }
 
     function clearYnDateFilter() {
         document.getElementById('ynDateFrom').value = '';
         document.getElementById('ynDateTo').value = '';
+        document.getElementById('ynNameSearch').value = '';
         document.getElementById('ynRangeSummary').style.display = 'none';
         renderTrackingHistoryTable('ynHistoryTableBody', ynHistoryRaw);
+        renderTrackingKevotTable('ynKevotTableBody', ynKevotRaw);
     }
 
     async function fetchYamimNoraimTracking() {
@@ -1790,7 +1795,6 @@
         const errorDiv = document.getElementById('ynError');
         const summaryDiv = document.getElementById('ynSummary');
         const contentWrap = document.getElementById('ynContentWrap');
-        const kevotBody = document.getElementById('ynKevotTableBody');
 
         loadingDiv.style.display = 'block';
         errorDiv.style.display = 'none';
@@ -1814,26 +1818,10 @@
 
             yamimNoraimTrackingLoaded = true;
             ynHistoryRaw = result.history;
+            ynKevotRaw = result.kevot;
 
             summaryDiv.style.display = 'block';
             summaryDiv.innerText = `סה"כ ${result.kevot.length} הוראות קבע, ${result.history.length} תרומות בהיסטוריה, בסך כולל של ${result.totalAmount.toLocaleString()} ₪`;
-
-            kevotBody.innerHTML = '';
-            if (result.kevot.length === 0) {
-                kevotBody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא נמצאו הוראות קבע בקטגוריה זו.</td></tr>';
-            } else {
-                result.kevot.forEach(k => {
-                    kevotBody.innerHTML += `
-                        <tr>
-                            <td>${k.name || '-'}</td>
-                            <td>${k.mosadName || '-'}</td>
-                            <td>${k.amount ? k.amount + ' ₪' : '-'}</td>
-                            <td>${k.nextDate || '-'}</td>
-                            <td>${k.enabled ? '<span class="badge-success">פעילה</span>' : '<span class="badge-danger">מוקפאת</span>'}</td>
-                        </tr>
-                    `;
-                });
-            }
 
             clearYnDateFilter();
 
