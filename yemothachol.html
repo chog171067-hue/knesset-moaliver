@@ -180,7 +180,9 @@
 
             var currentFile = location.pathname.split('/').pop() || 'index.html';
 
-            container.innerHTML = window.sitePrayerPages.map(function (p) {
+            container.innerHTML = window.sitePrayerPages.filter(function (p) {
+                return p.mailable !== false;
+            }).map(function (p) {
                 var pageId = p.file.replace('.html', '');
                 var checkedAttr = (p.file === currentFile) ? 'checked' : '';
                 return '<label><input type="checkbox" class="page-check" value="' + pageId + '" ' + checkedAttr + ' onchange="syncSelectAllState()"> ' + p.label + '</label>';

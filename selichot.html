@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>זמני סליחות - בית הכנסת מוהליבר</title>
+
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <link rel="stylesheet" href="assets/header.css?v=3">
+    <style>
+        body { background-image: url('background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: rgba(245, 245, 220, 0.85); background-blend-mode: overlay; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 0; box-sizing: border-box; text-align: center; }
+        h1 { color: #800020; margin-bottom: 2rem; font-size: 2.5rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+
+        .top-nav-bar { display: flex; gap: 15px; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; direction: rtl; }
+
+        .nav-btn { display: inline-block; padding: 10px 20px; border: 2px solid #000080; color: #000080; border-radius: 6px; font-weight: bold; text-decoration: none; background: white; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; font-size: 1rem; font-family: inherit; }
+        .nav-btn:hover { background-color: #000080; color: #F5F5DC; }
+
+        .choices-container { display: flex; gap: 25px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 700px; }
+        .choice-btn { background: white; border: 2px solid #000080; border-radius: 12px; padding: 30px 25px; width: 260px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; cursor: pointer; font-size: 1.2rem; font-weight: bold; color: #000080; font-family: inherit; transition: 0.2s; }
+        .choice-btn:hover { background-color: #000080; color: #F5F5DC; transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.12); }
+
+        /* עוטף את תוכן העמוד (מתחת לסרגל הניווט) עם הריפוד שהיה קודם על ה-body,
+           כדי שה-header עצמו יישאר צמוד לקצה ולרוחב המלא של הדף */
+        .page-content { width: 100%; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+
+        /* מודל תצוגת התמונה */
+        .image-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+        .image-modal-content { position: relative; max-width: 95vw; max-height: 90vh; }
+        .image-modal-content img { display: block; max-width: 95vw; max-height: 90vh; width: auto; height: auto; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+        .image-modal-close { position: absolute; top: -18px; left: -18px; width: 36px; height: 36px; border-radius: 50%; background: white; color: #333; font-size: 1.5rem; font-weight: bold; line-height: 36px; text-align: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .image-modal-close:hover { color: black; }
+
+        @media (max-width: 500px) {
+            .choice-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="site-header"></div>
+<script src="assets/header.js?v=4"></script>
+<div class="page-content">
+    <h1>זמני סליחות</h1>
+
+    <div class="top-nav-bar">
+        <a href="index.html" class="nav-btn">חזרה לדף הבית</a>
+    </div>
+
+    <div class="choices-container">
+        <button class="choice-btn" onclick="openImageModal('assets/images/selichot-lifnei-rh.jpg', 'זמני סליחות לפני ר\'ה')">סליחות לפני ר"ה</button>
+        <button class="choice-btn" onclick="openImageModal('assets/images/selichot-aseret.jpg', 'זמני סליחות עשי\'ת')">סליחות עשי"ת</button>
+    </div>
+</div>
+
+<div class="image-modal-overlay" id="imageModal" onclick="closeImageModalOnOverlay(event)">
+    <div class="image-modal-content">
+        <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+        <img id="imageModalImg" src="" alt="">
+    </div>
+</div>
+
+<script>
+    function openImageModal(src, altText) {
+        document.getElementById('imageModalImg').src = src;
+        document.getElementById('imageModalImg').alt = altText;
+        document.getElementById('imageModal').style.display = 'flex';
+    }
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+        document.getElementById('imageModalImg').src = '';
+    }
+    function closeImageModalOnOverlay(event) {
+        if (event.target.id === 'imageModal') {
+            closeImageModal();
+        }
+    }
+</script>
+
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="assets/auth-widget.js"></script>
+</body>
+</html>
