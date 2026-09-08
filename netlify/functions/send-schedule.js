@@ -22,8 +22,26 @@ const PAGE_CONFIG = {
             { title: 'מנחה - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
             { title: 'ערבית - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
         ]
+    },
+    // בניגוד לדפים האחרים, זמני הסליחות מוצגים כתמונות לוח מעוצבות (לא נתונים מגיליון גוגל),
+    // ולכן buildPageSection שם אותן ישירות בגוף המייל כתמונות מוטמעות במקום לגזור מהן טבלה
+    selichot: {
+        label: 'סליחות',
+        images: [
+            { title: 'סליחות לפני ר"ה', url: 'https://moaliver.org.il/assets/images/selichot-lifnei-rh.jpg' },
+            { title: 'סליחות עשי"ת', url: 'https://moaliver.org.il/assets/images/selichot-aseret.jpg' }
+        ]
     }
 };
+
+function buildImagesHtml(images) {
+    return (images || []).map(img => `
+        <div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px; text-align:center;">
+            <h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${img.title}</h3>
+            <img src="${img.url}" alt="${img.title}" style="max-width:100%; height:auto; border-radius:6px;">
+        </div>
+    `).join('');
+}
 
 async function fetchTableAsHtml(url, title) {
     try {
@@ -102,6 +120,17 @@ async function fetchSingleColumnTableAsHtml(url, title) {
 async function buildPageSection(pageId) {
     const config = PAGE_CONFIG[pageId];
     if (!config) return '';
+
+    if (config.images) {
+        const combined = buildImagesHtml(config.images);
+        if (!combined) return '';
+        return `
+            <div style="margin-bottom: 20px;">
+                <h2 style="color:#000080; text-align:center; border-bottom:2px solid #800020; padding-bottom:6px; font-size:17px; margin-bottom:10px;">${config.label}</h2>
+                ${combined}
+            </div>
+        `;
+    }
 
     const tableTasks = (config.tables || []).map(t => fetchTableAsHtml(t.url, t.title));
     const singleColTasks = (config.singleColumnTables || []).map(t => fetchSingleColumnTableAsHtml(t.url, t.title));

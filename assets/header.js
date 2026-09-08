@@ -7,12 +7,10 @@
 
     // מקור אמת יחיד לרשימת דפי התפילה: גם לבניית התפריט הנפתח וגם לפופאפ שליחת המייל
     // (assets/*.html קוראים ל-window.sitePrayerPages כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
-    // mailable: false - הדף לא מגובה בגיליון גוגל-שיטס (תמונות סטטיות בלבד),
-    // ולכן אין לו תצורה בפונקציית send-schedule ואסור להציע אותו בצ'קליסט לשליחת מייל
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
         { file: 'yemothachol.html', label: 'ימות החול' },
-        { file: 'selichot.html', label: 'סליחות', mailable: false }
+        { file: 'selichot.html', label: 'סליחות' }
     ];
     window.sitePrayerPages = prayerPages;
 
