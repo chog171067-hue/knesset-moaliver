@@ -23,24 +23,81 @@ const PAGE_CONFIG = {
             { title: 'ערבית - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
         ]
     },
-    // בניגוד לדפים האחרים, זמני הסליחות מוצגים כתמונות לוח מעוצבות (לא נתונים מגיליון גוגל),
-    // ולכן buildPageSection שם אותן ישירות בגוף המייל כתמונות מוטמעות במקום לגזור מהן טבלה
+    // גיליון הסליחות: עמודות A-E הן יום, שעה, מקום, נוסח, שיוך למנין. עמודת ה"יום" ממוזגת
+    // בגיליון (ריקה בכל השורות מלבד הראשונה בכל קבוצה) - fetchGroupedTableAsHtml משחזר
+    // את המיזוג הזה כ-rowspan בטבלת המייל, ומדלג על שורות ריקות לגמרי (המשמשות מפריד ויזואלי)
     selichot: {
         label: 'סליחות',
-        images: [
-            { title: 'סליחות לפני ר"ה', url: 'https://moaliver.org.il/assets/images/selichot-lifnei-rh.jpg' },
-            { title: 'סליחות עשי"ת', url: 'https://moaliver.org.il/assets/images/selichot-aseret.jpg' }
+        groupedTables: [
+            { title: 'סליחות לפני ר"ה', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=0&single=true&output=csv' },
+            { title: 'סליחות עשי"ת', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=250500624&single=true&output=csv' }
         ]
     }
 };
 
-function buildImagesHtml(images) {
-    return (images || []).map(img => `
-        <div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px; text-align:center;">
-            <h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${img.title}</h3>
-            <img src="${img.url}" alt="${img.title}" style="max-width:100%; height:auto; border-radius:6px;">
-        </div>
-    `).join('');
+function csvCell(text) {
+    if (!text) return '';
+    let s = text.trim();
+    if (s.startsWith('"') && s.endsWith('"') && s.length >= 2) {
+        s = s.slice(1, -1).replace(/""/g, '"').trim();
+    }
+    return s;
+}
+
+// בונה טבלת HTML בת 5 עמודות (יום | שעה | מקום | נוסח | שיוך למנין) מטקסט CSV, כשעמודת
+// ה"יום" משוחזרת כ-rowspan לפי קבוצות (כל שורה עם ערך ב"יום" פותחת קבוצה חדשה, ושורות
+// המשך ריקות בעמודה הזו שייכות אליה) - מנותק מ-fetch כדי שיהיה ניתן לבדוק בלי רשת
+function buildGroupedTableHtml(csvText, title) {
+    const lines = csvText.split('\n').map(line => line.split(','));
+
+    const rows = lines.slice(1)
+        .map(cols => cols.map(csvCell))
+        .filter(cols => cols.some(c => c !== ''));
+
+    if (rows.length === 0) return '';
+
+    const groups = [];
+    rows.forEach(cols => {
+        const [day, time, place, nusach, beforeMinyan] = cols;
+        if (day || groups.length === 0) {
+            groups.push({ day, rows: [] });
+        }
+        groups[groups.length - 1].rows.push({ time, place, nusach, beforeMinyan });
+    });
+
+    let bodyHtml = '';
+    groups.forEach(group => {
+        group.rows.forEach((r, idx) => {
+            bodyHtml += '<tr>';
+            if (idx === 0) {
+                bodyHtml += `<td rowspan="${group.rows.length}" style="padding:5px; border-bottom:1px solid #eee; font-weight:bold; color:#800020; vertical-align:middle;">${group.day || ''}</td>`;
+            }
+            bodyHtml += `<td style="padding:5px; border-bottom:1px solid #eee; font-weight:bold; color:#000080;">${r.time || ''}</td>`;
+            bodyHtml += `<td style="padding:5px; border-bottom:1px solid #eee;">${r.place || ''}</td>`;
+            bodyHtml += `<td style="padding:5px; border-bottom:1px solid #eee;">${r.nusach || ''}</td>`;
+            bodyHtml += `<td style="padding:5px; border-bottom:1px solid #eee;">${r.beforeMinyan || ''}</td>`;
+            bodyHtml += '</tr>';
+        });
+    });
+
+    let html = `<div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px;">`;
+    html += `<h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${title}</h3>`;
+    html += `<table style="width:100%; border-collapse:collapse; font-size:12px; text-align:center;" dir="rtl">`;
+    html += `<thead><tr style="color:#000080;"><th style="padding:4px; border-bottom:1px solid #ddd;">יום</th><th style="padding:4px; border-bottom:1px solid #ddd;">שעה</th><th style="padding:4px; border-bottom:1px solid #ddd;">מקום</th><th style="padding:4px; border-bottom:1px solid #ddd;">נוסח</th><th style="padding:4px; border-bottom:1px solid #ddd;">שיוך למנין</th></tr></thead>`;
+    html += `<tbody>${bodyHtml}</tbody></table></div>`;
+
+    return html;
+}
+
+async function fetchGroupedTableAsHtml(url, title) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const text = await res.text();
+        return buildGroupedTableHtml(text, title);
+    } catch (e) {
+        return '';
+    }
 }
 
 async function fetchTableAsHtml(url, title) {
@@ -121,21 +178,11 @@ async function buildPageSection(pageId) {
     const config = PAGE_CONFIG[pageId];
     if (!config) return '';
 
-    if (config.images) {
-        const combined = buildImagesHtml(config.images);
-        if (!combined) return '';
-        return `
-            <div style="margin-bottom: 20px;">
-                <h2 style="color:#000080; text-align:center; border-bottom:2px solid #800020; padding-bottom:6px; font-size:17px; margin-bottom:10px;">${config.label}</h2>
-                ${combined}
-            </div>
-        `;
-    }
-
     const tableTasks = (config.tables || []).map(t => fetchTableAsHtml(t.url, t.title));
     const singleColTasks = (config.singleColumnTables || []).map(t => fetchSingleColumnTableAsHtml(t.url, t.title));
+    const groupedTableTasks = (config.groupedTables || []).map(t => fetchGroupedTableAsHtml(t.url, t.title));
 
-    const results = await Promise.all([...tableTasks, ...singleColTasks]);
+    const results = await Promise.all([...tableTasks, ...singleColTasks, ...groupedTableTasks]);
     const combined = results.filter(html => html !== '').join('');
 
     if (!combined) return '';
