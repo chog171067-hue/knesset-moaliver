@@ -32,6 +32,13 @@ const PAGE_CONFIG = {
             { title: 'סליחות לפני ר"ה', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=0&single=true&output=csv' },
             { title: 'סליחות עשי"ת', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=250500624&single=true&output=csv' }
         ]
+    },
+    // גיליון ראש השנה בנוי בבלוקים: שורת כותרת (עמודה A בלבד, לא שעה) שפותחת בלוק חדש,
+    // ואחריה שורות שעה (A) + מקום (B). מקום ריק בתוך בלוק פירושו "כמו התא שמעליו בתוך אותו
+    // בלוק" (מיזוג בגיליון) - fetchSectionedTableAsHtml משלים אותו קדימה, ומאפס בכל כותרת חדשה
+    roshhashana: {
+        label: 'ראש השנה',
+        sectionedTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=328505724&single=true&output=csv'
     }
 };
 
@@ -95,6 +102,75 @@ async function fetchGroupedTableAsHtml(url, title) {
         if (!res.ok) return '';
         const text = await res.text();
         return buildGroupedTableHtml(text, title);
+    } catch (e) {
+        return '';
+    }
+}
+
+function isTimeLike(s) {
+    return /^\d{1,2}:\d{2}(:\d{2})?$/.test((s || '').trim());
+}
+
+function normalizeTime(s) {
+    const m = (s || '').trim().match(/^(\d{1,2}:\d{2})(:\d{2})?$/);
+    return m ? m[1] : (s || '').trim();
+}
+
+// בונה טבלאות HTML נפרדות (שעה | מקום) מטקסט CSV שבו שורת כותרת (עמודה A בלבד, טקסט
+// שאינו שעה) פותחת בלוק חדש, ואחריה שורות נתונים. מקום ריק בשורת נתונים משלים קדימה את
+// הערך האחרון בתוך אותו הבלוק (משחזר תא ממוזג בגיליון), ומתאפס בכל כותרת חדשה - מנותק
+// מ-fetch כדי שיהיה ניתן לבדוק בלי רשת
+function buildSectionedTableHtml(csvText) {
+    const rows = csvText.split('\n')
+        .map(line => line.split(',').map(csvCell))
+        .filter(cols => cols.some(c => c !== ''));
+
+    const blocks = [];
+    let lastPlace = '';
+
+    rows.forEach(cols => {
+        const time = cols[0] || '';
+        const place = cols[1] || '';
+
+        if (time && !isTimeLike(time)) {
+            blocks.push({ title: time, rows: [] });
+            lastPlace = '';
+            return;
+        }
+
+        if (blocks.length === 0) return;
+
+        const resolvedPlace = place || lastPlace;
+        if (place) lastPlace = place;
+        blocks[blocks.length - 1].rows.push({ time: normalizeTime(time), place: resolvedPlace });
+    });
+
+    return blocks.map(block => {
+        const rowsHtml = block.rows
+            .filter(r => r.time)
+            .map(r => `<tr><td style="padding:5px; border-bottom:1px solid #eee; font-weight:bold; color:#000080;">${r.time}</td><td style="padding:5px; border-bottom:1px solid #eee;">${r.place}</td></tr>`)
+            .join('');
+
+        if (!rowsHtml) return '';
+
+        return `
+            <div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px;">
+                <h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${block.title}</h3>
+                <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;" dir="rtl">
+                    <thead><tr style="color:#000080;"><th style="padding:4px; border-bottom:1px solid #ddd;">שעה</th><th style="padding:4px; border-bottom:1px solid #ddd;">מקום</th></tr></thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+}
+
+async function fetchSectionedTableAsHtml(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const text = await res.text();
+        return buildSectionedTableHtml(text);
     } catch (e) {
         return '';
     }
@@ -181,8 +257,9 @@ async function buildPageSection(pageId) {
     const tableTasks = (config.tables || []).map(t => fetchTableAsHtml(t.url, t.title));
     const singleColTasks = (config.singleColumnTables || []).map(t => fetchSingleColumnTableAsHtml(t.url, t.title));
     const groupedTableTasks = (config.groupedTables || []).map(t => fetchGroupedTableAsHtml(t.url, t.title));
+    const sectionedTableTasks = config.sectionedTable ? [fetchSectionedTableAsHtml(config.sectionedTable)] : [];
 
-    const results = await Promise.all([...tableTasks, ...singleColTasks, ...groupedTableTasks]);
+    const results = await Promise.all([...tableTasks, ...singleColTasks, ...groupedTableTasks, ...sectionedTableTasks]);
     const combined = results.filter(html => html !== '').join('');
 
     if (!combined) return '';
