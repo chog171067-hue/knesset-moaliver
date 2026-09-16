@@ -11,7 +11,7 @@
         { file: 'shabbat.html', label: 'שבתות' },
         { file: 'yemothachol.html', label: 'ימות החול' },
         { file: 'selichot.html', label: 'סליחות' },
-        { file: 'roshhashana.html', label: 'ראש השנה' }
+        { file: 'roshhashana.html', label: 'יום הכיפורים' }
     ];
     window.sitePrayerPages = prayerPages;
 

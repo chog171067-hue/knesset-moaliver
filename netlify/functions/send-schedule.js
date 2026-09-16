@@ -33,12 +33,12 @@ const PAGE_CONFIG = {
             { title: 'סליחות עשי"ת', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=250500624&single=true&output=csv' }
         ]
     },
-    // גיליון ראש השנה בנוי בבלוקים: שורת כותרת (עמודה A בלבד, לא שעה) שפותחת בלוק חדש,
+    // גיליון יום הכיפורים בנוי בבלוקים: שורת כותרת (עמודה A בלבד, לא שעה) שפותחת בלוק חדש,
     // ואחריה שורות שעה (A) + מקום (B). מקום ריק בתוך בלוק פירושו "כמו התא שמעליו בתוך אותו
     // בלוק" (מיזוג בגיליון) - fetchSectionedTableAsHtml משלים אותו קדימה, ומאפס בכל כותרת חדשה
     roshhashana: {
-        label: 'ראש השנה',
-        sectionedTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=328505724&single=true&output=csv'
+        label: 'יום הכיפורים',
+        sectionedTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1971862357&single=true&output=csv'
     }
 };
 
