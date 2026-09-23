@@ -16,11 +16,11 @@ const PAGE_CONFIG = {
         ]
     },
     yemothachol: {
-        label: 'ימות החול',
+        label: 'ימות החול - בין הזמנים תשרי',
         tables: [
-            { title: 'שחרית - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=380588342&single=true&output=csv' },
-            { title: 'מנחה - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
-            { title: 'ערבית - ימות החול', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
+            { title: 'שחרית - ימות החול - בין הזמנים תשרי', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=380588342&single=true&output=csv' },
+            { title: 'מנחה - ימות החול - בין הזמנים תשרי', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
+            { title: 'ערבית - ימות החול - בין הזמנים תשרי', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
         ]
     }
 };
