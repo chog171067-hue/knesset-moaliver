@@ -9,7 +9,7 @@
     // (assets/*.html קוראים ל-window.sitePrayerPages כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
-        { file: 'yemothachol.html', label: 'ימות החול' }
+        { file: 'yemothachol.html', label: 'ימות החול - בין הזמנים תשרי' }
     ];
     window.sitePrayerPages = prayerPages;
 
