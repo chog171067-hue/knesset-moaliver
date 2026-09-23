@@ -9,8 +9,7 @@
     // (assets/*.html קוראים ל-window.sitePrayerPages כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
-        { file: 'yemothachol.html', label: 'ימות החול' },
-        { file: 'selichot.html', label: 'סליחות' }
+        { file: 'yemothachol.html', label: 'ימות החול' }
     ];
     window.sitePrayerPages = prayerPages;
 
