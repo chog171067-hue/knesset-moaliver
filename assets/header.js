@@ -10,8 +10,7 @@
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
         { file: 'yemothachol.html', label: 'ימות החול' },
-        { file: 'selichot.html', label: 'סליחות' },
-        { file: 'roshhashana.html', label: 'יום הכיפורים' }
+        { file: 'selichot.html', label: 'סליחות' }
     ];
     window.sitePrayerPages = prayerPages;
 
