@@ -58,11 +58,13 @@
         /* מוצג במקום התמונה כל עוד לא הועלתה תמונת זמנים לכפתור הזה */
         .image-pending { display: none; background: white; border: 2px solid #000080; border-radius: 10px; padding: 30px 40px; color: #800020; font-size: 1.3rem; font-weight: bold; }
 
-        .choice-btn.active { background-color: #000080; color: #F5F5DC; }
-
-        /* חול המועד: שחרית / מנחה / ערבית נטענים מהגיליון, באותו עיצוב של דף ימות החול */
-        .tables-container { display: none; gap: 20px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1200px; align-items: flex-start; margin-top: 30px; }
-        .tables-container.open { display: flex; }
+        /* חול המועד: חלון צף (כמו תצוגת התמונה) ובו שחרית / מנחה / ערבית שנטענים מהגיליון,
+           באותו עיצוב של דף ימות החול */
+        .chol-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+        .chol-modal-content { position: relative; background: #F5F5DC; border: 2px solid #000080; border-radius: 12px; padding: 25px 20px; width: 100%; max-width: 1000px; max-height: 90vh; box-sizing: border-box; box-shadow: 0 6px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; }
+        .chol-modal-content h2 { color: #800020; margin: 0 0 20px; font-size: 1.8rem; }
+        .chol-modal-scroll { overflow-y: auto; }
+        .tables-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; width: 100%; align-items: flex-start; }
         .table-box { background: white; border: 2px solid #000080; border-radius: 12px; padding: 0; width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; overflow: hidden; display: block; height: auto; }
         .table-box h3 { color: white; background-color: #000080; padding: 15px; margin: 0; font-size: 1.3rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
         .table-box h3:hover { background-color: #000060; }
@@ -97,11 +99,19 @@
 
     <div class="choices-container">
         <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-yom-tov-rishon.png', 'זמני יו\'ט ראשון')">יו"ט ראשון</button>
-        <button class="choice-btn" id="cholHamoedBtn" onclick="toggleCholHamoed()">חול המועד</button>
+        <button class="choice-btn" onclick="openCholHamoed()">חול המועד</button>
         <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-simchat-torah.png', 'זמני שמחת תורה')">שמחת תורה</button>
     </div>
+</div>
 
-    <div class="tables-container" id="cholHamoedTables"></div>
+<div class="chol-modal-overlay" id="cholHamoedModal" onclick="if (event.target === this) closeCholHamoed()">
+    <div class="chol-modal-content">
+        <span class="image-modal-close" onclick="closeCholHamoed()">&times;</span>
+        <h2>חול המועד</h2>
+        <div class="chol-modal-scroll">
+            <div class="tables-container" id="cholHamoedTables"></div>
+        </div>
+    </div>
 </div>
 
 <div class="image-modal-overlay" id="imageModal" onclick="closeImageModalOnOverlay(event)">
@@ -141,11 +151,13 @@
     var CHOL_HAMOED_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=188569280&single=true&output=csv';
     var cholHamoedLoaded = false;
 
-    function toggleCholHamoed() {
-        var container = document.getElementById('cholHamoedTables');
-        var isOpen = container.classList.toggle('open');
-        document.getElementById('cholHamoedBtn').classList.toggle('active', isOpen);
-        if (isOpen && !cholHamoedLoaded) {
+    function closeCholHamoed() {
+        document.getElementById('cholHamoedModal').style.display = 'none';
+    }
+
+    function openCholHamoed() {
+        document.getElementById('cholHamoedModal').style.display = 'flex';
+        if (!cholHamoedLoaded) {
             cholHamoedLoaded = true;
             renderCholHamoedBoxes();
             loadCholHamoed();
