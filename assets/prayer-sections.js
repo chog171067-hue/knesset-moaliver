@@ -87,14 +87,18 @@
         return { time: normalizeTime(cells[timeIdx]), place: place };
     }
 
-    function parsePrayerSections(csvText) {
+    // options.exclude: תפילות שאין באותו יום (למשל ['ערבית'] בהושענא רבה) - לא מוצגות כלל,
+    // גם לא כתיבה ריקה
+    function parsePrayerSections(csvText, options) {
+        var exclude = (options && options.exclude) || [];
         var rows = parseCsv(csvText);
         var result = {};
         // משלים תפילות חסרות כרשימה ריקה, במקומן הרגיל ביחס לתפילות האחרות
         function withAllPrayers() {
+            exclude.forEach(function (p) { delete result[p]; });
             var keys = Object.keys(result);
             PRAYERS.forEach(function (p, order) {
-                if (result[p]) return;
+                if (result[p] || exclude.indexOf(p) !== -1) return;
                 var before = -1;
                 for (var i = 0; i < keys.length && before === -1; i++) {
                     if (PRAYERS.indexOf(keys[i]) > order) before = i;

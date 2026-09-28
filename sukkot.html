@@ -146,7 +146,7 @@
     </div>
 </div>
 
-<script src="assets/prayer-sections.js?v=3"></script>
+<script src="assets/prayer-sections.js?v=4"></script>
 <script>
     // לשוניות הגיליון שנפתחות בחלון צף (אותם קישורים מוגדרים גם ב-netlify/functions/send-schedule.js
     // לשליחה במייל). כל לשונית מפוענחת ב-assets/prayer-sections.js לתיבה לכל תפילה
@@ -157,6 +157,7 @@
         },
         hoshanaRaba: {
             title: 'הושענא רבה',
+            exclude: ['ערבית'],
             csv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1801812322&single=true&output=csv'
         }
     };
@@ -178,7 +179,7 @@
             try {
                 var response = await fetch(SHEETS[key].csv);
                 if (!response.ok) throw new Error('HTTP ' + response.status);
-                sheetCache[key] = PrayerSections.parsePrayerSections(await response.text());
+                sheetCache[key] = PrayerSections.parsePrayerSections(await response.text(), { exclude: SHEETS[key].exclude });
             } catch (error) {
                 console.error('Error loading ' + key + ' times:', error);
                 if (currentSheet === key) renderSheetBoxes('error');
