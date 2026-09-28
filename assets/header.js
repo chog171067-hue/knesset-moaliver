@@ -6,14 +6,28 @@
     var current = location.pathname.split('/').pop() || 'index.html';
 
     // מקור אמת יחיד לרשימת דפי התפילה: גם לבניית התפריט הנפתח וגם לפופאפ שליחת המייל
-    // (assets/*.html קוראים ל-window.sitePrayerPages כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
+    // (דפי התפילה קוראים ל-window.siteMailSchedules כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
         { file: 'yemothachol.html', label: 'ימות החול - בין הזמנים תשרי' },
-        // אין לדף הזה עדיין גיליון זמנים ב-send-schedule.js, ולכן הוא לא מוצג בחלון שליחת המיילים
-        { file: 'sukkot.html', label: 'חג הסוכות', mailable: false }
+        // לדף החג יש כמה לוחות זמנים נפרדים, ולכן הוא מגדיר בעצמו אילו אפשרויות יוצגו
+        // בחלון שליחת המיילים (id = המפתח ב-PAGE_CONFIG שב-netlify/functions/send-schedule.js).
+        // להוספת חול המועד / שמחת תורה: להוסיף כאן שורה ותצורת גיליון תואמת ב-send-schedule.js
+        { file: 'sukkot.html', label: 'חג הסוכות', mailSchedules: [
+            { id: 'sukkot-yomtov-rishon', label: 'חג הסוכות - יו"ט ראשון' }
+        ] }
     ];
     window.sitePrayerPages = prayerPages;
+
+    // רשימת האפשרויות בחלון שליחת המיילים: דף רגיל = אפשרות אחת (id = שם הקובץ בלי .html),
+    // ודף עם mailSchedules = האפשרויות שהוא מגדיר. file משמש לסימון מראש של אפשרויות הדף הנוכחי
+    window.siteMailSchedules = [];
+    prayerPages.forEach(function (p) {
+        var items = p.mailSchedules || [{ id: p.file.replace('.html', ''), label: p.label }];
+        items.forEach(function (item) {
+            window.siteMailSchedules.push({ id: item.id, label: item.label, file: p.file });
+        });
+    });
 
     var isHome = (current === 'index.html' || current === '');
     var isPrayer = prayerPages.some(function (p) { return p.file === current; });
