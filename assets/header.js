@@ -15,7 +15,8 @@
         // להוספת שמחת תורה: להוסיף כאן שורה ותצורת גיליון תואמת ב-send-schedule.js
         { file: 'sukkot.html', label: 'חג הסוכות', mailSchedules: [
             { id: 'sukkot-yomtov-rishon', label: 'חג הסוכות - יו"ט ראשון' },
-            { id: 'sukkot-chol-hamoed', label: 'חג הסוכות - חול המועד' }
+            { id: 'sukkot-chol-hamoed', label: 'חג הסוכות - חול המועד' },
+            { id: 'sukkot-hoshana-raba', label: 'חג הסוכות - הושענא רבה' }
         ] }
     ];
     window.sitePrayerPages = prayerPages;
