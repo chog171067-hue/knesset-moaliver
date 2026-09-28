@@ -6,7 +6,12 @@
    1. זה מתחת לזה: שורה עם שם התפילה (בלי שעה) פותחת קטע, ואחריה שורות שעה + מקום.
       גם עמודה שבה כתוב שם התפילה בכל שורה נתמכת.
    2. זה לצד זה: שורת כותרת עם שמות התפילות, כל אחת מעל זוג העמודות (שעה, מקום) שלה.
-   מקום ריק בשורה מקבל את המקום שמעליו באותה תפילה (כך נראה תא ממוזג בייצוא ל-CSV). */
+   מקום ריק בשורה מקבל את המקום שמעליו באותה תפילה (כך נראה תא ממוזג בייצוא ל-CSV).
+
+   התוצאה היא אובייקט: שם קטע -> רשימת { time, place }, לפי סדר ההופעה בגיליון. מלבד
+   שלוש התפילות, גם כותרת במבנה "זה מתחת לזה" שאינה שם של תפילה (למשל "תיקון ליל
+   הושענא רבה") פותחת קטע משלה, אם יש תחתיה זמנים. תפילה שלא הופיעה כלל מתווספת בסוף
+   כרשימה ריקה, כדי שהדף יוכל להציג לה "הזמנים יפורסמו בקרוב". */
 
 (function (root, factory) {
     if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -45,6 +50,18 @@
         return m ? (m[1] + (m[3] || '')).trim() : (s || '');
     }
 
+    // מילים שמופיעות בשורת כותרות עמודות או בהערה, ולא בכותרת של קטע
+    var NOT_TITLE_WORDS = ['שעה', 'מקום', 'מיקום', 'תפילה', 'time', 'location'];
+
+    // כותרת קטע שאינה תפילה: שורה בלי שעה עם תא אחד בלבד
+    function extraTitleOf(cells) {
+        var filled = cells.filter(function (c) { return c; });
+        if (filled.length !== 1) return null;
+        var lower = filled[0].toLowerCase();
+        if (NOT_TITLE_WORDS.some(function (w) { return lower.indexOf(w) !== -1; })) return null;
+        return filled[0];
+    }
+
     function prayerOf(cell) {
         if (!cell || isTimeLike(cell)) return null;
         for (var i = 0; i < PRAYERS.length; i++) {
@@ -73,11 +90,25 @@
     function parsePrayerSections(csvText) {
         var rows = parseCsv(csvText);
         var result = {};
-        PRAYERS.forEach(function (p) { result[p] = []; });
+        // משלים תפילות חסרות כרשימה ריקה, במקומן הרגיל ביחס לתפילות האחרות
+        function withAllPrayers() {
+            var keys = Object.keys(result);
+            PRAYERS.forEach(function (p, order) {
+                if (result[p]) return;
+                var before = -1;
+                for (var i = 0; i < keys.length && before === -1; i++) {
+                    if (PRAYERS.indexOf(keys[i]) > order) before = i;
+                }
+                if (before === -1) keys.push(p); else keys.splice(before, 0, p);
+            });
+            var ordered = {};
+            keys.forEach(function (k) { ordered[k] = result[k] || []; });
+            return ordered;
+        }
 
         function add(prayer, entry) {
             if (!prayer || !entry) return;
-            var list = result[prayer];
+            var list = result[prayer] || (result[prayer] = []);
             if (!entry.place && list.length) entry.place = list[list.length - 1].place;
             list.push(entry);
         }
@@ -96,7 +127,7 @@
                         add(h.prayer, extractRow(cells.slice(h.col, end)));
                     });
                 });
-                return result;
+                return withAllPrayers();
             }
         }
 
@@ -108,11 +139,12 @@
             for (var i = 0; i < cells.length && !named; i++) named = prayerOf(cells[i]);
             if (!entry) {
                 if (named) current = named;
+                else if (extraTitleOf(cells)) current = extraTitleOf(cells);
                 return;
             }
             add(named || current, entry);
         });
-        return result;
+        return withAllPrayers();
     }
 
     return { PRAYERS: PRAYERS, parsePrayerSections: parsePrayerSections };

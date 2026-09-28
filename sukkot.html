@@ -58,8 +58,8 @@
         /* מוצג במקום התמונה כל עוד לא הועלתה תמונת זמנים לכפתור הזה */
         .image-pending { display: none; background: white; border: 2px solid #000080; border-radius: 10px; padding: 30px 40px; color: #800020; font-size: 1.3rem; font-weight: bold; }
 
-        /* חול המועד: חלון צף (כמו תצוגת התמונה) ובו שחרית / מנחה / ערבית שנטענים מהגיליון,
-           באותו עיצוב של דף ימות החול */
+        /* חול המועד / הושענא רבה: חלון צף (כמו תצוגת התמונה) ובו שחרית / מנחה / ערבית שנטענים
+           מהגיליון, באותו עיצוב של דף ימות החול */
         .chol-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
         .chol-modal-content { position: relative; background: #F5F5DC; border: 2px solid #000080; border-radius: 12px; padding: 25px 20px; width: 100%; max-width: 1000px; max-height: 90vh; box-sizing: border-box; box-shadow: 0 6px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; }
         .chol-modal-content h2 { color: #800020; margin: 0 0 20px; font-size: 1.8rem; }
@@ -88,7 +88,7 @@
 <body>
 
 <div id="site-header"></div>
-<script src="assets/header.js?v=6"></script>
+<script src="assets/header.js?v=7"></script>
 <div class="page-content">
     <h1>זמני תפילות חג הסוכות</h1>
 
@@ -99,18 +99,18 @@
 
     <div class="choices-container">
         <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-yom-tov-rishon.png', 'זמני יו\'ט ראשון')">יו"ט ראשון</button>
-        <button class="choice-btn" onclick="openCholHamoed()">חול המועד</button>
-        <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-hoshana-raba.png', 'זמני הושענא רבה')">הושענא רבה</button>
+        <button class="choice-btn" onclick="openSheetModal('cholHamoed')">חול המועד</button>
+        <button class="choice-btn" onclick="openSheetModal('hoshanaRaba')">הושענא רבה</button>
         <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-simchat-torah.png', 'זמני שמחת תורה')">שמחת תורה</button>
     </div>
 </div>
 
-<div class="chol-modal-overlay" id="cholHamoedModal" onclick="if (event.target === this) closeCholHamoed()">
+<div class="chol-modal-overlay" id="sheetModal" onclick="if (event.target === this) closeSheetModal()">
     <div class="chol-modal-content">
-        <span class="image-modal-close" onclick="closeCholHamoed()">&times;</span>
-        <h2>חול המועד</h2>
+        <span class="image-modal-close" onclick="closeSheetModal()">&times;</span>
+        <h2 id="sheetModalTitle"></h2>
         <div class="chol-modal-scroll">
-            <div class="tables-container" id="cholHamoedTables"></div>
+            <div class="tables-container" id="sheetModalTables"></div>
         </div>
     </div>
 </div>
@@ -146,61 +146,70 @@
     </div>
 </div>
 
-<script src="assets/prayer-sections.js?v=2"></script>
+<script src="assets/prayer-sections.js?v=3"></script>
 <script>
-    // לשונית חול המועד בגיליון (אותו קישור מוגדר גם ב-netlify/functions/send-schedule.js לשליחה במייל)
-    var CHOL_HAMOED_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=188569280&single=true&output=csv';
-    var cholHamoedLoaded = false;
-
-    function closeCholHamoed() {
-        document.getElementById('cholHamoedModal').style.display = 'none';
-    }
-
-    function openCholHamoed() {
-        document.getElementById('cholHamoedModal').style.display = 'flex';
-        if (!cholHamoedLoaded) {
-            cholHamoedLoaded = true;
-            renderCholHamoedBoxes();
-            loadCholHamoed();
+    // לשוניות הגיליון שנפתחות בחלון צף (אותם קישורים מוגדרים גם ב-netlify/functions/send-schedule.js
+    // לשליחה במייל). כל לשונית מפוענחת ב-assets/prayer-sections.js לתיבה לכל תפילה
+    var SHEETS = {
+        cholHamoed: {
+            title: 'חול המועד',
+            csv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=188569280&single=true&output=csv'
+        },
+        hoshanaRaba: {
+            title: 'הושענא רבה',
+            csv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1801812322&single=true&output=csv'
         }
+    };
+    var sheetCache = {};
+    var currentSheet = null;
+
+    function closeSheetModal() {
+        document.getElementById('sheetModal').style.display = 'none';
+        currentSheet = null;
     }
 
-    function renderCholHamoedBoxes() {
-        document.getElementById('cholHamoedTables').innerHTML = PrayerSections.PRAYERS.map(function (prayer, i) {
-            return '<div class="table-box" id="cholHamoedBox' + i + '">' +
-                '<h3 onclick="this.parentNode.classList.toggle(\'active\')">' + prayer + '</h3>' +
-                '<div class="table-content"><div class="inner-loading">טוען נתונים...</div></div>' +
-                '</div>';
-        }).join('');
+    async function openSheetModal(key) {
+        currentSheet = key;
+        document.getElementById('sheetModalTitle').innerText = SHEETS[key].title;
+        document.getElementById('sheetModal').style.display = 'flex';
+
+        if (!sheetCache[key]) {
+            renderSheetBoxes(null);
+            try {
+                var response = await fetch(SHEETS[key].csv);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                sheetCache[key] = PrayerSections.parsePrayerSections(await response.text());
+            } catch (error) {
+                console.error('Error loading ' + key + ' times:', error);
+                if (currentSheet === key) renderSheetBoxes('error');
+                return;
+            }
+        }
+        // אם בינתיים נסגר החלון או נפתחה לשונית אחרת - לא דורסים אותה
+        if (currentSheet === key) renderSheetBoxes(sheetCache[key]);
     }
 
     function escapeHtml(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    async function loadCholHamoed() {
-        var sections = null;
-        try {
-            var response = await fetch(CHOL_HAMOED_CSV);
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            sections = PrayerSections.parsePrayerSections(await response.text());
-        } catch (error) {
-            console.error('Error loading chol hamoed times:', error);
-        }
-
-        PrayerSections.PRAYERS.forEach(function (prayer, i) {
-            var content = document.querySelector('#cholHamoedBox' + i + ' .table-content');
-            if (!sections) {
-                content.innerHTML = '<div class="inner-loading">שגיאה בטעינת הנתונים</div>';
-            } else if (sections[prayer].length === 0) {
-                content.innerHTML = '<div class="inner-loading">הזמנים יפורסמו בקרוב</div>';
-            } else {
-                content.innerHTML = '<table><thead><tr><th>שעה</th><th>מיקום</th></tr></thead><tbody>' +
-                    sections[prayer].map(function (r) {
-                        return '<tr><td class="time-cell">' + escapeHtml(r.time) + '</td><td>' + escapeHtml(r.place) + '</td></tr>';
-                    }).join('') + '</tbody></table>';
-            }
-        });
+    // sections: null = בטעינה, 'error' = שגיאה, אחרת תוצאת parsePrayerSections
+    function renderSheetBoxes(sections) {
+        var titles = (sections && sections !== 'error') ? Object.keys(sections) : PrayerSections.PRAYERS;
+        document.getElementById('sheetModalTables').innerHTML = titles.map(function (title) {
+            var body;
+            if (!sections) body = '<div class="inner-loading">טוען נתונים...</div>';
+            else if (sections === 'error') body = '<div class="inner-loading">שגיאה בטעינת הנתונים</div>';
+            else if (sections[title].length === 0) body = '<div class="inner-loading">הזמנים יפורסמו בקרוב</div>';
+            else body = '<table><thead><tr><th>שעה</th><th>מיקום</th></tr></thead><tbody>' +
+                sections[title].map(function (r) {
+                    return '<tr><td class="time-cell">' + escapeHtml(r.time) + '</td><td>' + escapeHtml(r.place) + '</td></tr>';
+                }).join('') + '</tbody></table>';
+            return '<div class="table-box">' +
+                '<h3 onclick="this.parentNode.classList.toggle(\'active\')">' + escapeHtml(title) + '</h3>' +
+                '<div class="table-content">' + body + '</div>' +
+                '</div>';
+        }).join('');
     }
 
     function openImageModal(src, altText) {
