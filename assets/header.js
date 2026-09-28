@@ -128,6 +128,13 @@
         }
     });
 
+    // פרסומת מרחפת לכל מי שנכנס לאתר (ההגדרות עצמן ב-assets/ad-popup.js) - לא בדף הניהול
+    if (current !== 'admin.html') {
+        var adScript = document.createElement('script');
+        adScript.src = 'assets/ad-popup.js?v=1';
+        document.body.appendChild(adScript);
+    }
+
     // מזהה אנונימי קבוע למכשיר/דפדפן הזה (לא מזהה אישית - רק ערך אקראי) - נשמר
     // לוקאלית, ומשמש רק כדי להעריך בדף הניהול כמה מהכניסות הן ממכשירים שונים
     // לעומת אותו מכשיר שחוזר. לא נשלח לשום מקום מלבד track-visit.js.
