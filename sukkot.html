@@ -58,15 +58,35 @@
         /* מוצג במקום התמונה כל עוד לא הועלתה תמונת זמנים לכפתור הזה */
         .image-pending { display: none; background: white; border: 2px solid #000080; border-radius: 10px; padding: 30px 40px; color: #800020; font-size: 1.3rem; font-weight: bold; }
 
+        .choice-btn.active { background-color: #000080; color: #F5F5DC; }
+
+        /* חול המועד: שחרית / מנחה / ערבית נטענים מהגיליון, באותו עיצוב של דף ימות החול */
+        .tables-container { display: none; gap: 20px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1200px; align-items: flex-start; margin-top: 30px; }
+        .tables-container.open { display: flex; }
+        .table-box { background: white; border: 2px solid #000080; border-radius: 12px; padding: 0; width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; overflow: hidden; display: block; height: auto; }
+        .table-box h3 { color: white; background-color: #000080; padding: 15px; margin: 0; font-size: 1.3rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .table-box h3:hover { background-color: #000060; }
+        .table-box h3::after { content: '▼'; font-size: 0.9rem; color: #F5F5DC; }
+        .table-box.active h3::after { content: '▲'; }
+        .table-content { display: none; padding: 15px; border-top: 1px solid #000080; }
+        .table-box.active .table-content { display: block; }
+        .table-box table { width: 100%; border-collapse: collapse; font-size: 1.1rem; }
+        .table-box th, .table-box td { padding: 10px; text-align: center; border-bottom: 1px solid #ddd; }
+        .table-box th { color: #000080; font-weight: bold; }
+        .table-box tr:last-child td { border-bottom: none; }
+        .time-cell { font-weight: bold; color: #000080; }
+        .inner-loading { font-size: 0.95rem; color: #666; font-style: italic; padding: 10px 0; }
+
         @media (max-width: 500px) {
             .choice-btn { width: 100%; }
+            .table-box { width: 100%; }
         }
     </style>
 </head>
 <body>
 
 <div id="site-header"></div>
-<script src="assets/header.js?v=5"></script>
+<script src="assets/header.js?v=6"></script>
 <div class="page-content">
     <h1>זמני תפילות חג הסוכות</h1>
 
@@ -77,9 +97,11 @@
 
     <div class="choices-container">
         <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-yom-tov-rishon.png', 'זמני יו\'ט ראשון')">יו"ט ראשון</button>
-        <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-chol-hamoed.png', 'זמני חול המועד')">חול המועד</button>
+        <button class="choice-btn" id="cholHamoedBtn" onclick="toggleCholHamoed()">חול המועד</button>
         <button class="choice-btn" onclick="openImageModal('assets/images/sukkot-simchat-torah.png', 'זמני שמחת תורה')">שמחת תורה</button>
     </div>
+
+    <div class="tables-container" id="cholHamoedTables"></div>
 </div>
 
 <div class="image-modal-overlay" id="imageModal" onclick="closeImageModalOnOverlay(event)">
@@ -113,7 +135,61 @@
     </div>
 </div>
 
+<script src="assets/prayer-sections.js?v=1"></script>
 <script>
+    // לשונית חול המועד בגיליון (אותו קישור מוגדר גם ב-netlify/functions/send-schedule.js לשליחה במייל)
+    var CHOL_HAMOED_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=188569280&single=true&output=csv';
+    var cholHamoedLoaded = false;
+
+    function toggleCholHamoed() {
+        var container = document.getElementById('cholHamoedTables');
+        var isOpen = container.classList.toggle('open');
+        document.getElementById('cholHamoedBtn').classList.toggle('active', isOpen);
+        if (isOpen && !cholHamoedLoaded) {
+            cholHamoedLoaded = true;
+            renderCholHamoedBoxes();
+            loadCholHamoed();
+        }
+    }
+
+    function renderCholHamoedBoxes() {
+        document.getElementById('cholHamoedTables').innerHTML = PrayerSections.PRAYERS.map(function (prayer, i) {
+            return '<div class="table-box" id="cholHamoedBox' + i + '">' +
+                '<h3 onclick="this.parentNode.classList.toggle(\'active\')">' + prayer + '</h3>' +
+                '<div class="table-content"><div class="inner-loading">טוען נתונים...</div></div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    async function loadCholHamoed() {
+        var sections = null;
+        try {
+            var response = await fetch(CHOL_HAMOED_CSV);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            sections = PrayerSections.parsePrayerSections(await response.text());
+        } catch (error) {
+            console.error('Error loading chol hamoed times:', error);
+        }
+
+        PrayerSections.PRAYERS.forEach(function (prayer, i) {
+            var content = document.querySelector('#cholHamoedBox' + i + ' .table-content');
+            if (!sections) {
+                content.innerHTML = '<div class="inner-loading">שגיאה בטעינת הנתונים</div>';
+            } else if (sections[prayer].length === 0) {
+                content.innerHTML = '<div class="inner-loading">הזמנים יפורסמו בקרוב</div>';
+            } else {
+                content.innerHTML = '<table><thead><tr><th>שעה</th><th>מיקום</th></tr></thead><tbody>' +
+                    sections[prayer].map(function (r) {
+                        return '<tr><td class="time-cell">' + escapeHtml(r.time) + '</td><td>' + escapeHtml(r.place) + '</td></tr>';
+                    }).join('') + '</tbody></table>';
+            }
+        });
+    }
+
     function openImageModal(src, altText) {
         document.getElementById('imageModalImg').style.display = 'block';
         document.getElementById('imagePending').style.display = 'none';
