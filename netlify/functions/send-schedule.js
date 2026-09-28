@@ -38,6 +38,7 @@ const PAGE_CONFIG = {
     },
     'sukkot-hoshana-raba': {
         label: 'חג הסוכות - הושענא רבה',
+        exclude: ['ערבית'],
         prayerSections: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1801812322&single=true&output=csv'
     }
 };
@@ -220,11 +221,11 @@ async function fetchFlexibleTableAsHtml(url) {
 }
 
 // טבלת שעה | מיקום לכל קטע (שחרית, מנחה, ערבית וכותרות נוספות) שיש לו זמנים בגיליון
-async function fetchPrayerSectionsAsHtml(url) {
+async function fetchPrayerSectionsAsHtml(url, exclude) {
     try {
         const res = await fetch(url);
         if (!res.ok) return '';
-        const sections = parsePrayerSections(await res.text());
+        const sections = parsePrayerSections(await res.text(), { exclude });
 
         return Object.keys(sections).filter(p => sections[p].length > 0).map(prayer => {
             const rowsHtml = sections[prayer].map(r =>
@@ -255,7 +256,7 @@ async function buildPageSection(pageId) {
 
     const flexibleTableTasks = config.flexibleTable ? [fetchFlexibleTableAsHtml(config.flexibleTable)] : [];
 
-    const prayerSectionsTasks = config.prayerSections ? [fetchPrayerSectionsAsHtml(config.prayerSections)] : [];
+    const prayerSectionsTasks = config.prayerSections ? [fetchPrayerSectionsAsHtml(config.prayerSections, config.exclude)] : [];
 
     const results = await Promise.all([...tableTasks, ...singleColTasks, ...flexibleTableTasks, ...prayerSectionsTasks]);
     const combined = results.filter(html => html !== '').join('');
