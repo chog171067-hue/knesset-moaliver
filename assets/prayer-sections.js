@@ -13,6 +13,8 @@
     else root.PrayerSections = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
     var PRAYERS = ['שחרית', 'מנחה', 'ערבית'];
+    // שמות נוספים שבהם תפילה יכולה להופיע בגיליון (למשל "מעריב" במקום "ערבית")
+    var ALIASES = { 'שחרית': ['שחרית'], 'מנחה': ['מנחה'], 'ערבית': ['ערבית', 'מעריב'] };
 
     // מפענח CSV מלא (כולל תאים במרכאות שמכילים פסיקים או מרכאות כפולות)
     function parseCsv(text) {
@@ -46,7 +48,10 @@
     function prayerOf(cell) {
         if (!cell || isTimeLike(cell)) return null;
         for (var i = 0; i < PRAYERS.length; i++) {
-            if (cell.indexOf(PRAYERS[i]) !== -1) return PRAYERS[i];
+            var names = ALIASES[PRAYERS[i]];
+            for (var j = 0; j < names.length; j++) {
+                if (cell.indexOf(names[j]) !== -1) return PRAYERS[i];
+            }
         }
         return null;
     }
