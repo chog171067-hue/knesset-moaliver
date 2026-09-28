@@ -2,22 +2,25 @@
    כפתור הסגירה (עיגול קטן בצד) מציג ספירה לאחור 3, 2, 1 ורק אז הופך ל-X ומאפשר סגירה.
    נטען אוטומטית מ-header.js בכל הדפים (חוץ מדף הניהול).
 
-   כדי להחליף את הפרסומת: יש לערוך רק את AD_CONFIG שכאן למטה.
-   כדי לכבות את הפרסומת זמנית: enabled: false */
+   איך מחליפים את הפרסומת (בלי לגעת בקוד):
+   מעלים לתיקייה assets/images תמונה בשם ad (למשל ad.png או ad.jpg).
+   להחלפה - מעלים תמונה חדשה באותו שם במקום הישנה.
+   להפסקת הפרסומת - מוחקים את התמונה (כשאין תמונה, שום דבר לא קופץ). */
 
 (function () {
     var AD_CONFIG = {
         enabled: true,
-        image: 'assets/images/sukkot-simchat-torah.png', // נתיב לתמונת הפרסומת
-        alt: 'זמני התפילות לשמחת תורה',
+        // שמות הקבצים שנבדקים לפי הסדר - הראשון שקיים הוא שיוצג
+        images: ['assets/images/ad.png', 'assets/images/ad.jpg', 'assets/images/ad.jpeg', 'assets/images/ad.webp'],
+        alt: 'פרסומת',
         link: '',             // קישור בלחיצה על הפרסומת (ריק = ללא קישור)
         countdownSeconds: 3,  // כמה שניות עד שאפשר לסגור
         oncePerVisit: true    // true = מוצג פעם אחת בכל ביקור (ולא שוב בכל מעבר בין דפים)
     };
 
-    if (!AD_CONFIG.enabled || !AD_CONFIG.image) return;
+    if (!AD_CONFIG.enabled) return;
 
-    var SEEN_KEY = 'mohliver_ad_seen:' + AD_CONFIG.image;
+    var SEEN_KEY = 'mohliver_ad_seen';
     if (AD_CONFIG.oncePerVisit) {
         try {
             if (sessionStorage.getItem(SEEN_KEY)) return;
@@ -42,7 +45,7 @@
         '.ad-popup-close.ready:hover{transform:scale(1.08);}' +
         '@media (max-width:600px){.ad-popup-close{top:-10px;right:-6px;}}';
 
-    function open() {
+    function open(src) {
         var style = document.createElement('style');
         style.textContent = css;
         document.head.appendChild(style);
@@ -57,7 +60,7 @@
         box.className = 'ad-popup-box';
 
         var img = document.createElement('img');
-        img.src = AD_CONFIG.image;
+        img.src = src;
         img.alt = AD_CONFIG.alt;
 
         if (AD_CONFIG.link) {
@@ -128,9 +131,22 @@
         document.addEventListener('keydown', onKey);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', open);
-    } else {
-        open();
+    // טוענים את התמונה מראש: מציגים רק אם נמצאה תמונה, ורק כשהיא כבר מוכנה (בלי חלון ריק)
+    function findImage(i) {
+        if (i >= AD_CONFIG.images.length) return; // אין תמונת פרסומת - לא מציגים כלום
+        var probe = new Image();
+        probe.onload = function () { whenReady(function () { open(AD_CONFIG.images[i]); }); };
+        probe.onerror = function () { findImage(i + 1); };
+        probe.src = AD_CONFIG.images[i];
     }
+
+    function whenReady(fn) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', fn);
+        } else {
+            fn();
+        }
+    }
+
+    findImage(0);
 })();
