@@ -40,6 +40,11 @@ const PAGE_CONFIG = {
         label: 'חג הסוכות - הושענא רבה',
         exclude: ['ערבית'],
         prayerSections: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1801812322&single=true&output=csv'
+    },
+    // בדף עצמו מוצגת תמונה; למייל נשלחים הנתונים מהגיליון (כמו יו"ט ראשון)
+    'sukkot-simchat-torah': {
+        label: 'חג הסוכות - שמחת תורה',
+        flexibleTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1362226132&single=true&output=csv'
     }
 };
 
