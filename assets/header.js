@@ -12,9 +12,10 @@
         { file: 'yemothachol.html', label: 'ימות החול - בין הזמנים תשרי' },
         // לדף החג יש כמה לוחות זמנים נפרדים, ולכן הוא מגדיר בעצמו אילו אפשרויות יוצגו
         // בחלון שליחת המיילים (id = המפתח ב-PAGE_CONFIG שב-netlify/functions/send-schedule.js).
-        // להוספת חול המועד / שמחת תורה: להוסיף כאן שורה ותצורת גיליון תואמת ב-send-schedule.js
+        // להוספת שמחת תורה: להוסיף כאן שורה ותצורת גיליון תואמת ב-send-schedule.js
         { file: 'sukkot.html', label: 'חג הסוכות', mailSchedules: [
-            { id: 'sukkot-yomtov-rishon', label: 'חג הסוכות - יו"ט ראשון' }
+            { id: 'sukkot-yomtov-rishon', label: 'חג הסוכות - יו"ט ראשון' },
+            { id: 'sukkot-chol-hamoed', label: 'חג הסוכות - חול המועד' }
         ] }
     ];
     window.sitePrayerPages = prayerPages;

@@ -1,4 +1,6 @@
 const { getAdminStore } = require('./lib/blobs-store');
+// אותו מפענח שהדף בדפדפן משתמש בו, כדי שהמייל והאתר יציגו בדיוק אותם זמנים
+const { PRAYERS, parsePrayerSections } = require('../../assets/prayer-sections.js');
 
 // תצורת כל דפי התפילה: לכל דף - התוויות והקישורים (CSV) של הטבלאות שבו.
 // חשוב: מפתחות האובייקט (shabbat, yemothachol) חייבים להיות
@@ -27,6 +29,12 @@ const PAGE_CONFIG = {
     'sukkot-yomtov-rishon': {
         label: 'חג הסוכות - יו"ט ראשון',
         flexibleTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1773662680&single=true&output=csv'
+    },
+    // לשונית אחת שבה שחרית, מנחה וערבית יחד - מפוענחת ב-assets/prayer-sections.js
+    // (אותו קישור מוגדר גם ב-sukkot.html לטעינת הזמנים בדף עצמו)
+    'sukkot-chol-hamoed': {
+        label: 'חג הסוכות - חול המועד',
+        prayerSections: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=188569280&single=true&output=csv'
     }
 };
 
@@ -207,6 +215,31 @@ async function fetchFlexibleTableAsHtml(url) {
     }
 }
 
+// טבלת שעה | מיקום לכל תפילה (שחרית, מנחה, ערבית) שיש לה זמנים בגיליון
+async function fetchPrayerSectionsAsHtml(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const sections = parsePrayerSections(await res.text());
+
+        return PRAYERS.filter(p => sections[p].length > 0).map(prayer => {
+            const rowsHtml = sections[prayer].map(r =>
+                `<tr><td style="padding:5px; border-bottom:1px solid #eee; font-weight:bold; color:#000080;">${escapeHtml(r.time)}</td><td style="padding:5px; border-bottom:1px solid #eee;">${escapeHtml(r.place)}</td></tr>`).join('');
+            return `
+            <div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px;">
+                <h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${prayer}</h3>
+                <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;" dir="rtl">
+                    <thead><tr style="color:#000080;"><th style="padding:4px; border-bottom:1px solid #ddd;">שעה</th><th style="padding:4px; border-bottom:1px solid #ddd;">מיקום</th></tr></thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        `;
+        }).join('');
+    } catch (e) {
+        return '';
+    }
+}
+
 // בונה קטע HTML שלם עבור דף תפילה מסוים (כותרת ראשית + כל הטבלאות שלו),
 // ומחזיר מחרוזת ריקה אם לא נמצא אף שורת נתונים אמיתית באף אחת מהטבלאות שלו.
 async function buildPageSection(pageId) {
@@ -218,7 +251,9 @@ async function buildPageSection(pageId) {
 
     const flexibleTableTasks = config.flexibleTable ? [fetchFlexibleTableAsHtml(config.flexibleTable)] : [];
 
-    const results = await Promise.all([...tableTasks, ...singleColTasks, ...flexibleTableTasks]);
+    const prayerSectionsTasks = config.prayerSections ? [fetchPrayerSectionsAsHtml(config.prayerSections)] : [];
+
+    const results = await Promise.all([...tableTasks, ...singleColTasks, ...flexibleTableTasks, ...prayerSectionsTasks]);
     const combined = results.filter(html => html !== '').join('');
 
     if (!combined) return '';
