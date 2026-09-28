@@ -9,7 +9,9 @@
     // (assets/*.html קוראים ל-window.sitePrayerPages כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
-        { file: 'yemothachol.html', label: 'ימות החול - בין הזמנים תשרי' }
+        { file: 'yemothachol.html', label: 'ימות החול - בין הזמנים תשרי' },
+        // אין לדף הזה עדיין גיליון זמנים ב-send-schedule.js, ולכן הוא לא מוצג בחלון שליחת המיילים
+        { file: 'sukkot.html', label: 'חג הסוכות', mailable: false }
     ];
     window.sitePrayerPages = prayerPages;
 
