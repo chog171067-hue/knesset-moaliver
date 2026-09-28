@@ -75,7 +75,7 @@
 
 
 <div id="site-header"></div>
-<script src="assets/header.js?v=4"></script>
+<script src="assets/header.js?v=5"></script>
 <div class="page-content">
     <h1>זמני תפילות ימות החול - בין הזמנים תשרי</h1>
     
@@ -172,20 +172,17 @@
             }
         }
 
-        // בונה את רשימת הצ'קבוקסים מתוך window.sitePrayerPages (מקור האמת המשותף שבassets/header.js)
+        // בונה את רשימת הצ'קבוקסים מתוך window.siteMailSchedules (מקור האמת המשותף שבassets/header.js)
         // כך שהרשימה תמיד מסונכרנת אוטומטית עם לשוניות התפריט, גם אם הן ישתנו בעתיד
         function renderPagesChecklist() {
             var container = document.getElementById('pagesChecklist');
-            if (!container || !window.sitePrayerPages) return;
+            if (!container || !window.siteMailSchedules) return;
 
             var currentFile = location.pathname.split('/').pop() || 'index.html';
 
-            container.innerHTML = window.sitePrayerPages.filter(function (p) {
-                return p.mailable !== false;
-            }).map(function (p) {
-                var pageId = p.file.replace('.html', '');
+            container.innerHTML = window.siteMailSchedules.map(function (p) {
                 var checkedAttr = (p.file === currentFile) ? 'checked' : '';
-                return '<label><input type="checkbox" class="page-check" value="' + pageId + '" ' + checkedAttr + ' onchange="syncSelectAllState()"> ' + p.label + '</label>';
+                return '<label><input type="checkbox" class="page-check" value="' + p.id + '" ' + checkedAttr + ' onchange="syncSelectAllState()"> ' + p.label + '</label>';
             }).join('');
 
             syncSelectAllState();

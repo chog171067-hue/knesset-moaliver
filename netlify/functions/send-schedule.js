@@ -22,6 +22,11 @@ const PAGE_CONFIG = {
             { title: 'מנחה', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
             { title: 'ערבית', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
         ]
+    },
+    // מפתח זה הוא מזהה אפשרות השליחה (id) שמוגדר ב-mailSchedules של הדף ב-assets/header.js
+    'sukkot-yomtov-rishon': {
+        label: 'חג הסוכות - יו"ט ראשון',
+        flexibleTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1773662680&single=true&output=csv'
     }
 };
 
@@ -97,6 +102,111 @@ async function fetchSingleColumnTableAsHtml(url, title) {
     }
 }
 
+// מפענח CSV מלא (כולל תאים במרכאות שמכילים פסיקים או מרכאות כפולות)
+function parseCsv(text) {
+    const rows = [];
+    let row = [], cell = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+            else if (ch === '"') inQuotes = false;
+            else cell += ch;
+        } else if (ch === '"') inQuotes = true;
+        else if (ch === ',') { row.push(cell); cell = ''; }
+        else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else if (ch !== '\r') cell += ch;
+    }
+    row.push(cell);
+    rows.push(row);
+    return rows.map(r => r.map(c => c.trim()));
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// "מכיל שעה" ולא "הוא שעה בדיוק", כדי שתאים כמו "18:25 בדיוק!" עדיין ייחשבו נתונים ולא כותרת
+function isTimeLike(s) {
+    return /\d{1,2}:\d{2}/.test(s || '');
+}
+
+// קוצץ שניות משעה מובילה ("18:25:00" -> "18:25") ושומר על טקסט חופשי שאחריה באותו תא
+function normalizeTime(s) {
+    const m = (s || '').match(/^(\d{1,2}:\d{2})(:\d{2})?(.*)$/);
+    return m ? (m[1] + (m[3] || '')).trim() : (s || '');
+}
+
+const HEADER_WORDS = ['שעה', 'מקום', 'מיקום', 'time', 'location'];
+
+// מפענח גמיש לגיליונות חגים, שהמבנה שלהם משתנה מחג לחג:
+// - שורה עם תא יחיד שאינו שעה = כותרת שפותחת קטע (טבלה) חדש במייל
+// - שורת כותרות עמודות (שעה/מקום וכו') משמשת ככותרת הטבלאות ולא כנתונים
+// - כל שורה אחרת היא שורת נתונים; תא ריק בה מקבל את הערך שמעליו באותו קטע
+//   (כך נראה תא ממוזג בגיליון כשמייצאים אותו ל-CSV)
+// מנותק מ-fetch כדי שיהיה ניתן לבדוק בלי רשת
+function buildFlexibleTableHtml(csvText) {
+    const rows = parseCsv(csvText).filter(cols => cols.some(c => c !== ''));
+
+    let columnHeaders = null;
+    const blocks = [];
+
+    rows.forEach(cols => {
+        while (cols.length && cols[cols.length - 1] === '') cols.pop();
+        const filled = cols.filter(c => c !== '');
+
+        if (!filled.some(isTimeLike) && filled.some(c => HEADER_WORDS.includes(c.toLowerCase()))) {
+            if (!columnHeaders) columnHeaders = cols;
+            return;
+        }
+
+        if (filled.length === 1 && !isTimeLike(filled[0])) {
+            blocks.push({ title: filled[0], rows: [] });
+            return;
+        }
+
+        if (blocks.length === 0) blocks.push({ title: '', rows: [] });
+        const block = blocks[blocks.length - 1];
+        const prev = block.rows[block.rows.length - 1];
+        const width = Math.max(cols.length, prev ? prev.length : 0);
+        block.rows.push(Array.from({ length: width }, (_, i) => normalizeTime(cols[i] || (prev && prev[i]) || '')));
+    });
+
+    return blocks.filter(b => b.rows.length > 0).map(block => {
+        const width = Math.max(...block.rows.map(r => r.length));
+        const pad = r => Array.from({ length: width }, (_, i) => escapeHtml(r[i] || ''));
+
+        const theadHtml = columnHeaders
+            ? `<thead><tr style="color:#000080;">${pad(columnHeaders).map(h => `<th style="padding:4px; border-bottom:1px solid #ddd;">${h}</th>`).join('')}</tr></thead>`
+            : '';
+        const rowsHtml = block.rows.map(r => '<tr>' + pad(r).map((c, i) =>
+            `<td style="padding:5px; border-bottom:1px solid #eee;${i === 0 ? ' font-weight:bold; color:#000080;' : ''}">${c}</td>`).join('') + '</tr>').join('');
+        const titleHtml = block.title
+            ? `<h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${escapeHtml(block.title)}</h3>`
+            : '';
+
+        return `
+            <div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px;">
+                ${titleHtml}
+                <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;" dir="rtl">
+                    ${theadHtml}
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+}
+
+async function fetchFlexibleTableAsHtml(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        return buildFlexibleTableHtml(await res.text());
+    } catch (e) {
+        return '';
+    }
+}
+
 // בונה קטע HTML שלם עבור דף תפילה מסוים (כותרת ראשית + כל הטבלאות שלו),
 // ומחזיר מחרוזת ריקה אם לא נמצא אף שורת נתונים אמיתית באף אחת מהטבלאות שלו.
 async function buildPageSection(pageId) {
@@ -106,7 +216,9 @@ async function buildPageSection(pageId) {
     const tableTasks = (config.tables || []).map(t => fetchTableAsHtml(t.url, t.title));
     const singleColTasks = (config.singleColumnTables || []).map(t => fetchSingleColumnTableAsHtml(t.url, t.title));
 
-    const results = await Promise.all([...tableTasks, ...singleColTasks]);
+    const flexibleTableTasks = config.flexibleTable ? [fetchFlexibleTableAsHtml(config.flexibleTable)] : [];
+
+    const results = await Promise.all([...tableTasks, ...singleColTasks, ...flexibleTableTasks]);
     const combined = results.filter(html => html !== '').join('');
 
     if (!combined) return '';
