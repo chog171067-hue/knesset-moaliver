@@ -63,6 +63,62 @@
             margin: 0;
         }
 
+        /* רשימת אירועים */
+        .main-content.has-events { justify-content: flex-start; }
+        .page-title {
+            color: #1a365d; font-size: 30px; margin: 0 0 25px; text-align: center;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+        .events-list { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 28px; }
+        .event-card {
+            background: rgba(255, 255, 255, 0.96); border-radius: 20px; padding: 28px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); box-sizing: border-box;
+        }
+        .event-date { font-size: 14px; color: #2b6cb0; font-weight: bold; margin-bottom: 6px; }
+        .event-card h3 { color: #1a365d; font-size: 24px; margin: 0 0 12px; }
+        .event-desc { font-size: 16px; color: #4a5568; line-height: 1.7; white-space: pre-wrap; margin: 0 0 18px; }
+        .event-videos { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+        .event-video {
+            width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #1a202c;
+        }
+        .event-gallery {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
+        }
+        .event-gallery button {
+            padding: 0; border: 0; background: #edf2f7; border-radius: 10px; overflow: hidden;
+            aspect-ratio: 4 / 3; cursor: zoom-in;
+        }
+        .event-gallery img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+        .event-gallery button:hover img { transform: scale(1.04); }
+        .media-missing {
+            display: flex; align-items: center; justify-content: center; height: 100%;
+            font-size: 13px; color: #718096; padding: 8px; text-align: center;
+        }
+
+        /* תצוגת תמונה במסך מלא */
+        .lightbox {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000;
+            align-items: center; justify-content: center;
+        }
+        .lightbox.open { display: flex; }
+        .lightbox img { max-width: 94vw; max-height: 86vh; border-radius: 6px; }
+        .lightbox button {
+            position: absolute; background: rgba(255,255,255,0.15); color: #fff; border: 0;
+            font-size: 28px; width: 50px; height: 50px; border-radius: 50%; cursor: pointer;
+        }
+        .lightbox button:hover { background: rgba(255,255,255,0.3); }
+        .lb-close { top: 20px; left: 20px; }
+        .lb-prev { right: 20px; top: 50%; transform: translateY(-50%); }
+        .lb-next { left: 20px; top: 50%; transform: translateY(-50%); }
+        .lb-counter { position: absolute; bottom: 20px; color: #fff; font-size: 14px; }
+
+        @media (max-width: 600px) {
+            .event-card { padding: 20px 16px; }
+            .event-card h3 { font-size: 20px; }
+            .event-gallery { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+            .lb-prev, .lb-next { top: auto; bottom: 20px; transform: none; }
+        }
+
     </style>
 </head>
 <body>
@@ -70,13 +126,144 @@
 <div id="site-header"></div>
 <script src="assets/header.js?v=9"></script>
 
-<main class="main-content">
-    <div class="info-card">
+<main class="main-content" id="newsMain">
+    <div class="info-card" id="newsPlaceholder">
         <div class="icon">📢</div>
         <h2>מהנעשה ונשמע בקהילה</h2>
-        <p>כרגע הדף ריק. עובדים על תוכן איכותי בשבילכם.</p>
+        <p id="newsPlaceholderText">טוען...</p>
     </div>
 </main>
+
+<div class="lightbox" id="lightbox" onclick="if (event.target === this) closeLightbox()">
+    <button class="lb-close" onclick="closeLightbox()" aria-label="סגור">✕</button>
+    <button class="lb-prev" onclick="stepLightbox(-1)" aria-label="הקודמת">›</button>
+    <img id="lightboxImg" alt="">
+    <button class="lb-next" onclick="stepLightbox(1)" aria-label="הבאה">‹</button>
+    <div class="lb-counter" id="lightboxCounter"></div>
+</div>
+
+<script>
+    // התמונות והסרטונים מאוחסנים בגוגל דרייב של המנהל (ראו טאב "מהנעשה ונשמע"
+    // ב-admin.html) - כאן נשמר רק מזהה הקובץ, ומוצג דרך כתובות התצוגה של דרייב.
+    function driveImageUrl(fileId, size) {
+        return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${size}`;
+    }
+    function driveVideoUrl(fileId) {
+        return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
+    }
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // מספר באותיות עבריות (1-999), למשל 15 → ט"ו, 787 → תשפ"ז
+    function hebrewNumeral(n) {
+        const units = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
+        const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
+        let s = '';
+        let h = Math.floor(n / 100);
+        while (h > 0) { const take = Math.min(h, 4); s += ['', 'ק', 'ר', 'ש', 'ת'][take]; h -= take; }
+        const rest = n % 100;
+        if (rest === 15) s += 'טו';
+        else if (rest === 16) s += 'טז';
+        else s += tens[Math.floor(rest / 10)] + units[rest % 10];
+        return s.length === 1 ? s + "'" : s.slice(0, -1) + '"' + s.slice(-1);
+    }
+
+    function formatEventDate(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        const date = new Date(Date.UTC(y, m - 1, d, 12));
+        const parts = {};
+        new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+            .formatToParts(date).forEach(p => { parts[p.type] = p.value; });
+        const hebrew = `${hebrewNumeral(Number(parts.day))} ב${parts.month} ${hebrewNumeral(Number(parts.year) % 1000)}`;
+        const greg = date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' });
+        return `${hebrew} · ${greg}`;
+    }
+
+    let galleries = [];
+
+    function renderEvents(events) {
+        const main = document.getElementById('newsMain');
+        galleries = [];
+        const cards = events.map((e, idx) => {
+            const media = e.media || [];
+            const videos = media.filter(m => m.type === 'video');
+            const images = media.filter(m => m.type === 'image');
+            galleries[idx] = images.map(m => m.fileId);
+
+            const videosHtml = videos.length ? `<div class="event-videos">${videos.map(v =>
+                `<iframe class="event-video" src="${driveVideoUrl(v.fileId)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="סרטון"></iframe>`
+            ).join('')}</div>` : '';
+
+            const imagesHtml = images.length ? `<div class="event-gallery">${images.map((img, i) =>
+                `<button type="button" onclick="openLightbox(${idx}, ${i})" aria-label="הגדלת תמונה"><img src="${driveImageUrl(img.fileId, 600)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<span class=&quot;media-missing&quot;>התמונה אינה זמינה</span>'"></button>`
+            ).join('')}</div>` : '';
+
+            return `
+                <article class="event-card">
+                    <div class="event-date">${escapeHtml(formatEventDate(e.date))}</div>
+                    <h3>${escapeHtml(e.title)}</h3>
+                    ${e.description ? `<p class="event-desc">${escapeHtml(e.description)}</p>` : ''}
+                    ${videosHtml}
+                    ${imagesHtml}
+                </article>
+            `;
+        }).join('');
+
+        main.classList.add('has-events');
+        main.innerHTML = `<h2 class="page-title">📢 מהנעשה ונשמע בקהילה</h2><div class="events-list">${cards}</div>`;
+    }
+
+    async function loadNews() {
+        const text = document.getElementById('newsPlaceholderText');
+        try {
+            const response = await fetch('/.netlify/functions/get-news');
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error);
+            if (!result.events.length) {
+                text.textContent = 'כרגע הדף ריק. עובדים על תוכן איכותי בשבילכם.';
+                return;
+            }
+            renderEvents(result.events);
+        } catch (err) {
+            text.textContent = 'לא הצלחנו לטעון את האירועים. נסו לרענן את הדף.';
+        }
+    }
+
+    // --- תצוגת תמונה במסך מלא ---
+    let lbGallery = [], lbIndex = 0;
+
+    function openLightbox(eventIdx, imgIdx) {
+        lbGallery = galleries[eventIdx] || [];
+        lbIndex = imgIdx;
+        showLightboxImage();
+        document.getElementById('lightbox').classList.add('open');
+    }
+    function showLightboxImage() {
+        document.getElementById('lightboxImg').src = driveImageUrl(lbGallery[lbIndex], 2000);
+        const many = lbGallery.length > 1;
+        document.querySelector('.lb-prev').style.display = many ? '' : 'none';
+        document.querySelector('.lb-next').style.display = many ? '' : 'none';
+        document.getElementById('lightboxCounter').textContent = many ? `${lbIndex + 1} / ${lbGallery.length}` : '';
+    }
+    function stepLightbox(dir) {
+        lbIndex = (lbIndex + dir + lbGallery.length) % lbGallery.length;
+        showLightboxImage();
+    }
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('open');
+        document.getElementById('lightboxImg').src = '';
+    }
+    document.addEventListener('keydown', e => {
+        if (!document.getElementById('lightbox').classList.contains('open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') stepLightbox(1);
+        if (e.key === 'ArrowRight') stepLightbox(-1);
+    });
+
+    loadNews();
+</script>
 
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="assets/auth-widget.js"></script>
