@@ -24,22 +24,6 @@ const PAGE_CONFIG = {
             { title: 'מנחה', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
             { title: 'ערבית', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=879735471&single=true&output=csv' }
         ]
-    },
-    // מפתח זה הוא מזהה אפשרות השליחה (id) שמוגדר ב-mailSchedules של הדף ב-assets/header.js
-    'sukkot-yomtov-rishon': {
-        label: 'חג הסוכות - יו"ט ראשון',
-        flexibleTable: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1773662680&single=true&output=csv'
-    },
-    // לשונית אחת שבה שחרית, מנחה וערבית יחד - מפוענחת ב-assets/prayer-sections.js
-    // (אותו קישור מוגדר גם ב-sukkot.html לטעינת הזמנים בדף עצמו)
-    'sukkot-chol-hamoed': {
-        label: 'חג הסוכות - חול המועד',
-        prayerSections: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=188569280&single=true&output=csv'
-    },
-    'sukkot-hoshana-raba': {
-        label: 'חג הסוכות - הושענא רבה',
-        exclude: ['ערבית'],
-        prayerSections: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vShhYyWWzh47GjKvj0xofb_Hd6CCLoJMFr9S5LnGtnTDMJnuskDTq63lxXl1zQ-0wi0ASMVDaOVGK69/pub?gid=1801812322&single=true&output=csv'
     }
 };
 
