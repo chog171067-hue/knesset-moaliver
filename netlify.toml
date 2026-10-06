@@ -1,2 +1,8 @@
 [build]
   functions = "netlify/functions"
+
+# תמונות "מהנעשה ונשמע" שהועלו לאתר (ראו netlify/functions/news-image.js)
+[[redirects]]
+  from = "/news-images/:id"
+  to = "/.netlify/functions/news-image?id=:id"
+  status = 200
