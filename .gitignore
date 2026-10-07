@@ -4,3 +4,6 @@ node_modules/
 kiosk-app/**/bin/
 kiosk-app/**/obj/
 kiosk-app/installer/Output/
+
+# Local Netlify folder
+.netlify

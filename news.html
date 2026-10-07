@@ -173,6 +173,20 @@
         // תמונות מדרייב מאירועים ישנים, לפני המעבר להעלאה לאתר
         return `https://drive.google.com/thumbnail?id=${encodeURIComponent(item.fileId)}&sz=w${size}`;
     }
+    // רשת ביטחון: אם הכתובת /news-images/<id> לא נטענת, מנסים פעם אחת את הכתובת
+    // הישירה של הפונקציה שמגישה את התמונות
+    function imageFallback(img) {
+        const m = img.src.match(/\/news-images\/([a-f0-9]+)/);
+        img.onerror = null;
+        if (m) img.src = `/.netlify/functions/news-image?id=${m[1]}`;
+    }
+    document.addEventListener('error', e => {
+        if (e.target.tagName === 'IMG' && e.target.onerror === null && /\/news-images\//.test(e.target.src)) {
+            e.target.onerror = () => {};
+            imageFallback(e.target);
+        }
+    }, true);
+
     function driveVideoUrl(fileId) {
         return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
     }
@@ -295,7 +309,9 @@
         document.getElementById('lightbox').classList.add('open');
     }
     function showLightboxImage() {
-        document.getElementById('lightboxImg').src = lbGallery[lbIndex];
+        const lbImg = document.getElementById('lightboxImg');
+        lbImg.onerror = null;
+        lbImg.src = lbGallery[lbIndex];
         const many = lbGallery.length > 1;
         document.querySelector('.lb-prev').style.display = many ? '' : 'none';
         document.querySelector('.lb-next').style.display = many ? '' : 'none';

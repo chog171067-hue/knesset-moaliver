@@ -1797,7 +1797,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             const tile = document.createElement('div');
             tile.className = 'news-image-tile' + (idx === 0 ? ' cover' : '');
             tile.innerHTML = `
-                <img src="${newsImageSrc(item)}" alt="">
+                <img src="${newsImageSrc(item)}" alt=""${item.imageId && !item.previewUrl ? ` onerror="this.onerror=null; this.src='/.netlify/functions/news-image?id=${item.imageId}'"` : ''}>
                 ${idx === 0 ? '<span class="tile-badge">★ שער</span>' : ''}
                 ${item.uploading ? '<div class="tile-status">מעלה...</div>' : ''}
                 ${item.error ? `<div class="tile-status bad">${escapeHtml(item.error)}</div>` : ''}
