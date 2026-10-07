@@ -63,37 +63,53 @@
             margin: 0;
         }
 
-        /* רשימת אירועים */
-        .main-content.has-events { justify-content: flex-start; }
+        .main-content.has-content { justify-content: flex-start; }
         .page-title {
             color: #1a365d; font-size: 30px; margin: 0 0 25px; text-align: center;
             text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
-        .events-list { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 28px; }
+
+        /* רשת ריבועי האירועים */
+        .events-grid {
+            width: 100%; max-width: 1100px; display: grid; gap: 22px;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        }
+        .event-tile {
+            display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.97);
+            border-radius: 18px; overflow: hidden; text-decoration: none; color: inherit;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12); transition: transform .2s, box-shadow .2s;
+        }
+        .event-tile:hover { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18); }
+        .event-tile-cover {
+            aspect-ratio: 4 / 3; background: linear-gradient(135deg, #1a365d, #2b6cb0);
+            display: flex; align-items: center; justify-content: center; font-size: 54px; overflow: hidden;
+        }
+        .event-tile-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .event-tile-body { padding: 14px 16px 18px; }
+        .event-tile-date { font-size: 13px; color: #2b6cb0; font-weight: bold; margin-bottom: 4px; }
+        .event-tile-title { font-size: 18px; font-weight: bold; color: #1a365d; line-height: 1.35; }
+
+        /* דף אירוע בודד */
         .event-card {
-            background: rgba(255, 255, 255, 0.96); border-radius: 20px; padding: 28px;
+            width: 100%; max-width: 900px; background: rgba(255, 255, 255, 0.97); border-radius: 20px; padding: 28px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); box-sizing: border-box;
         }
+        .back-link {
+            display: inline-block; margin-bottom: 16px; color: #2b6cb0; font-weight: bold; text-decoration: none; font-size: 15px;
+        }
+        .back-link:hover { text-decoration: underline; }
         .event-date { font-size: 14px; color: #2b6cb0; font-weight: bold; margin-bottom: 6px; }
-        .event-card h3 { color: #1a365d; font-size: 24px; margin: 0 0 12px; }
-        .event-desc { font-size: 16px; color: #4a5568; line-height: 1.7; white-space: pre-wrap; margin: 0 0 18px; }
-        .event-videos { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
-        .event-video {
-            width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #1a202c;
-        }
-        .event-gallery {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
-        }
+        .event-card h1 { color: #1a365d; font-size: 28px; margin: 0 0 14px; }
+        .event-desc { font-size: 17px; color: #4a5568; line-height: 1.75; white-space: pre-wrap; margin: 0 0 22px; }
+        .event-videos { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+        .event-video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #1a202c; }
+        .event-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
         .event-gallery button {
             padding: 0; border: 0; background: #edf2f7; border-radius: 10px; overflow: hidden;
             aspect-ratio: 4 / 3; cursor: zoom-in;
         }
         .event-gallery img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
         .event-gallery button:hover img { transform: scale(1.04); }
-        .media-missing {
-            display: flex; align-items: center; justify-content: center; height: 100%;
-            font-size: 13px; color: #718096; padding: 8px; text-align: center;
-        }
 
         /* תצוגת תמונה במסך מלא */
         .lightbox {
@@ -113,12 +129,17 @@
         .lb-counter { position: absolute; bottom: 20px; color: #fff; font-size: 14px; }
 
         @media (max-width: 600px) {
+            .page-title { font-size: 24px; }
+            .events-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .event-tile { border-radius: 14px; }
+            .event-tile-body { padding: 10px 10px 12px; }
+            .event-tile-title { font-size: 15px; }
+            .event-tile-date { font-size: 12px; }
             .event-card { padding: 20px 16px; }
-            .event-card h3 { font-size: 20px; }
+            .event-card h1 { font-size: 22px; }
             .event-gallery { grid-template-columns: repeat(2, 1fr); gap: 6px; }
             .lb-prev, .lb-next { top: auto; bottom: 20px; transform: none; }
         }
-
     </style>
 </head>
 <body>
@@ -143,10 +164,14 @@
 </div>
 
 <script>
-    // התמונות והסרטונים מאוחסנים בגוגל דרייב של המנהל (ראו טאב "מהנעשה ונשמע"
-    // ב-admin.html) - כאן נשמר רק מזהה הקובץ, ומוצג דרך כתובות התצוגה של דרייב.
-    function driveImageUrl(fileId, size) {
-        return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${size}`;
+    // בלי פרמטר: רשת ריבועים, ריבוע לכל אירוע (תמונת שער + כותרת).
+    // עם ?id=<מזהה>: דף האירוע המלא. האירועים מנוהלים בטאב "מהנעשה ונשמע"
+    // ב-admin.html. תמונות מועלות לאתר עצמו (/news-images/<id>), וסרטונים
+    // מוצגים מגוגל דרייב - ראו news-store.js.
+    function imageUrl(item, size) {
+        if (item.imageId) return `/news-images/${item.imageId}`;
+        // תמונות מדרייב מאירועים ישנים, לפני המעבר להעלאה לאתר
+        return `https://drive.google.com/thumbnail?id=${encodeURIComponent(item.fileId)}&sz=w${size}`;
     }
     function driveVideoUrl(fileId) {
         return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
@@ -170,62 +195,92 @@
         return s.length === 1 ? s + "'" : s.slice(0, -1) + '"' + s.slice(-1);
     }
 
-    function formatEventDate(iso) {
+    function formatEventDate(iso, hebrewOnly) {
         const [y, m, d] = iso.split('-').map(Number);
         const date = new Date(Date.UTC(y, m - 1, d, 12));
         const parts = {};
         new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
             .formatToParts(date).forEach(p => { parts[p.type] = p.value; });
         const hebrew = `${hebrewNumeral(Number(parts.day))} ב${parts.month} ${hebrewNumeral(Number(parts.year) % 1000)}`;
+        if (hebrewOnly) return hebrew;
         const greg = date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' });
         return `${hebrew} · ${greg}`;
     }
 
-    let galleries = [];
-
-    function renderEvents(events) {
+    function showContent(html) {
         const main = document.getElementById('newsMain');
-        galleries = [];
-        const cards = events.map((e, idx) => {
-            const media = e.media || [];
-            const videos = media.filter(m => m.type === 'video');
-            const images = media.filter(m => m.type === 'image');
-            galleries[idx] = images.map(m => m.fileId);
+        main.classList.add('has-content');
+        main.innerHTML = html;
+        window.scrollTo(0, 0);
+    }
 
-            const videosHtml = videos.length ? `<div class="event-videos">${videos.map(v =>
-                `<iframe class="event-video" src="${driveVideoUrl(v.fileId)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="סרטון"></iframe>`
-            ).join('')}</div>` : '';
-
-            const imagesHtml = images.length ? `<div class="event-gallery">${images.map((img, i) =>
-                `<button type="button" onclick="openLightbox(${idx}, ${i})" aria-label="הגדלת תמונה"><img src="${driveImageUrl(img.fileId, 600)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<span class=&quot;media-missing&quot;>התמונה אינה זמינה</span>'"></button>`
-            ).join('')}</div>` : '';
-
+    function renderGrid(events) {
+        const tiles = events.map(e => {
+            const cover = (e.media || []).find(m => m.type === 'image');
+            const hasVideo = (e.media || []).some(m => m.type === 'video');
+            const coverHtml = cover
+                ? `<img src="${imageUrl(cover, 600)}" alt="" loading="lazy">`
+                : (hasVideo ? '🎬' : '📢');
             return `
-                <article class="event-card">
-                    <div class="event-date">${escapeHtml(formatEventDate(e.date))}</div>
-                    <h3>${escapeHtml(e.title)}</h3>
-                    ${e.description ? `<p class="event-desc">${escapeHtml(e.description)}</p>` : ''}
-                    ${videosHtml}
-                    ${imagesHtml}
-                </article>
+                <a class="event-tile" href="news.html?id=${encodeURIComponent(e.id)}">
+                    <div class="event-tile-cover">${coverHtml}</div>
+                    <div class="event-tile-body">
+                        <div class="event-tile-date">${escapeHtml(formatEventDate(e.date, true))}</div>
+                        <div class="event-tile-title">${escapeHtml(e.title)}</div>
+                    </div>
+                </a>
             `;
         }).join('');
+        document.title = 'מהנעשה ונשמע - בית כנסת מוהליבר';
+        showContent(`<h2 class="page-title">📢 מהנעשה ונשמע בקהילה</h2><div class="events-grid">${tiles}</div>`);
+    }
 
-        main.classList.add('has-events');
-        main.innerHTML = `<h2 class="page-title">📢 מהנעשה ונשמע בקהילה</h2><div class="events-list">${cards}</div>`;
+    function renderEvent(e) {
+        const media = e.media || [];
+        const videos = media.filter(m => m.type === 'video');
+        const images = media.filter(m => m.type === 'image');
+        lbGallery = images.map(img => imageUrl(img, 2000));
+
+        const videosHtml = videos.length ? `<div class="event-videos">${videos.map(v =>
+            `<iframe class="event-video" src="${driveVideoUrl(v.fileId)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="סרטון"></iframe>`
+        ).join('')}</div>` : '';
+
+        const imagesHtml = images.length ? `<div class="event-gallery">${images.map((img, i) =>
+            `<button type="button" onclick="openLightbox(${i})" aria-label="הגדלת תמונה"><img src="${imageUrl(img, 600)}" alt="" loading="lazy"></button>`
+        ).join('')}</div>` : '';
+
+        document.title = `${e.title} - מהנעשה ונשמע`;
+        showContent(`
+            <article class="event-card">
+                <a class="back-link" href="news.html">→ חזרה לכל האירועים</a>
+                <div class="event-date">${escapeHtml(formatEventDate(e.date))}</div>
+                <h1>${escapeHtml(e.title)}</h1>
+                ${e.description ? `<p class="event-desc">${escapeHtml(e.description)}</p>` : ''}
+                ${videosHtml}
+                ${imagesHtml}
+            </article>
+        `);
     }
 
     async function loadNews() {
         const text = document.getElementById('newsPlaceholderText');
+        const id = new URLSearchParams(location.search).get('id');
         try {
             const response = await fetch('/.netlify/functions/get-news');
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.error);
+
+            if (id) {
+                const e = result.events.find(x => x.id === id);
+                if (e) return renderEvent(e);
+                text.innerHTML = 'האירוע לא נמצא. <a href="news.html">לכל האירועים</a>';
+                return;
+            }
             if (!result.events.length) {
                 text.textContent = 'כרגע הדף ריק. עובדים על תוכן איכותי בשבילכם.';
                 return;
             }
-            renderEvents(result.events);
+            renderGrid(result.events);
         } catch (err) {
             text.textContent = 'לא הצלחנו לטעון את האירועים. נסו לרענן את הדף.';
         }
@@ -234,14 +289,13 @@
     // --- תצוגת תמונה במסך מלא ---
     let lbGallery = [], lbIndex = 0;
 
-    function openLightbox(eventIdx, imgIdx) {
-        lbGallery = galleries[eventIdx] || [];
-        lbIndex = imgIdx;
+    function openLightbox(idx) {
+        lbIndex = idx;
         showLightboxImage();
         document.getElementById('lightbox').classList.add('open');
     }
     function showLightboxImage() {
-        document.getElementById('lightboxImg').src = driveImageUrl(lbGallery[lbIndex], 2000);
+        document.getElementById('lightboxImg').src = lbGallery[lbIndex];
         const many = lbGallery.length > 1;
         document.querySelector('.lb-prev').style.display = many ? '' : 'none';
         document.querySelector('.lb-next').style.display = many ? '' : 'none';
