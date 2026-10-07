@@ -3,6 +3,6 @@
 
 # תמונות "מהנעשה ונשמע" שהועלו לאתר (ראו netlify/functions/news-image.js)
 [[redirects]]
-  from = "/news-images/:id"
-  to = "/.netlify/functions/news-image?id=:id"
+  from = "/news-images/*"
+  to = "/.netlify/functions/news-image"
   status = 200
