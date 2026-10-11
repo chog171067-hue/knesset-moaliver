@@ -9,7 +9,7 @@
     // (דפי התפילה קוראים ל-window.siteMailSchedules כדי לבנות רשימת צ'קבוקסים מסונכרנת אוטומטית)
     var prayerPages = [
         { file: 'shabbat.html', label: 'שבתות' },
-        { file: 'yemothachol.html', label: 'ימות החול - בין הזמנים תשרי' }
+        { file: 'yemothachol.html', label: 'ימות החול' }
         // לדף עם כמה לוחות זמנים נפרדים אפשר להגדיר mailSchedules: [{ id, label }, ...]
         // (id = המפתח ב-PAGE_CONFIG שב-netlify/functions/send-schedule.js)
     ];

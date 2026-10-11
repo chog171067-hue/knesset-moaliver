@@ -18,7 +18,7 @@ const PAGE_CONFIG = {
         ]
     },
     yemothachol: {
-        label: 'ימות החול - בין הזמנים תשרי',
+        label: 'ימות החול',
         tables: [
             { title: 'שחרית', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=380588342&single=true&output=csv' },
             { title: 'מנחה', url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmA3Y2N1hboh3wdH5wYGm35-pdS_z6MHoCCz6QOYYzSvk4bGPYnaMvgqAVna6v738HGEmOdHGHrH98/pub?gid=937935590&single=true&output=csv' },
