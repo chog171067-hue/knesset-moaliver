@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin.html
+Disallow: /personal.html
+Disallow: /kiosk-topup-wrapper.html
+Disallow: /donation-app/
+Disallow: /kiosk-app/
+Disallow: /email-templates/
+
+Sitemap: https://moaliver.org.il/sitemap.xml
