@@ -1,8 +1,10 @@
-// דף ניהול - טאב "הוספת ת.ז לרשימת הזכאים": ניהול הרשימה המשלימה (בנוסף
-// לגיליון הגוגל הראשי, שהוא לקריאה בלבד) של תעודות זהות זכאיות לפתיחת חשבון
-// באזור האישי. community.js בודק גם מול הרשימה הזו (ראו getExtraEligibleRecord).
+// דף ניהול - טאב "רשימת הזכאים": ניהול הרשימה המשלימה (בנוסף לקובץ התורמים
+// שמועלה מנדרים פלוס, ראו admin-community.js) של תעודות זהות זכאיות לפתיחת חשבון
+// באזור האישי. community.js בודק גם מול הרשימה הזו (ראו getCommunityRecord).
+// המייל חובה: ההרשמה מתאפשרת רק עם המייל שרשום כאן (ראו identity-signup.js).
 const { getAdminStore } = require('./lib/blobs-store');
 const { requireAdmin } = require('./lib/admin-auth');
+const { tzKey, normalizeEmail } = require('./lib/community');
 
 const STORE_KEY = 'extra-eligible-tz.json';
 
@@ -33,15 +35,19 @@ exports.handler = async function (event, context) {
     }
 
     if (event.httpMethod === 'POST') {
-      const { tz, phone, name } = JSON.parse(event.body || '{}');
+      const { tz, phone, name, email } = JSON.parse(event.body || '{}');
       const cleanTz = String(tz || '').trim();
+      const cleanEmail = normalizeEmail(email);
 
       if (!/^[0-9]{4,9}$/.test(cleanTz)) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'מספר תעודת זהות לא תקין' }) };
       }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'יש להזין כתובת מייל תקינה - ההרשמה מתאפשרת רק איתה' }) };
+      }
 
       const list = (await store.get(STORE_KEY, { type: 'json' })) || [];
-      if (list.some(r => r.tz === cleanTz)) {
+      if (list.some(r => tzKey(r.tz) === tzKey(cleanTz))) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'תעודת הזהות כבר קיימת ברשימה' }) };
       }
 
@@ -49,6 +55,7 @@ exports.handler = async function (event, context) {
         tz: cleanTz,
         phone: phone ? String(phone).trim().replace(/[-\s]/g, '') : '',
         name: name ? String(name).trim() : '',
+        email: cleanEmail,
         addedAt: new Date().toISOString(),
         addedBy: (context.clientContext.user && context.clientContext.user.email) || ''
       });

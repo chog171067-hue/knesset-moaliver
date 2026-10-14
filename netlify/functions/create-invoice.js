@@ -2,6 +2,7 @@
 // סוג הקבלה קבוע ל-405 (קבלת תרומה) כי בית הכנסת רשום באיזיקאונט כעמותה.
 
 const { findOwnKeva, getApiPasswordForMosad } = require('./lib/nedarim');
+const { requireActiveMember } = require('./lib/community');
 
 const RECEIPT_TYPE_DONATION = '405'; // עמותה - קבלת תרומה
 
@@ -23,6 +24,12 @@ exports.handler = async function (event, context) {
 
   const ownTz = String(authedUser.app_metadata.verified_tz).trim();
   const ownPhone = String(authedUser.app_metadata.verified_phone || '').trim();
+
+  // ת"ז שנחסמה בדף הניהול - החשבון מושהה (לא נמחק) עד ביטול החסימה
+  const member = await requireActiveMember(event, context);
+  if (!member.ok) {
+    return { statusCode: member.statusCode, headers: corsHeaders, body: JSON.stringify({ success: false, suspended: !!member.suspended, error: member.error }) };
+  }
 
   let body;
   try {

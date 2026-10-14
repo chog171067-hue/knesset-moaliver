@@ -3,6 +3,7 @@
 // כרטיס של הוראת קבע ספציפית).
 
 const { fetchOwnDonationHistory } = require('./lib/nedarim');
+const { requireActiveMember } = require('./lib/community');
 
 exports.handler = async function (event, context) {
   const corsHeaders = { 'Access-Control-Allow-Origin': '*' };
@@ -22,6 +23,12 @@ exports.handler = async function (event, context) {
 
   const ownTz = String(authedUser.app_metadata.verified_tz).trim();
   const ownPhone = String(authedUser.app_metadata.verified_phone || '').trim();
+
+  // ת"ז שנחסמה בדף הניהול - החשבון מושהה (לא נמחק) עד ביטול החסימה
+  const member = await requireActiveMember(event, context);
+  if (!member.ok) {
+    return { statusCode: member.statusCode, headers: corsHeaders, body: JSON.stringify({ success: false, suspended: !!member.suspended, error: member.error }) };
+  }
 
   try {
     const history = await fetchOwnDonationHistory(ownTz, ownPhone);

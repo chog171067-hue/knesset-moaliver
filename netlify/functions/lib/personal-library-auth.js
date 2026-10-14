@@ -8,6 +8,7 @@
 // למה זה בטוח: verified_tz נשמר ב-app_metadata, שרק Functions בצד השרת יכולות
 // לערוך (לא הלקוח) - כך שאי אפשר "להתחזות" לת"ז של מישהו אחר.
 const { findUserByUsername } = require('./kiosk-store');
+const { requireActiveMember } = require('./community');
 
 async function requirePersonalLibraryLink(event, context) {
   const user = context.clientContext && context.clientContext.user;
@@ -20,6 +21,12 @@ async function requirePersonalLibraryLink(event, context) {
     // מצב תיאורטי בלבד: לפי identity-signup.js אי אפשר להירשם בלי ת"ז מאומתת -
     // נשמר ליתר ביטחון, למקרה קצה (למשל חשבון ישן מלפני שינוי זה).
     return { authorized: false, statusCode: 403, error: 'לא נמצאה תעודת זהות מאומתת בחשבון זה' };
+  }
+
+  // חשבון מושהה (ת"ז חסומה בדף הניהול) - גם חשבון הקיוסק באזור האישי לא נגיש
+  const member = await requireActiveMember(event, context);
+  if (!member.ok) {
+    return { authorized: false, statusCode: member.statusCode, error: member.error };
   }
 
   const kioskUser = await findUserByUsername(event, verifiedTz);

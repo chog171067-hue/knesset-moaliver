@@ -208,6 +208,13 @@
         <p class="subtitle">כדי לצפות בפרטי הוראות הקבע שלך, לפתוח הוראת קבע חדשה, לעדכן אמצעי תשלום או להפיק קבלה - יש להתחבר או להירשם דרך הכפתור בפינה השמאלית העליונה.</p>
     </div>
 
+    <!-- חשבון מושהה (ת"ז חסומה בדף הניהול) - מוצג במקום האזור האישי -->
+    <div class="gate-container" id="suspendedMessage" style="display:none;">
+        <img src="logo.png" alt="לוגו בית כנסת מוהליבר" class="logo">
+        <h2>החשבון מושהה</h2>
+        <p class="subtitle">הגישה שלך לאזור האישי מושהית כרגע. החשבון והנתונים שלך שמורים ולא נמחקו.<br>לפרטים יש לפנות לגבאי במייל: <a href="mailto:b0799186827@gmail.com">b0799186827@gmail.com</a></p>
+    </div>
+
     <div id="errorMessage" class="error-msg" style="max-width:550px; width:90%;"></div>
     <div id="loadingSpinner" class="loading" style="display:none;">טוען נתונים...</div>
 
@@ -691,13 +698,22 @@
     </div>
 </main>
 
-<script src="assets/auth-widget.js?v=2"></script>
+<script src="assets/auth-widget.js?v=3"></script>
 <script>
     // רשימת הוראות הקבע האחרונה שנשלפה עבור המשתמש המחובר (נשמרת בזיכרון, לא נשלחת חזרה לשרת)
     let currentDonorKevot = [];
 
-    document.addEventListener('mohliver:authenticated', () => {
+    document.addEventListener('mohliver:authenticated', async () => {
         document.getElementById('notLoggedInMessage').style.display = 'none';
+
+        // חשבון מושהה - מציגים הודעה ולא טוענים כלום (גם השרת חוסם כל פעולה בנפרד)
+        if (await isAccountSuspended()) {
+            document.getElementById('personalLayout').style.display = 'none';
+            document.getElementById('suspendedMessage').style.display = 'block';
+            return;
+        }
+        document.getElementById('suspendedMessage').style.display = 'none';
+
         prefillNewKevaForm();
         fetchDonorData();
         fetchCategories();
@@ -715,7 +731,21 @@
         }
     });
 
+    async function isAccountSuspended() {
+        try {
+            const user = netlifyIdentity.currentUser();
+            if (!user) return false;
+            const token = await user.jwt();
+            const res = await fetch('/.netlify/functions/member-status', { headers: { 'Authorization': `Bearer ${token}` } });
+            const result = await res.json();
+            return !!result.suspended;
+        } catch (e) {
+            return false; // תקלה טכנית בבדיקה - ממשיכים כרגיל; כל פעולה נבדקת שוב בשרת
+        }
+    }
+
     document.addEventListener('mohliver:logout', () => {
+        document.getElementById('suspendedMessage').style.display = 'none';
         document.getElementById('personalLayout').style.display = 'none';
         document.getElementById('notLoggedInMessage').style.display = 'block';
         stopGabaiPolling();
