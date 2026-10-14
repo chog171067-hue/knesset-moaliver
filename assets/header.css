@@ -183,3 +183,111 @@ header {
     .nav-logo { height: 34px; }
     .nav-container { padding: 8px 12px; gap: 8px; }
 }
+
+/* חלון "צור קשר" - נפתח מכפתור "צור קשר" בסרגל (assets/header.js) */
+.contact-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+.contact-overlay.open {
+    display: flex;
+}
+.contact-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    width: 100%;
+    max-width: 450px;
+    max-height: 100%;
+    overflow-y: auto;
+    position: relative;
+    box-sizing: border-box;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    direction: rtl;
+    text-align: right;
+    font-family: inherit;
+}
+.contact-box h3 {
+    margin: 0 0 18px;
+    color: #1a365d;
+    font-size: 1.3rem;
+    text-align: center;
+}
+.contact-close {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #666;
+    cursor: pointer;
+}
+.contact-close:hover { color: #000; }
+.contact-box label {
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 0.95rem;
+}
+.contact-box input,
+.contact-box textarea {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.contact-box input[dir="ltr"] { text-align: left; }
+.contact-box textarea { resize: vertical; }
+.contact-box input:focus,
+.contact-box textarea:focus {
+    outline: none;
+    border-color: #2b6cb0;
+    box-shadow: 0 0 0 2px rgba(43, 108, 176, 0.25);
+}
+.contact-req { color: #c53030; }
+.contact-hp {
+    position: absolute !important;
+    left: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0;
+}
+.contact-submit {
+    width: 100%;
+    padding: 12px;
+    background: #2b6cb0;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+}
+.contact-submit:hover { background: #1a365d; }
+.contact-submit:disabled { opacity: 0.6; cursor: default; }
+.contact-result {
+    display: none;
+    margin-top: 14px;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+}
+.contact-result.ok { display: block; background: #c6f6d5; color: #22543d; }
+.contact-result.err { display: block; background: #fed7d7; color: #822727; }
