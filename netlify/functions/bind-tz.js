@@ -1,4 +1,4 @@
-const { getCommunityRecord } = require('./lib/community');
+const { getCommunityRecord, isTzBlocked, normalizeEmail } = require('./lib/community');
 const { findUserByBoundTz, setUserVerifiedTz } = require('./lib/identity-admin');
 
 // פונקציה זו נקראת מהלקוח מיד אחרי כל התחברות/הרשמה מוצלחת (בעיקר עבור Google,
@@ -33,9 +33,19 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'תעודת זהות חסרה' }) };
     }
 
+    if (await isTzBlocked(tz, event)) {
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'פתיחת חשבון עבור תעודת זהות זו חסומה. לפרטים יש לפנות לגבאי.' }) };
+    }
+
     const record = await getCommunityRecord(tz, event);
     if (!record) {
       return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'תעודת הזהות אינה מופיעה ברשימת חברי הקהילה' }) };
+    }
+
+    // אותו אימות בעלות כמו ב-identity-signup.js: המייל המאומת של החשבון חייב להיות
+    // המייל שרשום לת"ז ברשימה
+    if (!record.email || normalizeEmail(user.email) !== record.email) {
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'כתובת המייל של החשבון אינה המייל הרשום אצל הגבאים עבור תעודת זהות זו' }) };
     }
 
     const identity = context.clientContext && context.clientContext.identity;
@@ -44,7 +54,7 @@ exports.handler = async (event, context) => {
       return { statusCode: 409, headers, body: JSON.stringify({ success: false, error: 'תעודת הזהות הזו כבר משויכת לחשבון קיים אחר' }) };
     }
 
-    await setUserVerifiedTz(identity, userId, record.tz, record.phone);
+    await setUserVerifiedTz(identity, userId, String(tz).replace(/\D/g, ''), record.phone);
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } catch (err) {

@@ -3,6 +3,7 @@
 // כדי שתג "הודעה חדשה" בתפריט הצד יתעדכן. קריאה בלי markRead (למשל בטעינת
 // הדף, לבדיקת התג בלבד) לא נוגעת בסטטוס הנקרא/לא-נקרא.
 const { getAdminStore } = require('./lib/blobs-store');
+const { requireActiveMember } = require('./lib/community');
 
 const THREADS_INDEX_KEY = 'gabai-threads-index.json';
 
@@ -21,6 +22,10 @@ exports.handler = async function (event, context) {
   const authedTz = authedUser && authedUser.app_metadata && String(authedUser.app_metadata.verified_tz || '').trim();
   if (!authedTz) {
     return { statusCode: 401, headers, body: JSON.stringify({ success: false, error: 'עליך להתחבר עם חשבון מאומת' }) };
+  }
+  const member = await requireActiveMember(event, context);
+  if (!member.ok) {
+    return { statusCode: member.statusCode, headers, body: JSON.stringify({ success: false, suspended: !!member.suspended, error: member.error }) };
   }
 
   try {

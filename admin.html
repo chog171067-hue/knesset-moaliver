@@ -100,6 +100,16 @@
         .history-table th, .history-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: center; }
         .history-table th { background-color: #ebf8ff; color: #2b6cb0; position: sticky; top: 0; }
         .badge-success { background-color: #c6f6d5; color: #22543d; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-warn { background-color: #feebc8; color: #7b341e; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-muted { background-color: #edf2f7; color: #4a5568; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .section-title { font-size: 17px; color: #1a365d; margin: 30px 0 10px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        .preview-box { background: #fffaf0; border: 1px solid #fbd38d; border-radius: 8px; padding: 15px 18px; margin-top: 15px; font-size: 14px; line-height: 1.7; }
+        .preview-box h4 { margin: 0 0 8px; color: #7b341e; }
+        .preview-box ul { margin: 4px 0 8px; padding-right: 20px; }
+        .community-filters { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
+        .community-filters select { padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        .block-btn { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; font-family: inherit; }
+        .block-btn.unblock { background: #f0fff4; color: #276749; border-color: #9ae6b4; }
         .badge-danger { background-color: #fed7d7; color: #742a2a; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .summary-info { background: #ebf8ff; padding: 10px; border-radius: 6px; font-size: 14px; color: #2b6cb0; margin-bottom: 10px; font-weight: bold; }
         .table-scroll { overflow-x: auto; }
@@ -246,6 +256,8 @@
 
         @media (max-width: 820px) {
             .personal-layout { flex-direction: column; }
+            .personal-content { width: 100%; }
+            .history-table .badge-success, .history-table .badge-danger, .history-table .badge-warn, .history-table .badge-muted { white-space: nowrap; }
             .personal-sidebar { width: 100%; position: static; max-height: none; overflow: visible; }
             .sidebar-nav { display: flex; flex-wrap: wrap; gap: 6px; }
             .sidebar-nav li { flex: 1 1 auto; }
@@ -367,28 +379,78 @@
 
             <!-- טאב 3: רשימת הזכאים -->
             <div class="panel" id="tab-eligible">
-                <h2>הוספת ת.ז לרשימת הזכאים</h2>
+                <h2>רשימת הזכאים לאזור האישי</h2>
                 <p class="panel-desc">
-                    הרשימה הראשית מנוהלת בגיליון הקהילה (לקריאה בלבד מהאתר). כאן ניתן להוסיף תעודות זהות נוספות
-                    שיהיו זכאיות לפתיחת חשבון באזור האישי, בנוסף לרשימה שבגיליון.
+                    זכאים לפתוח חשבון: כל מי שמופיע בקובץ התורמים האחרון שהועלה, ומי שנוסף ידנית למטה. ההרשמה מתאפשרת רק עם
+                    כתובת המייל הרשומה לתעודת הזהות. חסימה מונעת פתיחת חשבון, ומשהה חשבון קיים (בלי למחוק אותו).
                 </p>
 
+                <h3 class="section-title">העלאת קובץ תורמים מנדרים פלוס</h3>
+                <p class="panel-desc" style="margin-bottom:10px;">
+                    בנדרים פלוס: כרטיס "תורמים" ← ייצוא לאקסל. העלו כאן את הקובץ (xlsx או csv) כמו שהוא. הקובץ נקרא בדפדפן -
+                    לאתר נשמרים רק ת.ז, שם, מייל וטלפונים. כל העלאה מחליפה את הרשימה הקודמת. מי שמופיע בקובץ וחסום - החסימה שלו מתבטלת.
+                </p>
+                <div id="rosterInfo" class="summary-info" style="display:none;"></div>
+                <input type="file" id="rosterFile" accept=".xlsx,.xls,.csv" onchange="handleRosterFile(this)">
+                <div class="form-error" id="rosterError"></div>
+                <div class="success-box" id="rosterSuccess"></div>
+
+                <div class="preview-box" id="rosterPreview" style="display:none;">
+                    <h4>תצוגה מקדימה - עוד לא נשמר</h4>
+                    <div id="rosterPreviewContent"></div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button class="btn" id="rosterConfirmBtn" onclick="confirmRosterUpload()" style="width:auto; padding:10px 24px;">אישור ושמירת הרשימה</button>
+                        <button class="history-btn" onclick="cancelRosterUpload()" style="margin:0;">ביטול</button>
+                    </div>
+                </div>
+
+                <h3 class="section-title">כל הזכאים</h3>
+                <button class="history-btn" onclick="fetchCommunity()">🔄 רענון</button>
+                <div class="community-filters">
+                    <div class="field" style="flex:1; min-width:200px;">
+                        <label>חיפוש (שם / ת.ז / מייל)</label>
+                        <input type="text" id="communitySearch" oninput="renderCommunityTable()" placeholder="הקלד לסינון...">
+                    </div>
+                    <div class="field">
+                        <label>הצג</label>
+                        <select id="communityFilter" onchange="renderCommunityTable()">
+                            <option value="all">הכל</option>
+                            <option value="account">פתחו חשבון</option>
+                            <option value="noaccount">לא פתחו חשבון</option>
+                            <option value="blocked">חסומים / מושהים</option>
+                            <option value="noemail">ללא מייל (לא יוכלו להירשם)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="communitySummary" class="summary-info" style="display:none;"></div>
+                <div id="communityLoading" class="loading">טוען נתונים...</div>
+                <div id="communityError" class="form-error"></div>
+                <div id="communityTableWrap" class="table-scroll" style="display:none;">
+                    <table class="history-table">
+                        <thead><tr><th>ת.ז</th><th>שם מלא</th><th>מקור</th><th>חשבון</th><th>סטטוס</th><th></th></tr></thead>
+                        <tbody id="communityTableBody"></tbody>
+                    </table>
+                </div>
+
+                <h3 class="section-title">הוספה ידנית לרשימת הזכאים</h3>
+                <p class="panel-desc" style="margin-bottom:10px;">לחבר שעוד לא מופיע בקובץ מנדרים פלוס. נשאר ברשימה גם אחרי העלאת קובץ חדש, עד שתסירו אותו.</p>
                 <form id="eligibleForm" onsubmit="return false;">
                     <div class="form-grid">
                         <div class="field"><label>תעודת זהות *</label><input type="text" id="elTz" required pattern="[0-9]{4,9}"></div>
+                        <div class="field"><label>מייל * (ההרשמה רק איתו)</label><input type="email" id="elEmail" required></div>
+                        <div class="field"><label>שם</label><input type="text" id="elName"></div>
                         <div class="field"><label>טלפון (אופציונלי)</label><input type="text" id="elPhone"></div>
-                        <div class="field"><label>שם (אופציונלי, לזיהוי בלבד)</label><input type="text" id="elName"></div>
                     </div>
                     <button class="btn" id="elSubmitBtn" onclick="addEligibleTz()" style="width:auto; padding:12px 30px;">הוספה לרשימה</button>
                     <div class="form-error" id="elError"></div>
                     <div class="success-box" id="elSuccess"></div>
                 </form>
 
-                <h3 style="font-size:16px; color:#1a365d; margin-top:30px;">תעודות זהות שנוספו ידנית</h3>
+                <h4 style="font-size:15px; color:#1a365d; margin-top:25px;">נוספו ידנית</h4>
                 <div id="eligibleLoading" class="loading">טוען נתונים...</div>
                 <div id="eligibleTableWrap" class="table-scroll" style="display:none;">
                     <table class="history-table">
-                        <thead><tr><th>ת.ז</th><th>טלפון</th><th>שם</th><th>נוסף בתאריך</th><th>נוסף ע"י</th><th></th></tr></thead>
+                        <thead><tr><th>ת.ז</th><th>שם</th><th>מייל</th><th>טלפון</th><th>נוסף בתאריך</th><th>נוסף ע"י</th><th></th></tr></thead>
                         <tbody id="eligibleTableBody"></tbody>
                     </table>
                 </div>
@@ -636,7 +698,7 @@
     </div>
 </div>
 
-<script src="assets/auth-widget.js?v=2"></script>
+<script src="assets/auth-widget.js?v=3"></script>
 <script>
     const ADMIN_TZ = '207139759';
     let usersData = [];
@@ -682,7 +744,7 @@
         document.querySelector(`.nav-btn[data-tab="${tabId}"]`).classList.add('active');
 
         if (tabId === 'tab-email-requests' && !emailReqLoaded) fetchEmailRequests();
-        if (tabId === 'tab-eligible' && !eligibleLoaded) fetchEligibleList();
+        if (tabId === 'tab-eligible' && !eligibleLoaded) { fetchEligibleList(); fetchCommunity(); }
         if (tabId === 'tab-visits' && !visitsLoaded) fetchVisitStats();
         if (tabId === 'tab-library' && !libraryUsersLoaded) { libraryUsersLoaded = true; fetchLibraryUsers(); }
         if (tabId === 'tab-donation' && !donationLoaded) { donationLoaded = true; fetchDonationProfiles(); }
@@ -786,6 +848,9 @@
             <div class="card-row"><span class="card-label">שם מלא</span><span class="card-value">${escapeHtml(u.fullName) || '-'}</span></div>
             <div class="card-row"><span class="card-label">תעודת זהות</span><span class="card-value">${escapeHtml(u.verifiedTz) || '-'}</span></div>
             <div class="card-row"><span class="card-label">מייל</span><span class="card-value">${escapeHtml(u.email) || '-'}</span></div>
+            <div class="card-row"><span class="card-label">סטטוס חשבון</span><span class="card-value">${accountStatusText(u)}</span></div>
+            <div class="card-row"><span class="card-label">תאריך הרשמה</span><span class="card-value">${u.createdAt ? new Date(u.createdAt).toLocaleDateString('he-IL') : '-'}</span></div>
+            <div class="card-row"><span class="card-label">כניסה אחרונה</span><span class="card-value">${u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleString('he-IL') : '-'}</span></div>
             <div class="card-row"><span class="card-label">כתובת</span><span class="card-value">${escapeHtml(mc.street) || '-'}</span></div>
             <div class="card-row"><span class="card-label">עיר</span><span class="card-value">${escapeHtml(mc.city) || '-'}</span></div>
             <div class="card-row"><span class="card-label">טלפון</span><span class="card-value">${escapeHtml(mc.phone || u.verifiedPhone) || '-'}</span></div>
@@ -807,6 +872,14 @@
 
         document.getElementById('memberCardContent').innerHTML = html;
         document.getElementById('memberCardOverlay').classList.add('open');
+    }
+
+    // הסטטוס נלקח מרשימת הזכאים (טאב "רשימת הזכאים"), אם כבר נטענה
+    function accountStatusText(u) {
+        const row = communityData.find(r => r.account && r.account.id === u.id);
+        if (!row) return u.confirmedAt ? 'מייל מאומת' : 'מייל לא מאומת';
+        if (row.blocked) return row.blocked.reason === 'removed' ? 'מושהה - הוסר מקובץ התורמים' : 'חסום';
+        return 'פעיל';
     }
 
     function closeMemberCard() {
@@ -858,6 +931,286 @@
     }
 
     // --- טאב 3: רשימת הזכאים ---
+    let communityData = [];
+    let communityView = [];
+    let pendingRoster = null;
+
+    async function fetchCommunity() {
+        const loadingDiv = document.getElementById('communityLoading');
+        const errorDiv = document.getElementById('communityError');
+        const tableWrap = document.getElementById('communityTableWrap');
+
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        tableWrap.style.display = 'none';
+
+        try {
+            const result = await authedFetch('/.netlify/functions/admin-community', { method: 'GET' });
+            loadingDiv.style.display = 'none';
+            communityData = result.list;
+
+            const info = document.getElementById('rosterInfo');
+            info.style.display = 'block';
+            info.innerText = result.roster.uploadedAt
+                ? `קובץ אחרון: ${result.roster.fileName || 'ללא שם'} · הועלה ${new Date(result.roster.uploadedAt).toLocaleString('he-IL')} · ${result.roster.count} תורמים`
+                : 'עדיין לא הועלה קובץ תורמים. עד ההעלאה הראשונה, רק מי שנוסף ידנית יכול לפתוח חשבון.';
+
+            renderCommunityTable();
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    function communitySourceLabel(r) {
+        const parts = [];
+        if (r.inRoster) parts.push('קובץ');
+        if (r.inExtra) parts.push('ידני');
+        if (parts.length === 0 && r.account) parts.push('חשבון קודם');
+        return parts.join(' + ') || '-';
+    }
+
+    function communityStatusBadge(r) {
+        if (r.blocked) {
+            return r.blocked.reason === 'removed'
+                ? '<span class="badge-danger">מושהה - הוסר מהקובץ</span>'
+                : '<span class="badge-danger">חסום</span>';
+        }
+        if (!r.account && !r.email) return '<span class="badge-warn">חסר מייל</span>';
+        return '<span class="badge-success">פעיל</span>';
+    }
+
+    function renderCommunityTable() {
+        const search = document.getElementById('communitySearch').value.trim().toLowerCase();
+        const filter = document.getElementById('communityFilter').value;
+        const tbody = document.getElementById('communityTableBody');
+
+        communityView = communityData.filter(r => {
+            if (filter === 'account' && !r.account) return false;
+            if (filter === 'noaccount' && r.account) return false;
+            if (filter === 'blocked' && !r.blocked) return false;
+            if (filter === 'noemail' && (r.account || r.email)) return false;
+            if (!search) return true;
+            return (r.name || '').toLowerCase().includes(search) ||
+                (r.tz || '').includes(search) ||
+                (r.email || '').toLowerCase().includes(search) ||
+                ((r.account && r.account.email) || '').toLowerCase().includes(search);
+        });
+
+        const withAccount = communityData.filter(r => r.account).length;
+        const blockedCount = communityData.filter(r => r.blocked).length;
+        const summaryDiv = document.getElementById('communitySummary');
+        summaryDiv.style.display = 'block';
+        summaryDiv.innerText = `סה"כ ${communityData.length} · פתחו חשבון: ${withAccount} · חסומים/מושהים: ${blockedCount} · מוצגים: ${communityView.length}`;
+
+        if (communityView.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="color:#718096;">לא נמצאו רשומות תואמות.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = communityView.map((r, i) => {
+            const accountCell = r.account
+                ? `<span class="badge-success">פתח חשבון</span>`
+                : '<span class="badge-muted">לא פתח</span>';
+            const detailsBtn = r.account ? `<button class="view-card-btn" onclick="showCommunityAccount(${i})">🪪 פרטי חשבון</button> ` : '';
+            const blockBtn = r.tz === ADMIN_TZ ? '' : (r.blocked
+                ? `<button class="block-btn unblock" onclick="toggleCommunityBlock(${i})">ביטול חסימה</button>`
+                : `<button class="block-btn" onclick="toggleCommunityBlock(${i})">חסימה</button>`);
+            return `
+                <tr>
+                    <td>${escapeHtml(r.tz)}</td>
+                    <td>${escapeHtml(r.name) || '-'}</td>
+                    <td>${communitySourceLabel(r)}</td>
+                    <td>${accountCell}</td>
+                    <td>${communityStatusBadge(r)}</td>
+                    <td style="white-space:nowrap;">${detailsBtn}${blockBtn}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function showCommunityAccount(i) {
+        const r = communityView[i];
+        if (!r || !r.account) return;
+        if (!usersData.some(u => u.id === r.account.id)) await fetchUsers();
+        showMemberCard(r.account.id);
+    }
+
+    async function toggleCommunityBlock(i) {
+        const r = communityView[i];
+        if (!r) return;
+        const label = `${r.name || ''} (ת.ז ${r.tz})`.trim();
+        let question;
+        if (r.blocked) {
+            question = r.account
+                ? `לבטל את החסימה של ${label}? החשבון שלו יחזור לפעול.`
+                : `לבטל את החסימה של ${label}? אם הוא ברשימת הזכאים - יוכל לפתוח חשבון.`;
+        } else {
+            question = r.account
+                ? `לחסום את ${label}? החשבון שלו יושהה (לא יימחק) עד לביטול החסימה או עד שיופיע בקובץ תורמים חדש.`
+                : `לחסום את ${label}? הוא לא יוכל לפתוח חשבון עד לביטול החסימה או עד שיופיע בקובץ תורמים חדש.`;
+        }
+        if (!confirm(question)) return;
+
+        try {
+            await authedFetch('/.netlify/functions/admin-community', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: r.blocked ? 'unblock' : 'block', tz: r.tz, name: r.name })
+            });
+            fetchCommunity();
+        } catch (err) {
+            alert('שגיאה: ' + err.message);
+        }
+    }
+
+    // --- קריאת קובץ התורמים בדפדפן (SheetJS נטען רק כשצריך) ---
+    function loadXlsxLib() {
+        if (window.XLSX) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            sc.onload = resolve;
+            sc.onerror = () => reject(new Error('טעינת רכיב קריאת האקסל נכשלה - בדקו את חיבור האינטרנט ונסו שוב'));
+            document.head.appendChild(sc);
+        });
+    }
+
+    function fixPhone(value) {
+        const digits = String(value || '').replace(/\D/g, '');
+        // אקסל משמיט את ה-0 המוביל מעמודה מספרית (501234567 -> 0501234567)
+        return digits && digits[0] !== '0' && digits.length <= 9 ? '0' + digits : digits;
+    }
+
+    async function parseRosterFile(file) {
+        await loadXlsxLib();
+        const buffer = await file.arrayBuffer();
+        let workbook;
+        if (/\.csv$/i.test(file.name)) {
+            // ייצוא CSV ממערכות ישראליות מגיע לעיתים ב-windows-1255 ולא ב-UTF-8
+            let text = new TextDecoder('utf-8').decode(buffer);
+            if (text.includes('�')) text = new TextDecoder('windows-1255').decode(buffer);
+            workbook = XLSX.read(text.replace(/^﻿/, ''), { type: 'string', raw: true });
+        } else {
+            workbook = XLSX.read(buffer, { type: 'array' });
+        }
+
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const table = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' })
+            .map(row => row.map(c => String(c == null ? '' : c).trim()));
+
+        const headerIdx = table.slice(0, 10).findIndex(row => row.some(c => /זהות|^ת\.?\s*ז\.?$/.test(c)));
+        if (headerIdx === -1) {
+            throw new Error('לא נמצאה בקובץ עמודת "מספר זהות". ודאו שזה קובץ הייצוא של כרטיס "תורמים" מנדרים פלוס.');
+        }
+        const header = table[headerIdx];
+        const col = re => header.findIndex(h => re.test(h));
+        const tzCol = col(/זהות|^ת\.?\s*ז\.?$/);
+        const firstCol = col(/שם פרטי/);
+        const lastCol = col(/שם משפחה/);
+        const emailCol = col(/אימייל|מייל|e-?mail/i);
+        const phoneCols = header.map((h, i) => /טלפון|נייד|phone/i.test(h) ? i : -1).filter(i => i !== -1);
+
+        if (emailCol === -1) {
+            throw new Error('לא נמצאה בקובץ עמודת "אימייל" - היא נדרשת לאימות בהרשמה.');
+        }
+
+        return table.slice(headerIdx + 1)
+            .filter(row => String(row[tzCol] || '').replace(/\D/g, ''))
+            .map(row => ({
+                tz: String(row[tzCol]).replace(/\D/g, ''),
+                firstName: firstCol === -1 ? '' : row[firstCol],
+                lastName: lastCol === -1 ? '' : row[lastCol],
+                email: row[emailCol],
+                phones: phoneCols.map(i => fixPhone(row[i])).filter(Boolean)
+            }));
+    }
+
+    async function handleRosterFile(input) {
+        const file = input.files && input.files[0];
+        const errorDiv = document.getElementById('rosterError');
+        const successDiv = document.getElementById('rosterSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        document.getElementById('rosterPreview').style.display = 'none';
+        pendingRoster = null;
+        if (!file) return;
+
+        try {
+            const rows = await parseRosterFile(file);
+            if (rows.length === 0) throw new Error('לא נמצאו בקובץ שורות עם מספר זהות.');
+
+            const result = await authedFetch('/.netlify/functions/admin-community', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'upload', dryRun: true, rows, fileName: file.name })
+            });
+            pendingRoster = { rows, fileName: file.name };
+            renderRosterPreview(result.summary);
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+            input.value = '';
+        }
+    }
+
+    function renderRosterPreview(sm) {
+        const people = list => '<ul>' + list.map(p => `<li>${escapeHtml(p.name) || '-'} (ת.ז ${escapeHtml(p.tz)})</li>`).join('') + '</ul>';
+        let html = `<div><b>${sm.total}</b> תורמים בקובץ.</div>`;
+        if (sm.withoutEmail) html += `<div>⚠️ ${sm.withoutEmail} ללא מייל תקין - לא יוכלו לפתוח חשבון עד שיעודכן להם מייל.</div>`;
+        if (sm.invalid) html += `<div>${sm.invalid} שורות עם ת.ז לא תקינה ידולגו.</div>`;
+        if (sm.duplicates) html += `<div>${sm.duplicates} שורות כפולות (אותה ת.ז) ידולגו.</div>`;
+
+        if (sm.isFirstUpload) {
+            html += '<div>זו ההעלאה הראשונה. חשבונות קיימים שאינם בקובץ <b>לא</b> יושהו (תוכלו לחסום אותם ידנית ברשימה).</div>';
+        } else {
+            html += `<div>נוספו: <b>${sm.added}</b> · הוסרו: <b>${sm.removed}</b></div>`;
+            if (sm.removed > 0 && sm.removed >= sm.total * 0.3) {
+                html += '<div style="color:#c53030; font-weight:bold;">⚠️ חלק גדול מהרשימה הוסר - ודאו שזה הקובץ הנכון והמלא.</div>';
+            }
+        }
+        if (sm.toSuspend.length) html += `<div style="margin-top:6px;"><b>החשבונות של ${sm.toSuspend.length} יושהו</b> (הוסרו מהקובץ):</div>` + people(sm.toSuspend);
+        if (sm.toUnblock.length) html += `<div style="margin-top:6px;"><b>החסימה של ${sm.toUnblock.length} תבוטל</b> (מופיעים בקובץ):</div>` + people(sm.toUnblock);
+
+        document.getElementById('rosterPreviewContent').innerHTML = html;
+        document.getElementById('rosterPreview').style.display = 'block';
+    }
+
+    async function confirmRosterUpload() {
+        if (!pendingRoster) return;
+        const btn = document.getElementById('rosterConfirmBtn');
+        const errorDiv = document.getElementById('rosterError');
+        const successDiv = document.getElementById('rosterSuccess');
+        btn.disabled = true;
+        btn.innerText = 'שומר...';
+        try {
+            const result = await authedFetch('/.netlify/functions/admin-community', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'upload', dryRun: false, rows: pendingRoster.rows, fileName: pendingRoster.fileName })
+            });
+            successDiv.innerText = `✅ רשימת התורמים עודכנה (${result.summary.total} תורמים).`;
+            successDiv.style.display = 'block';
+            cancelRosterUpload();
+            fetchCommunity();
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'אישור ושמירת הרשימה';
+        }
+    }
+
+    function cancelRosterUpload() {
+        pendingRoster = null;
+        document.getElementById('rosterPreview').style.display = 'none';
+        document.getElementById('rosterFile').value = '';
+    }
+
+    // --- הוספה ידנית לרשימת הזכאים ---
     async function fetchEligibleList() {
         const loadingDiv = document.getElementById('eligibleLoading');
         const tableWrap = document.getElementById('eligibleTableWrap');
@@ -873,21 +1226,23 @@
 
             tbody.innerHTML = '';
             if (result.list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="color:#718096;">לא נוספו תעודות זהות באופן ידני עדיין.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="color:#718096;">לא נוספו תעודות זהות באופן ידני עדיין.</td></tr>';
             } else {
-                result.list.forEach(r => {
+                tbody.innerHTML = result.list.map(r => {
                     const added = r.addedAt ? new Date(r.addedAt).toLocaleDateString('he-IL') : '-';
-                    tbody.innerHTML += `
+                    const email = r.email ? escapeHtml(r.email) : '<span class="badge-warn">חסר - לא יוכל להירשם</span>';
+                    return `
                         <tr>
-                            <td>${r.tz}</td>
-                            <td>${r.phone || '-'}</td>
-                            <td>${r.name || '-'}</td>
+                            <td>${escapeHtml(r.tz)}</td>
+                            <td>${escapeHtml(r.name) || '-'}</td>
+                            <td>${email}</td>
+                            <td>${escapeHtml(r.phone) || '-'}</td>
                             <td>${added}</td>
-                            <td>${r.addedBy || '-'}</td>
-                            <td><button class="remove-btn" onclick="removeEligibleTz('${r.tz}')">הסרה</button></td>
+                            <td>${escapeHtml(r.addedBy) || '-'}</td>
+                            <td><button class="remove-btn" onclick="removeEligibleTz('${escapeHtml(r.tz)}')">הסרה</button></td>
                         </tr>
                     `;
-                });
+                }).join('');
             }
             tableWrap.style.display = 'block';
         } catch (err) {
@@ -903,11 +1258,17 @@
         successDiv.style.display = 'none';
 
         const tz = document.getElementById('elTz').value.trim();
+        const email = document.getElementById('elEmail').value.trim();
         const phone = document.getElementById('elPhone').value.trim();
         const name = document.getElementById('elName').value.trim();
 
         if (!/^[0-9]{4,9}$/.test(tz)) {
             errorDiv.innerText = 'יש להזין מספר תעודת זהות תקין';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errorDiv.innerText = 'יש להזין כתובת מייל תקינה - ההרשמה מתאפשרת רק איתה';
             errorDiv.style.display = 'block';
             return;
         }
@@ -920,13 +1281,14 @@
             await authedFetch('/.netlify/functions/admin-eligible-list', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tz, phone, name })
+                body: JSON.stringify({ tz, email, phone, name })
             });
             successDiv.innerText = '✅ תעודת הזהות נוספה בהצלחה לרשימת הזכאים.';
             successDiv.style.display = 'block';
             document.getElementById('eligibleForm').reset();
             eligibleLoaded = false;
             fetchEligibleList();
+            fetchCommunity();
         } catch (err) {
             errorDiv.innerText = err.message;
             errorDiv.style.display = 'block';
@@ -937,7 +1299,7 @@
     }
 
     async function removeEligibleTz(tz) {
-        if (!confirm(`להסיר את ת.ז ${tz} מרשימת הזכאים?`)) return;
+        if (!confirm(`להסיר את ת.ז ${tz} מהרשימה הידנית?`)) return;
         try {
             await authedFetch('/.netlify/functions/admin-eligible-list', {
                 method: 'DELETE',
@@ -946,6 +1308,7 @@
             });
             eligibleLoaded = false;
             fetchEligibleList();
+            fetchCommunity();
         } catch (err) {
             alert('שגיאה בהסרה: ' + err.message);
         }

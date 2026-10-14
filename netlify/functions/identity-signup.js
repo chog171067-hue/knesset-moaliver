@@ -1,4 +1,4 @@
-const { getCommunityRecord } = require('./lib/community');
+const { getCommunityRecord, isTzBlocked, normalizeEmail } = require('./lib/community');
 const { findUserByBoundTz } = require('./lib/identity-admin');
 
 // פונקציית הטריגר הזו רצה בשרת בכל הרשמה חדשה (Netlify Identity Event Function).
@@ -41,12 +41,30 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    if (await isTzBlocked(claimedTz, event)) {
+      console.warn(`[identity-signup] הרשמה נדחתה - ת"ז ${claimedTz} חסומה (${user.email})`);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'פתיחת חשבון עבור תעודת זהות זו חסומה. לפרטים יש לפנות לגבאי.' })
+      };
+    }
+
     const record = await getCommunityRecord(claimedTz, event);
     if (!record) {
       console.warn(`[identity-signup] הרשמה נדחתה - ת"ז ${claimedTz} אינה ברשימת הזכאים (${user.email})`);
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'תעודת הזהות אינה מופיעה ברשימת חברי הקהילה המאושרים' })
+      };
+    }
+
+    // אימות בעלות: חובה להירשם עם המייל שרשום לת"ז ברשימה. נטליפיי שולחת אליו מייל
+    // אימות, כך שרק מי שמחזיק בתיבת המייל של החבר יכול להשלים את פתיחת החשבון.
+    if (!record.email || normalizeEmail(user.email) !== record.email) {
+      console.warn(`[identity-signup] הרשמה נדחתה - המייל ${user.email} אינו המייל הרשום לת"ז ${claimedTz}`);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'יש להירשם עם כתובת המייל הרשומה אצל הגבאים עבור תעודת זהות זו' })
       };
     }
 
@@ -66,7 +84,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         app_metadata: {
           roles: ['user'],
-          verified_tz: record.tz,
+          verified_tz: String(claimedTz).replace(/\D/g, ''),
           verified_phone: record.phone || null
         },
         // חשוב: יש לכלול גם את ה-user_metadata המקורי (כולל השם שהוזן בהרשמה) -

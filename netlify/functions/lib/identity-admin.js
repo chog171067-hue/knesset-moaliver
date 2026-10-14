@@ -2,6 +2,10 @@
 // identity.token שנטליפיי מספקת אוטומטית בכל Function (context.clientContext.identity),
 // ולא ב-api.netlify.com + טוקן אישי + SITE_ID (התברר כלא אמין - 404 חוזר).
 
+function tzKey(tz) {
+  return String(tz == null ? '' : tz).replace(/\D/g, '').replace(/^0+/, '');
+}
+
 function assertIdentity(identity) {
   if (!identity || !identity.url || !identity.token) {
     throw new Error('אין גישה ל-Identity API - ודא ש-Identity מופעל באתר');
@@ -33,11 +37,13 @@ async function listAllUsers(identity) {
   return allUsers;
 }
 
-// מחפש האם קיים כבר משתמש עם ת"ז מאומתת ומקושרת (ב-app_metadata - השדה המוגן מפני עריכת לקוח)
+// מחפש האם קיים כבר משתמש עם ת"ז מאומתת ומקושרת (ב-app_metadata - השדה המוגן מפני עריכת לקוח).
+// ההשוואה מתעלמת מאפסים מובילים, כדי ש-012345678 ו-12345678 לא יוכלו לפתוח שני חשבונות.
 async function findUserByBoundTz(identity, tz) {
   const users = await listAllUsers(identity);
-  const cleanTz = String(tz).trim();
-  return users.find(u => u.app_metadata && String(u.app_metadata.verified_tz) === cleanTz) || null;
+  const key = tzKey(tz);
+  if (!key) return null;
+  return users.find(u => u.app_metadata && tzKey(u.app_metadata.verified_tz) === key) || null;
 }
 
 // מעדכן את ה-app_metadata של משתמש ספציפי - הדרך היחידה שצריכה לשמש לקישור ת"ז לחשבון

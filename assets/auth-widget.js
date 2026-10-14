@@ -2,7 +2,7 @@
  * auth-widget.js - רכיב הזדהות משותף לבית הכנסת המרכזי מוהליבר
  *
  * מטרתו: להוסיף כפתור "כניסה / הרשמה" (או "שלום, X" כשמחוברים) בפינה השמאלית
- * העליונה של כל דף באתר, ולנהל את כל תהליך ההזדהות (בדיקת ת"ז מול הגיליון,
+ * העליונה של כל דף באתר, ולנהל את כל תהליך ההזדהות (בדיקת ת"ז מול רשימת הזכאים,
  * הרשמה/התחברות, שכחתי סיסמה, הגדרות חשבון, ניתוק לפי חוסר פעילות)
  * כחלון קופץ - בלי לעזוב את הדף הנוכחי.
  *
@@ -21,6 +21,7 @@
 
     // ===== מצב פנימי =====
     let verifiedTz = null;
+    let signupEmailHint = ''; // רמז מוסתר למייל הרשום לת"ז (למשל yo***@gmail.com), מ-verify-tz
     let currentMode = null; // 'login' | 'signup'
     let initHandled = false;
     let confirmationHandled = false;
@@ -300,8 +301,15 @@
             loadingDiv.style.display = 'none';
 
             if (!result.allowed) {
+                if (result.blocked) {
+                    throw new Error('הגישה לאזור האישי עבור תעודת זהות זו מושהית.<br>לפרטים יש לפנות לגבאי במייל התמיכה.');
+                }
+                if (result.noEmail) {
+                    throw new Error('נמצאת ברשימת חברי הקהילה, אך לא רשומה אצלנו כתובת מייל עבורך - והיא נדרשת לפתיחת החשבון.<br>אנא שלחו את כתובת המייל שלכם למייל התמיכה, ונעדכן אותה.');
+                }
                 throw new Error('תעודת הזהות שהזנת אינה מופיעה ברשימת חברי הקהילה המאושרים.<br>במידה והינך חבר קהילה בעל הוראת קבע פעילה ואינך מצליח להתחבר, שלחו הודעה מפורטת למייל התמיכה.');
             }
+            signupEmailHint = result.emailHint || '';
 
             verifiedTz = tz;
             localStorage.setItem('pending_verified_tz', tz);
@@ -326,7 +334,9 @@
                 $('mawSuccessMessage').textContent = '✓ נמצאת זכאי ברשימת חברי הקהילה!';
                 $('mawSuccessMessage').style.display = 'block';
                 $('mawAuthTitle').textContent = 'פתיחת חשבון חדש';
-                $('mawAuthSubtitle').textContent = 'בחר מייל וסיסמה לחשבון החדש שלך.';
+                $('mawAuthSubtitle').textContent = signupEmailHint
+                    ? `יש להירשם עם כתובת המייל הרשומה אצלנו עבורך (${signupEmailHint}), ולבחור סיסמה.`
+                    : 'יש להירשם עם כתובת המייל הרשומה אצלנו עבורך, ולבחור סיסמה.';
                 $('mawAuthSubmitBtn').textContent = 'הרשם';
                 $('mawFullNameGroup').style.display = 'block';
                 $('mawAuthFullName').required = true;
@@ -374,6 +384,11 @@
                 errorDiv.innerHTML = 'חשבונך טרם אושר. אנא בדוק את תיבת המייל שלך (כולל ספאם) ואשר את הקישור.';
             } else if (currentMode === 'signup' && (msg.includes('already exists') || msg.includes('registered'))) {
                 errorDiv.innerHTML = 'כבר קיים חשבון תחת אימייל זה. אם זה החשבון שלך - אנא בצע שוב את בדיקת תעודת הזהות כדי לעבור למסך ההתחברות.';
+            } else if (currentMode === 'signup' && (msg.includes('webhook') || msg.includes('מייל') || msg.includes('422') || msg.includes('400'))) {
+                // identity-signup.js דחה את ההרשמה - כמעט תמיד בגלל מייל שאינו המייל הרשום
+                errorDiv.innerHTML = 'ההרשמה נדחתה. יש להירשם עם כתובת המייל הרשומה אצלנו עבורך'
+                    + (signupEmailHint ? ` (${signupEmailHint})` : '')
+                    + '.<br>אם כתובת זו אינה נכונה או שאין לך גישה אליה, אנא פנו למייל התמיכה.';
             } else if (currentMode === 'signup') {
                 errorDiv.innerHTML = err.message;
             } else {
