@@ -47,6 +47,7 @@
         '        </ul>' +
         '      </li>' +
         '      <li class="nav-item' + (isNews ? ' active' : '') + '"><a href="news.html">מהנעשה ונשמע</a></li>' +
+        '      <li class="nav-item"><a href="#" onclick="openContactModal(event)">צור קשר</a></li>' +
         '      <li class="nav-item' + (isPersonal ? ' active' : '') + '"><a href="personal.html">אזור אישי</a></li>' +
         '    </ul>' +
         '    <div class="nav-side-controls">' +
@@ -78,6 +79,92 @@
     window.addEventListener('resize', updateHeaderOffset);
     var logoImg = document.querySelector('.nav-logo');
     if (logoImg) logoImg.addEventListener('load', updateHeaderOffset);
+
+    // חלון "צור קשר" - שליחת הודעה לגבאים במייל (netlify/functions/contact-message.js)
+    var contactHtml =
+        '<div class="contact-overlay" id="contactModal" onclick="if (event.target === this) closeContactModal()">' +
+        '  <div class="contact-box" role="dialog" aria-modal="true" aria-labelledby="contactTitle">' +
+        '    <button type="button" class="contact-close" onclick="closeContactModal()" aria-label="סגירה">&times;</button>' +
+        '    <h3 id="contactTitle">שליחת הודעה לגבאים</h3>' +
+        '    <form id="contactForm" onsubmit="sendContactMessage(event)" novalidate>' +
+        '      <label>שם <span class="contact-req">*</span><input type="text" id="contactName" maxlength="100" required></label>' +
+        '      <label>טלפון<input type="tel" id="contactPhone" maxlength="30" dir="ltr"></label>' +
+        '      <label>מייל <span class="contact-req">*</span><input type="email" id="contactEmail" maxlength="200" dir="ltr" required></label>' +
+        '      <label>הודעה <span class="contact-req">*</span><textarea id="contactMessage" rows="5" maxlength="3000" required></textarea></label>' +
+        '      <input type="text" id="contactWebsite" class="contact-hp" tabindex="-1" autocomplete="off" aria-hidden="true">' +
+        '      <button type="submit" id="contactSubmit" class="contact-submit">שליחה</button>' +
+        '    </form>' +
+        '    <div id="contactResult" class="contact-result"></div>' +
+        '  </div>' +
+        '</div>';
+    document.body.insertAdjacentHTML('beforeend', contactHtml);
+
+    var contactCloseTimer = null;
+
+    function showContactResult(text, ok) {
+        var el = document.getElementById('contactResult');
+        el.className = 'contact-result ' + (ok ? 'ok' : 'err');
+        el.textContent = text;
+    }
+
+    window.openContactModal = function (event) {
+        if (event) event.preventDefault();
+        clearTimeout(contactCloseTimer);
+        document.getElementById('contactResult').className = 'contact-result';
+        document.getElementById('contactModal').classList.add('open');
+        document.getElementById('contactName').focus();
+    };
+
+    window.closeContactModal = function () {
+        clearTimeout(contactCloseTimer);
+        document.getElementById('contactModal').classList.remove('open');
+    };
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            var modal = document.getElementById('contactModal');
+            if (modal && modal.classList.contains('open')) window.closeContactModal();
+        }
+    });
+
+    window.sendContactMessage = async function (event) {
+        event.preventDefault();
+        var name = document.getElementById('contactName').value.trim();
+        var phone = document.getElementById('contactPhone').value.trim();
+        var email = document.getElementById('contactEmail').value.trim();
+        var message = document.getElementById('contactMessage').value.trim();
+        var website = document.getElementById('contactWebsite').value;
+
+        if (!name) return showContactResult('יש להזין שם', false);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showContactResult('יש להזין כתובת מייל תקינה', false);
+        if (!message) return showContactResult('יש להזין את תוכן ההודעה', false);
+
+        var btn = document.getElementById('contactSubmit');
+        btn.disabled = true;
+        btn.textContent = 'שולח...';
+        document.getElementById('contactResult').className = 'contact-result';
+
+        try {
+            var res = await fetch('/.netlify/functions/contact-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, phone: phone, email: email, message: message, website: website })
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (res.ok && data.success) {
+                showContactResult('ההודעה נשלחה בהצלחה', true);
+                document.getElementById('contactForm').reset();
+                contactCloseTimer = setTimeout(window.closeContactModal, 2000);
+            } else {
+                showContactResult(data.error || 'שליחת ההודעה נכשלה, נסו שוב מאוחר יותר', false);
+            }
+        } catch (e) {
+            showContactResult('אירעה שגיאת תקשורת, נסו שוב', false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'שליחה';
+        }
+    };
 
     // פונקציות גלובליות עבור כפתורי ההמבורגר והדרופדאון שבתוך ה-HTML שהוזרק
     function closeMenu() {
