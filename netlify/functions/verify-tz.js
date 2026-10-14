@@ -25,7 +25,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // בדיקת זכאות אמיתית מול הגיליון - זה החלק שהיה חסר לגמרי בגרסה הקודמת
+    // בדיקת זכאות אמיתית מול רשימת התורמים בנדרים פלוס (ראו lib/community.js)
     const record = await getCommunityRecord(tz, event);
     if (!record) {
       return {
