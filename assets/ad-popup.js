@@ -9,13 +9,13 @@
 
 (function () {
     var AD_CONFIG = {
-        enabled: false,     // true = הפרסומת קופצת בכניסה לאתר; false = מבוטלת
+        enabled: true,      // true = הפרסומת קופצת בכניסה לאתר; false = מבוטלת
         // שמות הקבצים שנבדקים לפי הסדר - הראשון שקיים הוא שיוצג
         images: ['assets/images/ad.png', 'assets/images/ad.jpg', 'assets/images/ad.jpeg', 'assets/images/ad.webp'],
-        alt: 'פרסומת',
+        alt: 'שימו לב לזמני התפילות - שעון חורף',
         link: '',             // קישור בלחיצה על הפרסומת (ריק = ללא קישור)
         countdownSeconds: 3,  // כמה שניות עד שאפשר לסגור
-        oncePerVisit: true    // true = מוצג פעם אחת בכל ביקור (ולא שוב בכל מעבר בין דפים)
+        oncePerVisit: false   // true = מוצג פעם אחת בכל ביקור; false = בכל כניסה לכל דף
     };
 
     if (!AD_CONFIG.enabled) return;
