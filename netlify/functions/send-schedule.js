@@ -1,6 +1,10 @@
 const { getAdminStore } = require('./lib/blobs-store');
 // אותו מפענח שהדף בדפדפן משתמש בו, כדי שהמייל והאתר יציגו בדיוק אותם זמנים
 const { parsePrayerSections } = require('../../assets/prayer-sections.js');
+// חישוב זמני התפילות האוטומטי - אותו מודול שדפי התפילה משתמשים בו
+const PrayerSchedule = require('../../assets/prayer-schedule.js');
+const zmanim = require('../../assets/zmanim.json');
+const { readPrayerConfig } = require('./lib/prayer-config-store');
 
 // תצורת כל דפי התפילה: לכל דף - התוויות והקישורים (CSV) של הטבלאות שבו.
 // חשוב: מפתחות האובייקט (shabbat, yemothachol) חייבים להיות
@@ -231,9 +235,40 @@ async function fetchPrayerSectionsAsHtml(url, exclude) {
 
 // בונה קטע HTML שלם עבור דף תפילה מסוים (כותרת ראשית + כל הטבלאות שלו),
 // ומחזיר מחרוזת ריקה אם לא נמצא אף שורת נתונים אמיתית באף אחת מהטבלאות שלו.
-async function buildPageSection(pageId) {
+// טבלאות של דף שזמניו מחושבים אוטומטית (לפי הגדרות "הגדרת תפילות" בדף הניהול),
+// לשבוע שמוצג כעת בדף עצמו
+function buildScheduleTablesHtml(prayerConfig, pageId) {
+    const weekStart = PrayerSchedule.weekStartFor(PrayerSchedule.todayInIsrael(), pageId);
+    const week = PrayerSchedule.computeWeek(prayerConfig, zmanim, pageId, weekStart);
+    return week.tables.filter(t => t.rows.length > 0).map(t => {
+        const rowsHtml = t.rows.map(r =>
+            `<tr><td style="padding:5px; border-bottom:1px solid #eee; font-weight:bold; color:#000080;">${escapeHtml(r.time)}</td><td style="padding:5px; border-bottom:1px solid #eee;">${escapeHtml(r.place)}</td></tr>`).join('');
+        return `
+            <div style="margin-bottom: 15px; background: white; padding: 12px; border: 1px solid #000080; border-radius: 8px;">
+                <h3 style="color: #800020; margin-top:0; margin-bottom:8px; border-bottom: 2px solid #000080; padding-bottom: 3px; font-size:15px;">${escapeHtml(t.title)}</h3>
+                <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;" dir="rtl">
+                    <thead><tr style="color:#000080;"><th style="padding:4px; border-bottom:1px solid #ddd;">שעה</th><th style="padding:4px; border-bottom:1px solid #ddd;">מיקום</th></tr></thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+}
+
+async function buildPageSection(pageId, prayerConfig) {
     const config = PAGE_CONFIG[pageId];
     if (!config) return '';
+
+    if (prayerConfig && prayerConfig.enabled[pageId]) {
+        const scheduleHtml = buildScheduleTablesHtml(prayerConfig, pageId);
+        if (!scheduleHtml) return '';
+        return `
+        <div style="margin-bottom: 20px;">
+            <h2 style="color:#000080; text-align:center; border-bottom:2px solid #800020; padding-bottom:6px; font-size:17px; margin-bottom:10px;">${config.label}</h2>
+            ${scheduleHtml}
+        </div>
+    `;
+    }
 
     const tableTasks = (config.tables || []).map(t => fetchTableAsHtml(t.url, t.title));
     const singleColTasks = (config.singleColumnTables || []).map(t => fetchSingleColumnTableAsHtml(t.url, t.title));
@@ -302,7 +337,12 @@ exports.handler = async (event, context) => {
 
         const apiKey = process.env.SENDGRID_API_KEY;
 
-        const sections = await Promise.all(validPageIds.map(buildPageSection));
+        // אם ההגדרות לא נטענו - נופלים לגיליונות גוגל כמו קודם, כדי לא לחסום את המייל
+        const prayerConfig = await readPrayerConfig(event).catch(e => {
+            console.warn('[send-schedule] כשל בטעינת הגדרות התפילות:', e.message);
+            return null;
+        });
+        const sections = await Promise.all(validPageIds.map(p => buildPageSection(p, prayerConfig)));
         const tablesHtml = sections.filter(s => s !== '').join('');
 
         if (!tablesHtml) {
@@ -312,7 +352,7 @@ exports.handler = async (event, context) => {
         const emailHtml = `
             <div style="direction: rtl; text-align: right; font-family: 'Segoe UI', sans-serif; padding: 15px; background-color: #f5f5dc; color: #333;">
                 <h2 style="color: #800020; text-align:center; margin-top:5px; margin-bottom:15px; font-size:20px;">זמני התפילות - בית הכנסת מוהליבר</h2>
-                <p style="margin-bottom:15px; font-size:14px;">שלום וברכה,<br>להלן לוח זמני התפילות כפי שמעודכן כעת בגיליון בית הכנסת:</p>
+                <p style="margin-bottom:15px; font-size:14px;">שלום וברכה,<br>להלן לוח זמני התפילות כפי שמעודכן כעת באתר בית הכנסת:</p>
 
                 <div style="max-width: 500px; margin: 0 auto;">
                     ${tablesHtml}
