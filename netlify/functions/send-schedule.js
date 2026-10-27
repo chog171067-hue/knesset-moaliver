@@ -236,9 +236,9 @@ async function fetchPrayerSectionsAsHtml(url, exclude) {
 // בונה קטע HTML שלם עבור דף תפילה מסוים (כותרת ראשית + כל הטבלאות שלו),
 // ומחזיר מחרוזת ריקה אם לא נמצא אף שורת נתונים אמיתית באף אחת מהטבלאות שלו.
 // טבלאות של דף שזמניו מחושבים אוטומטית (לפי הגדרות "הגדרת תפילות" בדף הניהול),
-// לשבוע שמוצג כעת בדף עצמו
+// לשבוע שמוצג כעת בדף עצמו (מתחלף בצאת השבת)
 function buildScheduleTablesHtml(prayerConfig, pageId) {
-    const weekStart = PrayerSchedule.weekStartFor(PrayerSchedule.todayInIsrael(), pageId);
+    const weekStart = PrayerSchedule.currentWeekStart(zmanim);
     const week = PrayerSchedule.computeWeek(prayerConfig, zmanim, pageId, weekStart);
     return week.tables.filter(t => t.rows.length > 0).map(t => {
         const rowsHtml = t.rows.map(r =>

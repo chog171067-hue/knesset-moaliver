@@ -103,12 +103,44 @@
         return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
     }
 
-    // יום ראשון של השבוע שמוצג בדף בתאריך נתון. בשבת דף ימות החול כבר מציג את השבוע הבא,
-    // ודף השבתות מציג את השבת הקרובה (עד מוצאי שבת, ובראשון עובר לשבת הבאה)
-    function weekStartFor(iso, pageId) {
-        var dow = dayOfWeek(iso);
-        if (pageId === 'yemothachol' && dow === 6) return addDays(iso, 1);
-        return addDays(iso, -dow);
+    // התאריך והשעה (בדקות מחצות) כרגע לפי שעון ישראל
+    function nowInIsrael() {
+        var parts = {};
+        new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+        }).formatToParts(new Date()).forEach(function (p) { parts[p.type] = p.value; });
+        return { date: parts.year + '-' + parts.month + '-' + parts.day, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+    }
+
+    // הרגע שבו מתחלפים הזמנים לשבוע שאחרי weekStart: צאת השבת - ואם השבת נמשכת ליום טוב
+    // (למשל ראש השנה בשבת וראשון), צאת היום הטוב האחרון ברצף. בלוח צאת השבת מופיע לכל שבת
+    // ויום טוב. אם הוא חסר (מחוץ לטווח הלוח) - ההחלפה בחצות של מוצאי שבת
+    function switchMoment(zmanim, weekStart) {
+        var day = addDays(weekStart, 6);
+        while (zmanOf(zmanim, addDays(day, 1), 'tzeit') !== null) day = addDays(day, 1);
+        var tzeit = zmanOf(zmanim, day, 'tzeit');
+        return tzeit === null ? { date: addDays(day, 1), minutes: 0 } : { date: day, minutes: tzeit };
+    }
+
+    function isBefore(a, b) {
+        return a.date < b.date || (a.date === b.date && a.minutes < b.minutes);
+    }
+
+    // יום ראשון של השבוע שמוצג כעת - זהה בדף ימות החול ובדף השבתות: השבוע מתחלף בצאת
+    // השבת (או החג שאחריה), ואז ימות החול עוברים לשבוע החדש והשבתות לשבת הבאה.
+    // now ברירת מחדל: עכשיו לפי שעון ישראל
+    function currentWeekStart(zmanim, now) {
+        now = now || nowInIsrael();
+        var weekStart = addDays(now.date, -dayOfWeek(now.date));
+        var previous = addDays(weekStart, -7);
+        if (isBefore(now, switchMoment(zmanim, previous))) return previous;
+        if (!isBefore(now, switchMoment(zmanim, weekStart))) return addDays(weekStart, 7);
+        return weekStart;
+    }
+
+    function weekStartOf(iso) {
+        return addDays(iso, -dayOfWeek(iso));
     }
 
     function weekDays(weekStart) {
@@ -209,7 +241,7 @@
         var dates = Object.keys(zmanim.days).sort();
         if (!dates.length) return [];
         var weeks = [];
-        for (var ws = weekStartFor(dates[0], 'shabbat'); ws <= dates[dates.length - 1]; ws = addDays(ws, 7)) {
+        for (var ws = weekStartOf(dates[0]); ws <= dates[dates.length - 1]; ws = addDays(ws, 7)) {
             if (!zmanim.days[ws] || !zmanim.days[addDays(ws, 6)]) continue; // שבוע חלקי בקצוות הלוח
             weeks.push(computeWeek(config, zmanim, pageId, ws));
         }
@@ -285,8 +317,12 @@
         ]).then(function (res) {
             var config = res[0] && res[0].config;
             if (!config || !config.enabled || !config.enabled[pageId]) return null;
-            var weekStart = weekStartFor(todayInIsrael(), pageId);
+            var weekStart = currentWeekStart(res[1]);
             if (!res[1].days[weekStart]) return null; // מחוץ לטווח הלוח
+            // דף שנשאר פתוח (למשל מסך בבית הכנסת) מתרענן לבד כשהשבוע מתחלף בצאת השבת
+            setInterval(function () {
+                if (currentWeekStart(res[1]) !== weekStart) location.reload();
+            }, 60 * 1000);
             return computeWeek(config, res[1], pageId, weekStart);
         });
     }
@@ -302,7 +338,8 @@
         formatTime: formatTime,
         addDays: addDays,
         todayInIsrael: todayInIsrael,
-        weekStartFor: weekStartFor,
+        nowInIsrael: nowInIsrael,
+        currentWeekStart: currentWeekStart,
         computeWeek: computeWeek,
         computeYear: computeYear
     };

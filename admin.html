@@ -2646,7 +2646,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         document.getElementById('prPreviewTitle').innerText = page.label;
         document.getElementById('prPreviewHead').innerHTML = '<tr><th>שבוע</th>' + page.tables.map(t => `<th>${escapeHtml(t.title)}</th>`).join('') + '</tr>';
 
-        const current = PrayerSchedule.weekStartFor(PrayerSchedule.todayInIsrael(), prPage);
+        const current = PrayerSchedule.currentWeekStart(prZmanim);
         const weeks = PrayerSchedule.computeYear(prConfig, prZmanim, prPage);
         document.getElementById('prPreviewBody').innerHTML = weeks.map(week => {
             const cells = week.tables.map(t => '<td>' + t.rows.map(r => {
