@@ -254,8 +254,17 @@
         .news-media-status.bad { color: #c53030; }
         .news-media-status.ok { color: #2f855a; }
 
-        .pr-toggles { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
-        .pr-toggles label { display: flex; align-items: center; gap: 8px; font-weight: bold; color: #1a365d; cursor: pointer; }
+        .pt-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .pt-caption { color: #000080; font-weight: bold; font-size: 16px; margin: 5px 0 15px; }
+        .pt-page { background: #f5f5dc; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .pt-page h3 { color: #800020; text-align: center; margin: 0 0 15px; font-size: 22px; }
+        .pt-tables { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+        .pt-box { background: white; border: 2px solid #000080; border-radius: 12px; width: 250px; overflow: hidden; }
+        .pt-box h4 { background: #000080; color: white; margin: 0; padding: 10px; font-size: 16px; text-align: center; }
+        .pt-box table { width: 100%; border-collapse: collapse; font-size: 15px; }
+        .pt-box th, .pt-box td { padding: 7px; text-align: center; border-bottom: 1px solid #ddd; }
+        .pt-box th { color: #000080; }
+        .pt-box td.pt-time { font-weight: bold; color: #000080; }
         .pr-weekly-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; margin-bottom: 10px; }
         .pr-weekly-grid h4 { grid-column: 1 / -1; margin: 6px 0 0; color: #1a365d; font-size: 14px; }
         .pr-page-tabs { display: flex; gap: 8px; margin: 10px 0 5px; }
@@ -322,6 +331,7 @@
                 <li><button class="nav-btn" data-tab="tab-donation" onclick="switchAdminTab('tab-donation')"><span class="icon">🎗️</span> ערב התרמה</button></li>
                 <li><button class="nav-btn" data-tab="tab-news" onclick="switchAdminTab('tab-news')"><span class="icon">📢</span> מהנעשה ונשמע</button></li>
                 <li><button class="nav-btn" data-tab="tab-prayers" onclick="switchAdminTab('tab-prayers')"><span class="icon">🕰️</span> הגדרת תפילות</button></li>
+                <li><button class="nav-btn" data-tab="tab-prayer-test" onclick="switchAdminTab('tab-prayer-test')"><span class="icon">🧪</span> בדיקת זמנים</button></li>
             </ul>
 
             <div class="sidebar-logout">
@@ -668,24 +678,39 @@
                 </div>
             </div>
 
+            <!-- טאב: בדיקת זמנים - דפי ימות החול והשבתות כפי שייראו עם הזמנים המחושבים, רק למנהל -->
+            <div class="panel" id="tab-prayer-test">
+                <h2>בדיקת זמנים - הזמנים המחושבים</h2>
+                <p class="panel-desc">
+                    כאן רואים את דפי ימות החול והשבתות כפי שייראו עם הזמנים המחושבים מהגדרות הטאב "הגדרת תפילות"
+                    (כולל שינויים שעוד לא נשמרו). <b>הדף הזה גלוי רק לך</b> - באתר ובמייל ממשיכים להופיע הזמנים מגיליון גוגל.
+                    כברירת מחדל מוצג השבוע שהאתר היה מציג עכשיו (מתחלף בצאת השבת).
+                </p>
+                <div id="ptLoading" class="loading">טוען...</div>
+                <div id="ptContent" style="display:none;">
+                    <div class="pt-nav">
+                        <button class="history-btn" style="margin-bottom:0;" onclick="ptMoveWeek(-1)">→ שבוע קודם</button>
+                        <button class="history-btn" style="margin-bottom:0;" onclick="ptMoveWeek(0)">השבוע הנוכחי</button>
+                        <button class="history-btn" style="margin-bottom:0;" onclick="ptMoveWeek(1)">שבוע הבא ←</button>
+                    </div>
+                    <div class="pt-caption" id="ptCaption"></div>
+                    <div id="ptPages"></div>
+                </div>
+            </div>
+
             <!-- טאב: הגדרת תפילות (זמנים אוטומטיים - ראו assets/prayer-schedule.js) -->
             <div class="panel" id="tab-prayers">
                 <h2>הגדרת תפילות - זמנים אוטומטיים</h2>
                 <p class="panel-desc">
                     כאן מגדירים פעם אחת את כל המניינים, והאתר מחשב לבד את הזמנים של כל שבוע לפי לוח עתים לבינה
-                    (נץ, שקיעה, סוף זמן ק"ש וצאת השבת - בדקות שלמות). כל עוד דף לא הופעל למטה - הוא ממשיך להציג את הזמנים מגיליון גוגל כמו קודם.
-                    לפני ההפעלה כדאי לבדוק את <b>התצוגה המקדימה לכל השנה</b> שבתחתית הדף.
+                    (נץ, שקיעה, סוף זמן ק"ש וצאת השבת - בדקות שלמות).
+                    <b>בשלב הבדיקה האתר והמייל ממשיכים להציג את הזמנים מגיליון גוגל</b> - את הזמנים המחושבים רואים רק כאן,
+                    בתצוגה המקדימה לכל השנה ובטאב "בדיקת זמנים".
                 </p>
 
                 <div id="prLoading" class="loading">טוען הגדרות...</div>
                 <div id="prContent" style="display:none;">
-                    <h3 class="section-title" style="margin-top:0; border-top:none; padding-top:0;">הפעלה באתר ובמייל</h3>
-                    <div class="pr-toggles">
-                        <label><input type="checkbox" id="prEnabled-yemothachol" onchange="prSetEnabled('yemothachol', this.checked)"> ימות החול - זמנים אוטומטיים</label>
-                        <label><input type="checkbox" id="prEnabled-shabbat" onchange="prSetEnabled('shabbat', this.checked)"> שבתות - זמנים אוטומטיים</label>
-                    </div>
-
-                    <h3 class="section-title">מנחה וערבית שבועיות (ימים א'-ה')</h3>
+                    <h3 class="section-title" style="margin-top:0; border-top:none; padding-top:0;">מנחה וערבית שבועיות (ימים א'-ה')</h3>
                     <div class="pr-weekly-grid">
                         <h4>מנחה: לפני השקיעה המוקדמת בשבוע, מעוגל כלפי מטה</h4>
                         <div class="field"><label>דקות לפני השקיעה המוקדמת</label><input type="number" min="0" max="120" data-weekly="minchaBefore" oninput="prSetWeekly(this)"></div>
@@ -829,6 +854,7 @@
         if (tabId === 'tab-donation' && !donationLoaded) { donationLoaded = true; fetchDonationProfiles(); }
         if (tabId === 'tab-news' && !newsLoaded) { newsLoaded = true; resetNewsForm(); fetchNewsEvents(); }
         if (tabId === 'tab-prayers' && !prayersLoaded) { prayersLoaded = true; fetchPrayerConfig(); }
+        if (tabId === 'tab-prayer-test') openPrayerTest();
 
         if (tabId === 'tab-gabai') {
             fetchGabaiThreads();
@@ -2486,7 +2512,14 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     };
     const PR_STATUS_ICONS = { ok: '✓', single: 'ⓘ', warn: '⚠' };
 
-    async function fetchPrayerConfig() {
+    // טעינה אחת משותפת לשני הטאבים (הגדרת תפילות ובדיקת זמנים)
+    let prLoadPromise = null;
+    function fetchPrayerConfig() {
+        if (!prLoadPromise) prLoadPromise = loadPrayerConfig();
+        return prLoadPromise;
+    }
+
+    async function loadPrayerConfig() {
         try {
             const [result, zmanim] = await Promise.all([
                 authedFetch('/.netlify/functions/admin-prayer-config', { method: 'GET' }),
@@ -2499,13 +2532,55 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             renderPrayerSettings();
         } catch (err) {
             document.getElementById('prLoading').innerText = 'שגיאה בטעינת ההגדרות: ' + err.message;
+            prLoadPromise = null;
+            prayersLoaded = false;
+            throw err;
         }
     }
 
+    // ---- טאב בדיקת זמנים ----
+    let ptWeekStart = null;
+
+    async function openPrayerTest() {
+        try {
+            await fetchPrayerConfig();
+        } catch (err) {
+            document.getElementById('ptLoading').innerText = 'שגיאה בטעינת ההגדרות: ' + err.message;
+            return;
+        }
+        prayersLoaded = true;
+        document.getElementById('ptLoading').style.display = 'none';
+        document.getElementById('ptContent').style.display = 'block';
+        renderPrayerTest();
+    }
+
+    function ptMoveWeek(delta) {
+        const current = PrayerSchedule.currentWeekStart(prZmanim);
+        const next = delta === 0 ? current : PrayerSchedule.addDays(ptWeekStart || current, 7 * delta);
+        if (!prZmanim.days[next] || !prZmanim.days[PrayerSchedule.addDays(next, 6)]) { alert('אין נתונים בלוח לשבוע הזה'); return; }
+        ptWeekStart = next;
+        renderPrayerTest();
+    }
+
+    function renderPrayerTest() {
+        const weekStart = ptWeekStart || PrayerSchedule.currentWeekStart(prZmanim);
+        const isCurrent = weekStart === PrayerSchedule.currentWeekStart(prZmanim);
+        let caption = '';
+        document.getElementById('ptPages').innerHTML = Object.keys(PrayerSchedule.PAGES).map(pageId => {
+            const week = PrayerSchedule.computeWeek(prConfig, prZmanim, pageId, weekStart);
+            caption = (week.parasha ? 'שבוע פרשת ' + week.parasha + ' · ' : '') + week.hebrewRange.filter(Boolean).join(' - ')
+                + ` (${prFormatDate(weekStart)}-${prFormatDate(PrayerSchedule.addDays(weekStart, 6))})` + (isCurrent ? ' - השבוע הנוכחי' : '');
+            const boxes = week.tables.map(t => {
+                const rows = t.rows.map(r => `<tr><td class="pt-time">${escapeHtml(r.time)}</td><td>${escapeHtml(r.place)}</td></tr>`).join('')
+                    || '<tr><td colspan="2" style="color:#718096;">אין מניינים מוגדרים</td></tr>';
+                return `<div class="pt-box"><h4>${escapeHtml(t.title)}</h4><table><thead><tr><th>שעה</th><th>מיקום</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            }).join('');
+            return `<div class="pt-page"><h3>זמני תפילות ${escapeHtml(PrayerSchedule.PAGES[pageId].label)}</h3><div class="pt-tables">${boxes}</div></div>`;
+        }).join('');
+        document.getElementById('ptCaption').innerText = caption;
+    }
+
     function renderPrayerSettings() {
-        Object.keys(PrayerSchedule.PAGES).forEach(pageId => {
-            document.getElementById('prEnabled-' + pageId).checked = !!prConfig.enabled[pageId];
-        });
         document.querySelectorAll('[data-weekly]').forEach(input => { input.value = prConfig.weekly[input.dataset.weekly]; });
         prSelectPage(prPage);
     }
@@ -2515,10 +2590,6 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         document.querySelectorAll('[data-prpage]').forEach(b => b.classList.toggle('active', b.dataset.prpage === pageId));
         renderPrayerEditor();
         renderPrayerPreview();
-    }
-
-    function prSetEnabled(pageId, checked) {
-        prConfig.enabled[pageId] = checked;
     }
 
     function prSetWeekly(input) {
@@ -2701,12 +2772,12 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             const result = await authedFetch('/.netlify/functions/admin-prayer-config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config: prConfig })
+                // שלב בדיקה: הזמנים המחושבים לא מופעלים באתר ובמייל (הם ממשיכים מגיליון גוגל)
+                body: JSON.stringify({ config: Object.assign({}, prConfig, { enabled: { yemothachol: false, shabbat: false } }) })
             });
             prConfig = result.config;
             renderPrayerSettings();
-            const active = Object.keys(PrayerSchedule.PAGES).filter(p => prConfig.enabled[p]).map(p => PrayerSchedule.PAGES[p].label);
-            successDiv.innerText = '✅ ההגדרות נשמרו. ' + (active.length ? 'זמנים אוטומטיים פעילים ב: ' + active.join(', ') + '.' : 'הזמנים האוטומטיים עדיין לא הופעלו באף דף.');
+            successDiv.innerText = '✅ ההגדרות נשמרו. האתר עדיין מציג את הזמנים מגיליון גוגל - את הזמנים המחושבים רואים בטאב "בדיקת זמנים".';
             successDiv.style.display = 'block';
         } catch (err) {
             errorDiv.innerText = err.message;
