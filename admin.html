@@ -736,7 +736,7 @@
 
                     <h3 class="section-title">תצוגה מקדימה לכל השנה - <span id="prPreviewTitle"></span></h3>
                     <div class="pr-legend">
-                        ✓ בתוך הכלל &nbsp;·&nbsp; ⓘ יום אחד חריג (בתוך המותר) &nbsp;·&nbsp; ⚠ כמה ימים מחוץ לכלל - כדאי לבדוק
+                        ✓ בתוך הכלל &nbsp;·&nbsp; ⓘ יום אחד חריג (בתוך המותר) &nbsp;·&nbsp; ↷ ויתור על יום אחד שהקפיץ בדקה אחת &nbsp;·&nbsp; ⚠ כמה ימים מחוץ לכלל - כדאי לבדוק
                         <br>לחיצה על זמן של מנחה/ערבית שבועית מאפשרת לקבוע לשבוע הזה שעה ידנית (מסומן ✎ בכתום). התצוגה מתעדכנת מיד, ונשמרת בלחיצה על "שמירת ההגדרות".
                     </div>
                     <div class="table-scroll">
@@ -2510,7 +2510,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         fixed: 'שעה קבועה', zman: 'לפי זמן היום', weeklyMincha: 'מנחה שבועית (כלל השקיעה)',
         weeklyMaariv: 'ערבית שבועית (כלל השקיעה)', text: 'טקסט חופשי'
     };
-    const PR_STATUS_ICONS = { ok: '✓', single: 'ⓘ', warn: '⚠' };
+    const PR_STATUS_ICONS = { ok: '✓', single: 'ⓘ', warn: '⚠', skip: '↷' };
 
     // טעינה אחת משותפת לשני הטאבים (הגדרת תפילות ובדיקת זמנים)
     let prLoadPromise = null;
@@ -2652,8 +2652,8 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         } else {
             const w = prConfig.weekly;
             detail = m.type === 'weeklyMincha'
-                ? `<span class="pr-rule">${w.minchaBefore} דק' לפני השקיעה המוקדמת, עד ${w.minchaMaxBefore} לפני (יום חריג עד ${w.minchaSingleDayMax})</span>`
-                : `<span class="pr-rule">${w.maarivAfter} דק' אחרי השקיעה המאוחרת, עד ${w.maarivMaxAfter} אחרי (יום חריג עד ${w.maarivSingleDayMax})</span>`;
+                ? `<span class="pr-rule">${w.minchaBefore} דק' לפני השקיעה המוקדמת, עד ${w.minchaMaxBefore} לפני (יום חריג עד ${w.minchaSingleDayMax}; יום אחד שמקפיץ בדקה - מוותרים עליו)</span>`
+                : `<span class="pr-rule">${w.maarivAfter} דק' אחרי השקיעה המאוחרת, עד ${w.maarivMaxAfter} אחרי (יום חריג עד ${w.maarivSingleDayMax}; יום אחד שמקפיץ בדקה - מוותרים עליו)</span>`;
         }
         return `
             <div class="pr-row">

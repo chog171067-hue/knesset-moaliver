@@ -18,6 +18,8 @@
                   השבוע מסומן לבדיקה (warn)
    - weeklyMaariv ערבית שבועית: ההפך - 20 דק' אחרי השקיעה המאוחרת, מעוגל ל-5 דק' שאחרי,
                   עד 25 דק' אחרי השקיעה בשאר הימים, ויום אחד חריג עד 30
+                  בשניהם: כשהשבוע לא בתוך הכלל ורק יום אחד, בהפרש של דקה, מקפיץ את המניין -
+                  מוותרים עליו (status: skip, ראו weeklyRule)
    - text         טקסט חופשי במקום שעה (למשל "נץ החמה")
    כל המספרים של המנחה והערבית השבועיות ניתנים לשינוי ב-config.weekly. */
 
@@ -159,22 +161,36 @@
         return list.some(function (v) { return v === null; }) ? null : list;
     }
 
-    function weeklyMincha(sunsets, w) {
-        var earliest = Math.min.apply(null, sunsets);
-        var time = roundTime(earliest - w.minchaBefore, 'down', w.step);
-        var gaps = sunsets.map(function (s) { return s - time; });
-        var over = gaps.filter(function (g) { return g > w.minchaMaxBefore; });
-        var status = over.length === 0 ? 'ok' : (over.length === 1 && over[0] <= w.minchaSingleDayMax ? 'single' : 'warn');
+    // gaps = כמה דקות בין המניין לשקיעה בכל יום; status לפי הגבול והיום החריג המותר
+    function weeklyStatus(gaps, maxGap, singleDayMax) {
+        var over = gaps.filter(function (g) { return g > maxGap; });
+        return over.length === 0 ? 'ok' : (over.length === 1 && over[0] <= singleDayMax ? 'single' : 'warn');
+    }
+
+    // כשהשבוע לא בתוך הכלל (יש יום שחורג מהגבול), ויום אחד בלבד - בהפרש של דקה אחת משאר
+    // הימים - הוא שמקפיץ את המניין ב-5 דק', מוותרים עליו: ביום הזה המניין יוצא דקה אחת פחות
+    // מ-15 (מנחה) / 20 (ערבית). sorted = השקיעות מהיום הקובע והלאה (במנחה מהמוקדם, בערבית מהמאוחר)
+    function weeklyRule(sunsets, sorted, compute, maxGap, singleDayMax) {
+        var time = compute(sorted[0]);
+        var gaps = sunsets.map(function (s) { return Math.abs(s - time); });
+        var status = weeklyStatus(gaps, maxGap, singleDayMax);
+        if (status !== 'ok' && Math.abs(sorted[1] - sorted[0]) === 1 && compute(sorted[1]) !== time) {
+            var skipTime = compute(sorted[1]);
+            return { time: skipTime, status: 'skip', gaps: sunsets.map(function (s) { return Math.abs(s - skipTime); }) };
+        }
         return { time: time, status: status, gaps: gaps };
     }
 
+    function weeklyMincha(sunsets, w) {
+        var sorted = sunsets.slice().sort(function (a, b) { return a - b; });
+        return weeklyRule(sunsets, sorted, function (s) { return roundTime(s - w.minchaBefore, 'down', w.step); },
+            w.minchaMaxBefore, w.minchaSingleDayMax);
+    }
+
     function weeklyMaariv(sunsets, w) {
-        var latest = Math.max.apply(null, sunsets);
-        var time = roundTime(latest + w.maarivAfter, 'up', w.step);
-        var gaps = sunsets.map(function (s) { return time - s; });
-        var over = gaps.filter(function (g) { return g > w.maarivMaxAfter; });
-        var status = over.length === 0 ? 'ok' : (over.length === 1 && over[0] <= w.maarivSingleDayMax ? 'single' : 'warn');
-        return { time: time, status: status, gaps: gaps };
+        var sorted = sunsets.slice().sort(function (a, b) { return b - a; });
+        return weeklyRule(sunsets, sorted, function (s) { return roundTime(s + w.maarivAfter, 'up', w.step); },
+            w.maarivMaxAfter, w.maarivSingleDayMax);
     }
 
     // מחזיר { time: דקות או null, text, status, gaps } עבור מניין אחד בשבוע נתון
