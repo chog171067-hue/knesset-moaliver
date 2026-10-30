@@ -212,7 +212,7 @@
     // פרסומת מרחפת לכל מי שנכנס לאתר (ההגדרות עצמן ב-assets/ad-popup.js) - לא בדף הניהול
     if (current !== 'admin.html') {
         var adScript = document.createElement('script');
-        adScript.src = 'assets/ad-popup.js?v=3';
+        adScript.src = 'assets/ad-popup.js?v=4';
         document.body.appendChild(adScript);
     }
 
