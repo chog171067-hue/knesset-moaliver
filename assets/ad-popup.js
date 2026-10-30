@@ -9,7 +9,7 @@
 
 (function () {
     var AD_CONFIG = {
-        enabled: true,      // true = הפרסומת קופצת בכניסה לאתר; false = מבוטלת
+        enabled: false,     // true = הפרסומת קופצת בכניסה לאתר; false = מבוטלת
         // שמות הקבצים שנבדקים לפי הסדר - הראשון שקיים הוא שיוצג
         images: ['assets/images/ad.png', 'assets/images/ad.jpg', 'assets/images/ad.jpeg', 'assets/images/ad.webp'],
         alt: 'שימו לב לזמני התפילות - שעון חורף',
