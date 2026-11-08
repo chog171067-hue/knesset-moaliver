@@ -75,6 +75,30 @@ dotnet publish KioskApp -c Release -r win-x64 --self-contained true
 
 אל תמשיכו לשלב הבא עד שכל זה עובד. אחרי שהמחשב ננעל, הרבה יותר קשה לתקן דברים.
 
+#### אם `KioskApp.exe` לא נפתח בכלל (אין חלון ואין הודעה)
+
+1. בדקו את `C:\KioskApp\kiosk-app.log`. בכל הפעלה נכתבת בו שורת "הפעלה: ...".
+   - אם השורה **קיימת**, הקוד שלנו רץ. השגיאה תופיע בשורות שאחריה.
+   - אם השורה **לא קיימת**, הבעיה ברמת Windows/.NET, עוד לפני הקוד שלנו. המשיכו לשלבים הבאים.
+2. מצאו את פרטי השגיאה ביומן האירועים, ישירות מ-PowerShell:
+   ```powershell
+   Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-30)} |
+     Where-Object { $_.ProviderName -in '.NET Runtime','Application Error','Windows Error Reporting','SideBySide' } |
+     Format-List TimeCreated, ProviderName, Message
+   ```
+3. הפעילו מעקב של מנגנון ההפעלה של .NET:
+   ```powershell
+   $env:COREHOST_TRACE = 1
+   $env:COREHOST_TRACEFILE = "C:\KioskApp\host-trace.txt"
+   $p = Start-Process C:\KioskApp\KioskApp.exe -PassThru -Wait; $p.ExitCode
+   ```
+   שורות השגיאה נמצאות בסוף הקובץ `host-trace.txt`.
+4. בדקו חסימה של Windows: מאפייני הקובץ ← "בטל חסימה" (Unblock), או
+   `Get-ChildItem C:\KioskApp -Recurse | Unblock-File`. ב-Windows 11 בדקו גם את
+   "Smart App Control" (אבטחת Windows ← בקרת אפליקציות ודפדפן), שחוסם קבצי exe לא חתומים.
+5. ודאו שהועתק **כל** התוכן של `publish\` (כמה מאות קבצים, ביניהם `hostfxr.dll`,
+   `coreclr.dll` ו-`KioskApp.dll`), ולא רק `KioskApp.exe`.
+
 ### 3.3 נעילת המחשב
 
 הריצו PowerShell **כמנהל מערכת** (Run as Administrator):

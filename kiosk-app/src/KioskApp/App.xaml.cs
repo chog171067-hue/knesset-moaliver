@@ -23,13 +23,21 @@ namespace KioskApp
 
         private static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "kiosk-app.log");
 
+        public App()
+        {
+            // נרשם כמה שיותר מוקדם (לפני טעינת XAML/הגדרות), כדי שגם קריסה מוקדמת תירשם ליומן.
+            AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+            // שורת הפעלה קבועה: אם היא לא מופיעה ב-kiosk-app.log - הקוד שלנו בכלל לא רץ
+            // (הבעיה ברמת Windows/.NET: קבצים חסרים, חסימת אבטחה וכו'), ולא בקוד ה-C#.
+            LogInfo($"הפעלה: גרסה {typeof(App).Assembly.GetName().Version}, תיקייה {AppContext.BaseDirectory}, משתמש {Environment.UserName}");
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-
-            DispatcherUnhandledException += OnDispatcherUnhandledException;
-            AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
-            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
             try
             {
@@ -52,11 +60,15 @@ namespace KioskApp
             loginWindow.Show();
         }
 
-        public static void LogError(string context, Exception ex)
+        public static void LogError(string context, Exception ex) => WriteLogLine($"{context}: {ex}");
+
+        public static void LogInfo(string message) => WriteLogLine(message);
+
+        private static void WriteLogLine(string message)
         {
             try
             {
-                var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {context}: {ex}\n";
+                var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}\n";
                 File.AppendAllText(LogPath, line);
             }
             catch
