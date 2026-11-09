@@ -37,6 +37,8 @@ namespace KioskApp.Views
                 var user = await App.ApiClient.LoginAsync(username, password);
                 var config = await App.ApiClient.GetConfigAsync();
                 App.Session.Start(user, config);
+                // כל מה שכבר פתוח ברגע ההתחברות לא שייך למשתמש - השומר לא ייגע בו
+                Services.WindowGuard.CaptureBaseline();
 
                 var appPicker = new Views.AppPickerWindow();
                 Application.Current.MainWindow = appPicker;
