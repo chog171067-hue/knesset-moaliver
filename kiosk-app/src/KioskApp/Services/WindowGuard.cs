@@ -103,12 +103,28 @@ namespace KioskApp.Services
                     }
 
                     GetWindowRect(hWnd, out var r);
-                    var positionWrong = r.Left != targetX || r.Top != targetY
-                                        || r.Right - r.Left != targetW || r.Bottom - r.Top != targetH;
+
+                    // ב-Windows 10/11 יש לכל חלון מסגרת שקופה (כמה פיקסלים) שנכללת בגודל
+                    // החלון אך לא נראית - בלי לפצות עליה נשאר פס ריק בצדדים. מחשבים את
+                    // עובי המסגרת לפי ההפרש בין גבולות החלון לגבולות הנראים שלו (DWM).
+                    int mL = 0, mT = 0, mR = 0, mB = 0;
+                    if (DwmGetWindowAttribute(hWnd, DwmwaExtendedFrameBounds, out Rect visible, Marshal.SizeOf<Rect>()) == 0)
+                    {
+                        mL = Math.Max(0, visible.Left - r.Left);
+                        mT = Math.Max(0, visible.Top - r.Top);
+                        mR = Math.Max(0, r.Right - visible.Right);
+                        mB = Math.Max(0, r.Bottom - visible.Bottom);
+                    }
+                    var x = targetX - mL;
+                    var y = targetY - mT;
+                    var w = targetW + mL + mR;
+                    var h = targetH + mT + mB;
+
+                    var positionWrong = r.Left != x || r.Top != y || r.Right - r.Left != w || r.Bottom - r.Top != h;
 
                     if (positionWrong || styleChanged)
                     {
-                        SetWindowPos(hWnd, IntPtr.Zero, targetX, targetY, targetW, targetH,
+                        SetWindowPos(hWnd, IntPtr.Zero, x, y, w, h,
                             SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
                     }
                 }
@@ -208,6 +224,8 @@ namespace KioskApp.Services
         private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
         [DllImport("dwmapi.dll")]
         private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
 
         private const uint GwOwner = 4;
         private const int GwlStyle = -16;
@@ -216,6 +234,7 @@ namespace KioskApp.Services
         private const int SmCxScreen = 0;
         private const int SmCyScreen = 1;
         private const int DwmwaCloaked = 14;
+        private const int DwmwaExtendedFrameBounds = 9;
         private const uint SwpNoZOrder = 0x0004;
         private const uint SwpNoActivate = 0x0010;
         private const uint SwpFrameChanged = 0x0020;
