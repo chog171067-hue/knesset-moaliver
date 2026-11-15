@@ -247,14 +247,16 @@ namespace KioskApp.Services
         /// </summary>
         private static string? DescribeError(PrintQueue queue, PrintSystemJobInfo job)
         {
-            if (queue.IsPaperOut || job.IsPaperOut) return "נגמר הנייר במדפסת";
+            if (queue.IsOutOfPaper || job.IsPaperOut) return "נגמר הנייר במדפסת";
             if (queue.IsPaperJammed) return "נייר תקוע במדפסת";
             if (queue.IsDoorOpened) return "מכסה המדפסת פתוח";
             if (queue.IsOutOfMemory) return "זיכרון המדפסת מלא";
             if (queue.IsOffline || queue.IsNotAvailable || job.IsOffline) return "המדפסת כבויה או מנותקת";
             if (queue.IsInError || job.IsInError || job.IsBlocked || job.IsUserInterventionRequired
                 || queue.IsManualFeedRequired || queue.IsOutputBinFull)
-                return "שגיאה במדפסת (ייתכן שנגמר הדיו, או תקלה אחרת)";
+                return queue.IsTonerLow
+                    ? "שגיאה במדפסת - כנראה נגמר הדיו"
+                    : "שגיאה במדפסת (ייתכן שנגמר הדיו, או תקלה אחרת)";
             return null;
         }
 
