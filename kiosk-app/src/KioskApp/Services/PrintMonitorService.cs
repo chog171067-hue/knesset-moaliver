@@ -18,6 +18,8 @@ namespace KioskApp.Services
     public class PrintRefundedEventArgs : EventArgs
     {
         public decimal NewBalance { get; init; }
+        /// <summary>תיאור התקלה בעברית, כפי שהמדפסת דיווחה ל-Windows (למשל "נגמר הנייר").</summary>
+        public string Reason { get; init; } = "";
     }
 
     public class PrintBlockedEventArgs : EventArgs
@@ -146,6 +148,7 @@ namespace KioskApp.Services
             var started = DateTime.Now;
             DateTime? errorSince = null;
             var everInError = false;
+            var lastReason = "";
 
             try
             {
@@ -155,12 +158,13 @@ namespace KioskApp.Services
                     try { await Task.Delay(PollInterval, stopToken); }
                     catch (OperationCanceledException) { stopping = true; }
 
-                    var state = ReadJobState(printerName, jobId);
+                    var (state, reason) = ReadJobState(printerName, jobId);
+                    if (!string.IsNullOrEmpty(reason)) lastReason = reason;
 
                     if (state == JobState.Gone)
                     {
                         // נעלמה אחרי תקלה (בוטלה ע"י המדפסת/המשתמש) - מחזירים. אחרת - הודפסה.
-                        if (everInError) await RefundAsync(userId, transactionId, notify: !stopping);
+                        if (everInError) await RefundAsync(userId, transactionId, lastReason, notify: !stopping);
                         return;
                     }
                     if (state == JobState.Printed) return;
@@ -182,7 +186,9 @@ namespace KioskApp.Services
                     if (errorTooLong || stuckTooLong || (stopping && state == JobState.Error))
                     {
                         TryCancelPrintJob(printerName, jobId);
-                        await RefundAsync(userId, transactionId, notify: !stopping);
+                        await RefundAsync(userId, transactionId,
+                            string.IsNullOrEmpty(lastReason) ? "ההדפסה לא התקדמה (ייתכן שהמדפסת כבויה או מנותקת)" : lastReason,
+                            notify: !stopping);
                         return;
                     }
 
@@ -197,7 +203,7 @@ namespace KioskApp.Services
 
         private enum JobState { Gone, Printed, Error, Waiting }
 
-        private static JobState ReadJobState(string printerName, int jobId)
+        private static (JobState State, string Reason) ReadJobState(string printerName, int jobId)
         {
             try
             {
@@ -212,39 +218,56 @@ namespace KioskApp.Services
                 }
                 catch
                 {
-                    return JobState.Gone;
+                    return (JobState.Gone, "");
                 }
 
                 using (job)
                 {
                     job.Refresh();
-                    if (job.IsPrinted || job.IsCompleted || job.NumberOfPagesPrinted > 0) return JobState.Printed;
-                    if (job.IsDeleted || job.IsDeleting) return JobState.Gone;
+                    if (job.IsPrinted || job.IsCompleted || job.NumberOfPagesPrinted > 0) return (JobState.Printed, "");
+                    if (job.IsDeleted || job.IsDeleting) return (JobState.Gone, "");
 
-                    var inError = job.IsInError || job.IsOffline || job.IsPaperOut || job.IsBlocked
-                                  || job.IsUserInterventionRequired
-                                  || queue.IsOffline || queue.IsInError || queue.IsNotAvailable
-                                  || queue.IsPaperOut || queue.IsPaperJammed || queue.IsDoorOpened;
-                    return inError ? JobState.Error : JobState.Waiting;
+                    var reason = DescribeError(queue, job);
+                    if (reason != null) return (JobState.Error, reason);
+                    return (JobState.Waiting, "");
                 }
             }
             catch (Exception ex)
             {
                 App.LogError($"כשל בקריאת מצב עבודת הדפסה (מדפסת: {printerName}, jobId: {jobId})", ex);
-                return JobState.Waiting;
+                return (JobState.Waiting, "");
             }
         }
 
-        private async Task RefundAsync(string userId, string transactionId, bool notify)
+        /// <summary>
+        /// מתרגם את סימוני התקלה ש-Windows מקבל מהמדפסת להודעה בעברית. הסדר - מהספציפי לכללי.
+        /// הערה: מצב הדיו לרוב לא מדווח ל-Windows (מדפסות כמו Canon מדווחות עליו רק בתוכנה
+        /// שלהן), ולכן "נגמר הדיו" יופיע בדרך כלל כ"שגיאה במדפסת" הכללית.
+        /// מחזיר null אם אין תקלה.
+        /// </summary>
+        private static string? DescribeError(PrintQueue queue, PrintSystemJobInfo job)
+        {
+            if (queue.IsPaperOut || job.IsPaperOut) return "נגמר הנייר במדפסת";
+            if (queue.IsPaperJammed) return "נייר תקוע במדפסת";
+            if (queue.IsDoorOpened) return "מכסה המדפסת פתוח";
+            if (queue.IsOutOfMemory) return "זיכרון המדפסת מלא";
+            if (queue.IsOffline || queue.IsNotAvailable || job.IsOffline) return "המדפסת כבויה או מנותקת";
+            if (queue.IsInError || job.IsInError || job.IsBlocked || job.IsUserInterventionRequired
+                || queue.IsManualFeedRequired || queue.IsOutputBinFull)
+                return "שגיאה במדפסת (ייתכן שנגמר הדיו, או תקלה אחרת)";
+            return null;
+        }
+
+        private async Task RefundAsync(string userId, string transactionId, string reason, bool notify)
         {
             try
             {
                 var newBalance = await _apiClient.RefundPrintAsync(userId, transactionId);
-                App.LogInfo($"הדפסה נכשלה - החיוב הוחזר (משתמש {userId}, עסקה {transactionId})");
+                App.LogInfo($"הדפסה נכשלה ({reason}) - החיוב הוחזר (משתמש {userId}, עסקה {transactionId})");
                 if (notify)
                 {
                     Application.Current.Dispatcher.Invoke(() =>
-                        PrintRefunded?.Invoke(this, new PrintRefundedEventArgs { NewBalance = newBalance }));
+                        PrintRefunded?.Invoke(this, new PrintRefundedEventArgs { NewBalance = newBalance, Reason = reason }));
                 }
             }
             catch (Exception ex)
