@@ -2076,7 +2076,9 @@
             } else {
                 result.transactions.forEach(t => {
                     const time = t.timestamp ? new Date(t.timestamp).toLocaleString('he-IL') : '-';
-                    const typeLabel = t.type === 'topup' ? '<span class="badge-success">הטענה</span>' : '<span class="badge-danger">חיוב</span>';
+                    const typeLabel = t.type === 'topup'
+                    ? `<span class="badge-success">${t.source === 'print-refund' ? 'החזר' : 'הטענה'}</span>`
+                    : `<span class="badge-danger">חיוב${t.refunded ? ' (הוחזר)' : ''}</span>`;
                     const sign = t.type === 'topup' ? '+' : '-';
                     tbody.innerHTML += `<tr><td>${time}</td><td>${typeLabel}</td><td>${sign}${Number(t.amount).toFixed(2)}</td><td>${escapeHtmlText(t.description || '-')}</td></tr>`;
                 });

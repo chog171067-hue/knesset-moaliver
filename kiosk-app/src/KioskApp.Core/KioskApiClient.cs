@@ -79,6 +79,22 @@ namespace KioskApp.Core
             return new ChargeResult { Balance = response.Balance, Cost = response.Cost, Transaction = response.Transaction };
         }
 
+        /// <summary>
+        /// החזר על חיוב הדפסה שנכשלה (המדפסת מנותקת/תקלה). מחזיר את היתרה החדשה.
+        /// השרת מאפשר החזר אחד בלבד לכל חיוב - קריאה כפולה מחזירה שגיאה ולא כסף כפול.
+        /// </summary>
+        public async Task<decimal> RefundPrintAsync(string userId, string transactionId, CancellationToken ct = default)
+        {
+            var response = await PostAsync<RefundResponse>(
+                "/.netlify/functions/library-print-refund", new { userId, transactionId }, ct);
+
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "החזר החיוב נכשל", 400);
+            }
+            return response.Balance;
+        }
+
         public async Task<TopupInitResult> InitTopupAsync(string userId, decimal amount, CancellationToken ct = default)
         {
             var response = await PostAsync<TopupInitResponse>(
@@ -174,6 +190,12 @@ namespace KioskApp.Core
             public decimal Cost { get; set; }
             public TransactionRecord? Transaction { get; set; }
             public bool InsufficientFunds { get; set; }
+        }
+
+        private class RefundResponse : ApiEnvelope
+        {
+            public decimal Balance { get; set; }
+            public decimal Amount { get; set; }
         }
 
         private class TopupInitResponse : ApiEnvelope

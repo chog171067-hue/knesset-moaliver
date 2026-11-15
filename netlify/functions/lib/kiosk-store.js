@@ -234,6 +234,48 @@ async function chargeForPrint(event, { userId, pages }) {
   return { balance: chargedUser.balance, cost, transaction };
 }
 
+// החזר על הדפסה שנכשלה (מדפסת מנותקת, נגמר נייר וכו'): עמדת הקיוסק מחייבת מראש
+// ברגע שעבודת ההדפסה נכנסת לתור, ואם העבודה נכשלה ובוטלה - מבקשת כאן החזר.
+// ההחזר מותר פעם אחת בלבד לכל חיוב (מסומן על עסקת החיוב עצמה), רק על חיוב
+// הדפסה של אותו משתמש, ובדיוק בסכום שחויב - כך שאי אפשר "לייצר" כסף דרכו.
+async function refundPrintCharge(event, { userId, transactionId }) {
+  const store = getKioskStore(event);
+
+  const charge = await writeWithRetry(store, TRANSACTIONS_KEY, [], (transactions) => {
+    const tx = transactions.find(t => t.id === transactionId);
+    if (!tx || tx.userId !== userId || tx.type !== 'charge' || tx.source !== 'print') {
+      throw new Error('עסקת החיוב לא נמצאה');
+    }
+    if (tx.refunded) {
+      const err = new Error('החיוב הזה כבר הוחזר');
+      err.alreadyRefunded = true;
+      throw err;
+    }
+    tx.refunded = true;
+    tx.refundedAt = new Date().toISOString();
+    return { amount: tx.amount, pages: tx.pages };
+  });
+
+  const updatedUser = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const user = users[userId];
+    if (!user) throw new Error('משתמש לא נמצא');
+    user.balance = Number((user.balance + charge.amount).toFixed(2));
+    user.updatedAt = new Date().toISOString();
+    return toPublicUser(user);
+  });
+
+  const transaction = await appendTransaction(event, {
+    userId,
+    type: 'topup',
+    source: 'print-refund',
+    amount: charge.amount,
+    description: `החזר על הדפסה שנכשלה (${charge.pages || 1} עמודים)`,
+    refundOf: transactionId
+  });
+
+  return { balance: updatedUser.balance, amount: charge.amount, transaction };
+}
+
 // תעריף עמוד הדפסה ורשימת התוכנות המאושרות - נקרא ע"י עמדת הקיוסק (לבניית
 // מסך בחירת התוכנה ולחישוב עלות הדפסה) וע"י פאנל הניהול (לעריכה).
 async function getConfig(event) {
@@ -396,6 +438,7 @@ module.exports = {
   getConfig,
   updateConfig,
   chargeForPrint,
+  refundPrintCharge,
   createPendingTopup,
   confirmPendingTopup,
   getPendingTopupStatus

@@ -1907,7 +1907,9 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             let html = '<div class="table-scroll"><table class="history-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סכום</th><th>תיאור</th></tr></thead><tbody>';
             txns.forEach(t => {
                 const time = t.timestamp ? new Date(t.timestamp).toLocaleString('he-IL') : '-';
-                const typeLabel = t.type === 'topup' ? '<span class="badge-success">הטענה</span>' : '<span class="badge-danger">חיוב</span>';
+                const typeLabel = t.type === 'topup'
+                    ? `<span class="badge-success">${t.source === 'print-refund' ? 'החזר' : 'הטענה'}</span>`
+                    : `<span class="badge-danger">חיוב${t.refunded ? ' (הוחזר)' : ''}</span>`;
                 const sign = t.type === 'topup' ? '+' : '-';
                 html += `<tr><td>${time}</td><td>${typeLabel}</td><td>${sign}${Number(t.amount).toFixed(2)}</td><td>${escapeHtml(t.description || '-')}</td></tr>`;
             });

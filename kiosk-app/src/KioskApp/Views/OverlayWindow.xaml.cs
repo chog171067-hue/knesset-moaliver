@@ -45,6 +45,7 @@ namespace KioskApp.Views
             _printMonitor = new PrintMonitorService(App.ApiClient, () => App.Session.CurrentUser?.Id ?? "");
             _printMonitor.PrintCharged += OnPrintCharged;
             _printMonitor.PrintBlocked += OnPrintBlocked;
+            _printMonitor.PrintRefunded += OnPrintRefunded;
             _printMonitor.MonitorError += (_, msg) => App.LogError("PrintMonitorService", new InvalidOperationException(msg));
             _printMonitor.Start();
 
@@ -112,6 +113,14 @@ namespace KioskApp.Views
         private void OnPrintCharged(object? sender, PrintChargedEventArgs e)
         {
             App.Session.UpdateBalance(e.NewBalance);
+        }
+
+        private void OnPrintRefunded(object? sender, PrintRefundedEventArgs e)
+        {
+            App.Session.UpdateBalance(e.NewBalance);
+            MessageBox.Show(
+                "ההדפסה לא בוצעה בגלל תקלה במדפסת (מנותקת, אין נייר או שגיאה אחרת).\nהחיוב הוחזר ליתרה שלך.\n\nאם התקלה חוזרת - נא לפנות לצוות הספרייה.",
+                "ההדפסה נכשלה", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void OnPrintBlocked(object? sender, PrintBlockedEventArgs e)
