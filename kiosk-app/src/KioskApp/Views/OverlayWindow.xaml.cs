@@ -46,6 +46,12 @@ namespace KioskApp.Views
             _printMonitor.PrintCharged += OnPrintCharged;
             _printMonitor.PrintBlocked += OnPrintBlocked;
             _printMonitor.PrintRefunded += OnPrintRefunded;
+            _printMonitor.AskCancelStuckPrint = reason =>
+            {
+                var dialog = new PrintProblemDialog(reason) { Owner = this };
+                dialog.ShowDialog();
+                return dialog.CancelRequested;
+            };
             _printMonitor.MonitorError += (_, msg) => App.LogError("PrintMonitorService", new InvalidOperationException(msg));
             _printMonitor.Start();
 
@@ -119,8 +125,8 @@ namespace KioskApp.Views
         {
             App.Session.UpdateBalance(e.NewBalance);
             MessageBox.Show(
-                $"ההדפסה לא בוצעה.\nהסיבה: {e.Reason}\n\nהחיוב הוחזר ליתרה שלך.\nאם התקלה חוזרת - נא לפנות לצוות הספרייה.",
-                "ההדפסה נכשלה", MessageBoxButton.OK, MessageBoxImage.Information);
+                "ההדפסה בוטלה והחיוב הוחזר ליתרה שלך.\n\nאם התקלה חוזרת - נא לפנות לצוות הספרייה.",
+                "ההדפסה בוטלה", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void OnPrintBlocked(object? sender, PrintBlockedEventArgs e)
