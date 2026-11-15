@@ -9,7 +9,7 @@
         FlowDirection="RightToLeft"
         Background="{StaticResource KioskPrimaryBrush}">
     <Grid>
-        <Border Background="White" CornerRadius="16" Width="420" Height="380"
+        <Border Background="White" CornerRadius="16" Width="420" MinHeight="380"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="30" ShadowDepth="4" Opacity="0.3" />
