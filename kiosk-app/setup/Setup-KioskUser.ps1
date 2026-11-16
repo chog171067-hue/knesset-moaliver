@@ -66,21 +66,25 @@ if ($answer -ne "YES") {
 }
 
 # --- 1. המשתמש הייעודי (הרשאות רגילות בלבד) ---
+# סיסמה חדשה אקראית בכל הרצה - כך לא צריך לזכור את הסיסמה הקודמת של משתמש הקיוסק
+# (ההתחברות האוטומטית משתמשת בה, ואף אחד לא מקליד אותה ידנית)
+Add-Type -AssemblyName System.Web
+$plainPassword = [System.Web.Security.Membership]::GeneratePassword(16, 3)
+$securePassword = ConvertTo-SecureString $plainPassword -AsPlainText -Force
+
 $existingUser = Get-LocalUser -Name $KioskUsername -ErrorAction SilentlyContinue
 if ($existingUser) {
-    Write-Host "User $KioskUsername already exists." -ForegroundColor Yellow
-    $securePassword = Read-Host "Enter the existing password of $KioskUsername" -AsSecureString
+    Set-LocalUser -Name $KioskUsername -Password $securePassword
+    Enable-LocalUser -Name $KioskUsername
+    Write-Host "User $KioskUsername already exists - password was reset." -ForegroundColor Yellow
 } else {
-    Add-Type -AssemblyName System.Web
-    $plainPassword = [System.Web.Security.Membership]::GeneratePassword(16, 3)
-    $securePassword = ConvertTo-SecureString $plainPassword -AsPlainText -Force
     New-LocalUser -Name $KioskUsername -Password $securePassword -PasswordNeverExpires -UserMayNotChangePassword `
         -FullName "Library kiosk" -Description "Dedicated user for KioskApp only" | Out-Null
     Add-LocalGroupMember -Group "Users" -Member $KioskUsername
     Write-Host "Created user $KioskUsername (standard user, NOT administrator)." -ForegroundColor Green
-    Write-Host "Generated password for ${KioskUsername}: $plainPassword" -ForegroundColor Magenta
-    Write-Host "(You normally do not need it - auto-logon uses it. Write it down anyway.)" -ForegroundColor Magenta
 }
+# משתמש קיים שהיה בטעות בקבוצת המנהלים - מוציאים אותו משם
+Remove-LocalGroupMember -Group "Administrators" -Member $KioskUsername -ErrorAction SilentlyContinue
 
 $plainForUse = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
     [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
