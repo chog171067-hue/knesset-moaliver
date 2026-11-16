@@ -212,6 +212,19 @@ async function setUserActive(event, { userId, isActive }) {
   });
 }
 
+// הרשאה לצאת מהקיוסק לשולחן העבודה של Windows (כפתור "יציאה למחשב" בעמדה).
+// רק מנהל באתר יכול להעניק אותה - משתמש קיוסק לא יכול לשנות אותה לעצמו.
+async function setUserCanExit(event, { userId, canExitKiosk }) {
+  const store = getKioskStore(event);
+  return writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const user = users[userId];
+    if (!user) throw new Error('משתמש לא נמצא');
+    user.canExitKiosk = !!canExitKiosk;
+    user.updatedAt = new Date().toISOString();
+    return toPublicUser(user);
+  });
+}
+
 async function deleteUser(event, { userId }) {
   const store = getKioskStore(event);
   return writeWithRetry(store, USERS_KEY, {}, (users) => {
@@ -559,6 +572,7 @@ module.exports = {
   createUser,
   resetPassword,
   setUserDetails,
+  setUserCanExit,
   setUserActive,
   deleteUser,
   addManualBalance,
