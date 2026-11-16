@@ -55,7 +55,10 @@ namespace KioskApp.Views
                 // לא שולחים את פקודת התשלום אוטומטית: היא הייתה נשלחת לפני שהמשתמש הספיק
                 // להקליד את פרטי הכרטיס, ונדרים פלוס מתעלם ממנה. המשתמש לוחץ "בצע תשלום"
                 // בעצמו אחרי שמילא את הפרטים (כמו ב-personal.html, submitLibraryPayment).
-                WebView.CoreWebView2.NavigateToString(NedarimWrapperHtml.Content);
+                // הדף המתווך מאוחסן באתר (kiosk-topup-wrapper.html) ולא נוצר כאן בקוד: לדף בלי
+                // כתובת אמיתית נדרים פלוס לא שולחים את התשובה (אושר/נדחה), והחלון היה ממתין
+                // עד תום הזמן גם כשהעסקה נדחתה.
+                WebView.CoreWebView2.Navigate($"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-topup-wrapper.html");
 
                 AmountPanel.Visibility = Visibility.Collapsed;
                 WebView.Visibility = Visibility.Visible;
