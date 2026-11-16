@@ -127,31 +127,27 @@ KioskApp, בלי מסך login של Windows ובלי גישה לשולחן העב
 
 ## שלב 4: איך יוצאים ממצב קיוסק אם צריך (חשוב לשמור את זה!)
 
-מתישהו תצטרכו לתחזק את המחשב (עדכוני Windows, שינוי הגדרות, בדיקת תקלה). דרכים
-לחזור למצב רגיל:
+הנעילה חלה **רק על משתמש הקיוסק** (`kiosk-user`). חשבון המנהל ממשיך לקבל Windows
+רגיל, עם שולחן עבודה.
 
-**דרך מומלצת - מרחוק/ברוגע:** אם יש לכם עדיין חשבון Administrator נפרד (לא
-`kiosk-user`) על אותו מחשב, התחברו אליו (למשל ע"י ניתוק כבל הרשת + Safe Mode,
-או פשוט: אם `kiosk-user` הוא לא המשתמש היחיד, ב-Safe Mode ניתן בד"כ לבחור
-משתמש אחר) והריצו:
+**כניסה כמנהל לתחזוקה** (עדכונים, שינוי הגדרות, עדכון גרסת הקיוסק):
+1. בעמדה: **Ctrl+Alt+Delete** ← **"יציאה"**.
+2. מיד אחר כך **להחזיק את מקש Shift לחוץ** עד שמופיע מסך הכניסה של Windows.
+   (Shift מונע את ההתחברות האוטומטית חזרה למשתמש הקיוסק.)
+3. לבחור את חשבון המנהל ולהיכנס עם הסיסמה שלו.
+4. בסיום: להפעיל את המחשב מחדש, והוא יעלה שוב כקיוסק.
+
+**ביטול הנעילה לגמרי** (PowerShell כמנהל, ואחר כך הפעלה מחדש):
 ```powershell
-cd C:\KioskApp\setup
-.\Remove-KioskLockdown.ps1
+powershell -ExecutionPolicy Bypass -File C:\KioskSource\kiosk-app\setup\Remove-KioskLockdown.ps1
 ```
-ואז הפעילו מחדש - Explorer רגיל יחזור.
 
-**אם ננעלתם לגמרי בחוץ:** אתחלו למצב בטוח (Safe Mode - למשל ע"י כיבוי כפוי
-3 פעמים ברצף באמצע עליית Windows, מה שגורם ל-Windows להיכנס אוטומטית ל-
-Automatic Repair, ומשם Troubleshoot → Advanced options → Startup Settings →
-Safe Mode). ב-Safe Mode ה-Shell המותאם אישית **לא** נטען (Windows מתעלם ממנו
-במצב בטוח), כך שתוכלו להתחבר עם `kiosk-user` (עם הסיסמה שנשמרה בשלב 3.3)
-ולהריץ את `Remove-KioskLockdown.ps1` משם - אבל שימו לב ש-`kiosk-user` אינו
-מנהל מערכת, אז ייתכן שתצטרכו קודם להריץ PowerShell כ-Administrator דרך
-"Run as different user" עם חשבון Administrator מובנה של Windows.
-
-**מומלץ מראש:** לפני ההתקנה הראשונה בפועל, ודאו שיש לכם לפחות חשבון
-Administrator אחד ידוע (הסיסמה שלו שמורה) על המחשב, שאינו `kiosk-user` -
-זו רשת הביטחון הכי פשוטה.
+**אם בכל זאת ננעלתם בחוץ** (למשל מסך שחור גם לחשבון המנהל, כמו בגרסה ישנה של
+הסקריפט): ב-Windows אפשר להגיע ל"שורת פקודה" של מצב התיקון (במסך הכניסה: כפתור
+ההפעלה ← Shift + "הפעל מחדש" ← פתרון בעיות ← אפשרויות מתקדמות ← שורת פקודה), שם
+להריץ `regedit`, לטעון את `‎<כונן Windows>:\Windows\System32\config\SOFTWARE`
+(File ← Load Hive), ולהחזיר את הערך `Shell` שב-
+`Microsoft\Windows NT\CurrentVersion\Winlogon` ל-`explorer.exe`.
 
 ---
 

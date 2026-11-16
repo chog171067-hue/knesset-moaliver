@@ -1,15 +1,16 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    מבטל את כל השינויים שביצע Setup-KioskUser.ps1 - מחזיר את המחשב להתנהגות Windows
-    רגילה (Explorer כ-Shell, בלי התחברות אוטומטית, בלי הגבלות מקלדת/תפריטים).
+    מבטל את נעילת הקיוסק (Setup-KioskUser.ps1) ומחזיר את המחשב ל-Windows רגיל.
 
 .DESCRIPTION
-    להריץ כמנהל מערכת. לא מוחק את משתמש kiosk-user עצמו (ברירת מחדל) - כדי למחוק
-    גם אותו, הריצו עם -RemoveUser.
+    - מבטל את ההתחברות האוטומטית ומוחק את הסיסמה השמורה שלה.
+    - מוודא שה-Shell של המחשב הוא explorer.exe (מתקן גם התקנה ישנה שנעלה את כל המחשב).
+    - מסיר את ההגבלות מההגדרות של משתמש הקיוסק.
+    - לא מוחק את משתמש הקיוסק, אלא אם מריצים עם -RemoveUser.
 
-    שימושי לבדיקות לפני התקנה בפועל, ולחזרה מהירה למצב רגיל אם נדרש לתחזק את
-    המחשב (למשל התקנת עדכונים, שינויי הגדרות).
+    הרצה (PowerShell כמנהל):
+      powershell -ExecutionPolicy Bypass -File C:\KioskSource\kiosk-app\setup\Remove-KioskLockdown.ps1
 #>
 param(
     [string]$KioskUsername = "kiosk-user",
@@ -17,34 +18,67 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# הודעות המסך באנגלית: חלון PowerShell 5.1 הרגיל לא מציג עברית כראוי
 
-Write-Host "=== ביטול הגדרות עמדת קיוסק ===" -ForegroundColor Cyan
+Write-Host "=== Removing kiosk lockdown ===" -ForegroundColor Cyan
 
-$winlogonPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-Set-ItemProperty -Path $winlogonPath -Name "Shell" -Value "explorer.exe" -Type String
-Set-ItemProperty -Path $winlogonPath -Name "AutoAdminLogon" -Value "0" -Type String
-Remove-ItemProperty -Path $winlogonPath -Name "DefaultPassword" -ErrorAction SilentlyContinue
-Write-Host "Shell הוחזר ל-explorer.exe, התחברות אוטומטית בוטלה." -ForegroundColor Green
+# --- הגדרות ברמת המחשב ---
+$winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+Set-ItemProperty -Path $winlogon -Name "Shell" -Value "explorer.exe" -Type String
+Set-ItemProperty -Path $winlogon -Name "AutoAdminLogon" -Value "0" -Type String
+Remove-ItemProperty -Path $winlogon -Name "DefaultPassword" -ErrorAction SilentlyContinue
+Write-Host "Auto-logon disabled, computer shell is explorer.exe." -ForegroundColor Green
 
-$systemPolicyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-foreach ($name in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword", "HideFastUserSwitching")) {
-    Remove-ItemProperty -Path $systemPolicyPath -Name $name -ErrorAction SilentlyContinue
+# שאריות מהגרסה הישנה של סקריפט הנעילה (הגבלות לכל המחשב)
+$oldSys = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword", "HideFastUserSwitching")) {
+    Remove-ItemProperty -Path $oldSys -Name $n -ErrorAction SilentlyContinue
 }
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
-$explorerPolicyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-Remove-ItemProperty -Path $explorerPolicyPath -Name "NoDriveTypeAutoRun" -ErrorAction SilentlyContinue
+# --- הגדרות של משתמש הקיוסק ---
+$user = Get-LocalUser -Name $KioskUsername -ErrorAction SilentlyContinue
+if ($user) {
+    $sid = $user.SID.Value
+    $userProfile = Get-CimInstance Win32_UserProfile | Where-Object { $_.SID -eq $sid }
+    if ($userProfile) {
+        $hiveName = "KioskUserTemp"
+        $hiveRoot = "Registry::HKEY_USERS\$hiveName"
+        $loadedHere = $false
+        if (Test-Path "Registry::HKEY_USERS\$sid") {
+            $hiveRoot = "Registry::HKEY_USERS\$sid"
+        } else {
+            reg load "HKU\$hiveName" (Join-Path $userProfile.LocalPath "NTUSER.DAT") | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Could not load the registry of $KioskUsername (sign that user out first)." }
+            $loadedHere = $true
+        }
+        try {
+            Remove-ItemProperty -Path "$hiveRoot\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "Shell" -ErrorAction SilentlyContinue
+            $sys = "$hiveRoot\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+            foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword")) {
+                Remove-ItemProperty -Path $sys -Name $n -ErrorAction SilentlyContinue
+            }
+            $exp = "$hiveRoot\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+            foreach ($n in @("NoRun", "NoDriveTypeAutoRun")) {
+                Remove-ItemProperty -Path $exp -Name $n -ErrorAction SilentlyContinue
+            }
+            Write-Host "Restrictions removed from $KioskUsername." -ForegroundColor Green
+        }
+        finally {
+            if ($loadedHere) {
+                [gc]::Collect()
+                Start-Sleep -Seconds 1
+                reg unload "HKU\$hiveName" | Out-Null
+            }
+        }
+    }
 
-$scancodeMapPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout"
-Remove-ItemProperty -Path $scancodeMapPath -Name "Scancode Map" -ErrorAction SilentlyContinue
-Write-Host "מדיניות תפריטים/מקלדת בוטלה." -ForegroundColor Green
-
-if ($RemoveUser) {
-    $existingUser = Get-LocalUser -Name $KioskUsername -ErrorAction SilentlyContinue
-    if ($existingUser) {
+    if ($RemoveUser) {
         Remove-LocalUser -Name $KioskUsername
-        Write-Host "המשתמש $KioskUsername נמחק." -ForegroundColor Green
+        Write-Host "User $KioskUsername deleted." -ForegroundColor Green
     }
 }
 
 Write-Host ""
-Write-Host "=== בוטל בהצלחה. יש להפעיל את המחשב מחדש. ===" -ForegroundColor Cyan
+Write-Host "=== Done. Restart the computer. ===" -ForegroundColor Cyan
