@@ -15,28 +15,71 @@ const USERS_KEY = 'users.json';
 const TRANSACTIONS_KEY = 'transactions.json';
 const CONFIG_KEY = 'config.json';
 const PENDING_TOPUPS_KEY = 'pending-topups.json';
-const MAX_WRITE_ATTEMPTS = 5;
+const MAX_WRITE_ATTEMPTS = 8;
 
 const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [] };
 
+// ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
+// כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
+// ישנים של כמה שניות. קריאה ישנה + כתיבה = דריסת עדכון שנעשה בינתיים (למשל החזר
+// שקרא יתרה מלפני החיוב). לכן מבקשים "עקביות חזקה" (קריאה ישירות מהמקור, בלי מטמון)
+// בכל פעם שהסביבה מספקת את הכתובת הדרושה לכך. בכל מקרה, הכתיבות מותנות ב-ETag
+// (ראו writeWithRetry), כך שגם קריאה ישנה לא יכולה לדרוס נתונים - רק לגרום לניסיון חוזר.
+let lastStoreMode = 'unknown';
+
+function findUncachedEdgeURL(event) {
+  try {
+    const data = JSON.parse(Buffer.from(event.blobs, 'base64').toString('utf8'));
+    if (data.uncachedEdgeURL) return data.uncachedEdgeURL;
+    if (data.uncached_edge_url) return data.uncached_edge_url;
+  } catch (e) { /* אין event.blobs תקין - ננסה מקור אחר */ }
+  try {
+    const raw = globalThis.netlifyBlobsContext || process.env.NETLIFY_BLOBS_CONTEXT;
+    if (raw) {
+      const ctx = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+      if (ctx.uncachedEdgeURL) return ctx.uncachedEdgeURL;
+    }
+  } catch (e) { /* אין הקשר סביבה */ }
+  return null;
+}
+
 function getKioskStore(event) {
   connectLambda(event);
+  const uncachedEdgeURL = findUncachedEdgeURL(event);
+  if (uncachedEdgeURL) {
+    lastStoreMode = 'strong';
+    return getStore({ name: 'library-kiosk', consistency: 'strong', uncachedEdgeURL });
+  }
+  lastStoreMode = 'eventual';
   return getStore('library-kiosk');
+}
+
+function getStoreMode(event) {
+  getKioskStore(event);
+  return lastStoreMode;
 }
 
 // כתיבה בטוחה מול עדכונים מקבילים: קוראים את המסמך הנוכחי (עם ה-ETag שלו),
 // מפעילים עליו את מוטציית הקריאה (mutateFn יכולה לזרוק כדי לבטל את הכתיבה -
 // למשל "שם משתמש כבר תפוס"), וכותבים בחזרה רק אם ה-ETag לא השתנה בינתיים.
 // אם כן השתנה (modified: false) - קוראים מחדש ומנסים שוב, עד MAX_WRITE_ATTEMPTS.
+//
+// ⚠️ משתמשים ב-store.set ולא ב-store.setJSON: ב-@netlify/blobs 10.x יש באג שבו setJSON
+// לא שולח את תנאי ה-ETag לשרת (הכתיבה תמיד "מצליחה" ודורסת). זה גרם בפועל לאובדן
+// עסקאות ולחישובי יתרה שגויים. store.set מעביר את התנאי כראוי.
 async function writeWithRetry(store, key, defaultValue, mutateFn) {
   for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      // המתנה הולכת וגדלה - נותנת למטמון זמן להתעדכן אם הקריאה הקודמת הייתה ישנה
+      await new Promise(resolve => setTimeout(resolve, 250 * attempt));
+    }
     const existing = await store.getWithMetadata(key, { type: 'json' });
     const data = (existing && existing.data) || defaultValue;
     const etag = existing && existing.etag;
 
     const result = mutateFn(data);
 
-    const writeResult = await store.setJSON(key, data, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
+    const writeResult = await store.set(key, JSON.stringify(data), etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
     if (writeResult.modified) return result;
   }
   throw new Error('שגיאת שרת: לא ניתן לשמור את השינוי כרגע עקב עומס, נסה שוב');
@@ -241,20 +284,17 @@ async function chargeForPrint(event, { userId, pages }) {
 async function refundPrintCharge(event, { userId, transactionId }) {
   const store = getKioskStore(event);
 
-  const charge = await writeWithRetry(store, TRANSACTIONS_KEY, [], (transactions) => {
-    const tx = transactions.find(t => t.id === transactionId);
-    if (!tx || tx.userId !== userId || tx.type !== 'charge' || tx.source !== 'print') {
-      throw new Error('עסקת החיוב לא נמצאה');
+  // אם הקריאה עדיין לא "רואה" חיוב שנרשם לפני רגע (מטמון) - ממתינים ומנסים שוב
+  let charge;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      charge = await markChargeRefunded(store, { userId, transactionId });
+      break;
+    } catch (err) {
+      if (!err.chargeNotFound || attempt >= 5) throw err;
+      await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
     }
-    if (tx.refunded) {
-      const err = new Error('החיוב הזה כבר הוחזר');
-      err.alreadyRefunded = true;
-      throw err;
-    }
-    tx.refunded = true;
-    tx.refundedAt = new Date().toISOString();
-    return { amount: tx.amount, pages: tx.pages };
-  });
+  }
 
   const updatedUser = await writeWithRetry(store, USERS_KEY, {}, (users) => {
     const user = users[userId];
@@ -274,6 +314,25 @@ async function refundPrintCharge(event, { userId, transactionId }) {
   });
 
   return { balance: updatedUser.balance, amount: charge.amount, transaction };
+}
+
+function markChargeRefunded(store, { userId, transactionId }) {
+  return writeWithRetry(store, TRANSACTIONS_KEY, [], (transactions) => {
+    const tx = transactions.find(t => t.id === transactionId);
+    if (!tx || tx.userId !== userId || tx.type !== 'charge' || tx.source !== 'print') {
+      const err = new Error('עסקת החיוב לא נמצאה');
+      err.chargeNotFound = true;
+      throw err;
+    }
+    if (tx.refunded) {
+      const err = new Error('החיוב הזה כבר הוחזר');
+      err.alreadyRefunded = true;
+      throw err;
+    }
+    tx.refunded = true;
+    tx.refundedAt = new Date().toISOString();
+    return { amount: tx.amount, pages: tx.pages };
+  });
 }
 
 // תעריף עמוד הדפסה ורשימת התוכנות המאושרות - נקרא ע"י עמדת הקיוסק (לבניית
@@ -422,6 +481,7 @@ async function listUserTransactions(event, userId) {
 }
 
 module.exports = {
+  getStoreMode,
   hashPassword,
   verifyPassword,
   toPublicUser,
