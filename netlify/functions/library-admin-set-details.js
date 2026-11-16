@@ -1,7 +1,7 @@
-// דף ניהול - טאב הקיוסק לספרייה: עדכון השם המלא של משתמש קיוסק.
-// השם נשלח לנדרים פלוס כ"שם משלם" בכל הטענה, ומוסדות שמחייבים שם דוחים עסקה בלעדיו.
+// דף ניהול - טאב הקיוסק לספרייה: עדכון שם מלא + טלפון של משתמש קיוסק.
+// שניהם נשלחים לנדרים פלוס בכל הטענה, והמוסד דוחה עסקה בלעדיהם.
 const { requireAdmin } = require('./lib/admin-auth');
-const { setDisplayName } = require('./lib/kiosk-store');
+const { setUserDetails } = require('./lib/kiosk-store');
 
 exports.handler = async function (event, context) {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
@@ -16,12 +16,12 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    const { userId, displayName } = JSON.parse(event.body || '{}');
+    const { userId, displayName, phone } = JSON.parse(event.body || '{}');
     if (!userId) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'חסר מזהה משתמש' }) };
     }
 
-    const user = await setDisplayName(event, { userId, displayName });
+    const user = await setUserDetails(event, { userId, displayName, phone });
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, user }) };
   } catch (error) {
     return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: error.message }) };

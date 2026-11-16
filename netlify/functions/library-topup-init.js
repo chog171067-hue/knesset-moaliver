@@ -38,11 +38,17 @@ exports.handler = async function (event) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, error: 'משתמש לא נמצא' }) };
     }
 
-    if (!user.displayName || !String(user.displayName).trim()) {
+    // המוסד בנדרים פלוס מחייב שם מלא, טלפון ות"ז - בודקים מראש ומציגים הודעה ברורה,
+    // במקום שהעסקה תידחה עם הודעה טכנית מנדרים פלוס
+    const missing = [];
+    if (!user.displayName || !String(user.displayName).trim()) missing.push('שם מלא');
+    if (!user.phone) missing.push('טלפון');
+    if (!/^\d{5,9}$/.test(String(user.username || ''))) missing.push('תעודת זהות');
+    if (missing.length) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, error: 'לא ניתן להטעין: חסר שם מלא בחשבון. נא לפנות לצוות הספרייה לעדכון השם.' })
+        body: JSON.stringify({ success: false, error: `לא ניתן להטעין: חסרים בחשבון פרטים (${missing.join(', ')}). נא לפנות לצוות הספרייה לעדכון.` })
       };
     }
 
@@ -52,7 +58,8 @@ exports.handler = async function (event) {
       param1: pending.token,
       callbackUrl: buildCallbackUrl(event),
       fullName: user.displayName,
-      tz: user.username
+      tz: user.username,
+      phone: user.phone
     });
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, token: pending.token, transactionId }) };

@@ -545,6 +545,7 @@
                         <div class="form-grid">
                             <div class="field"><label>תעודת זהות (שם המשתמש בקיוסק) *</label><input type="text" id="libNewUsername" required pattern="[0-9]{5,9}" title="יש להזין 5-9 ספרות" placeholder="לדוגמה: 123456789"></div>
 <div class="field"><label>שם מלא *</label><input type="text" id="libNewDisplayName" required placeholder="ישראל ישראלי"></div>
+<div class="field"><label>טלפון *</label><input type="tel" id="libNewPhone" required placeholder="0501234567"></div>
 <div class="field"><label>סיסמה ראשונית *</label><input type="text" id="libNewPassword" required></div>
                         </div>
                         <button class="btn" id="libCreateUserBtn" onclick="createLibraryUser()" style="width:auto; padding:12px 30px;">יצירת משתמש</button>
@@ -1751,13 +1752,13 @@
             const statusBadge = u.isActive ? '<span class="badge-success">פעיל</span>' : '<span class="badge-danger">מושבת</span>';
             tbody.innerHTML += `
                 <tr>
-                    <td>${escapeHtml(u.username)}<br><small style="color:${u.displayName ? '#4a5568' : '#c53030'};">${u.displayName ? escapeHtml(u.displayName) : '⚠ חסר שם'}</small></td>
+                    <td>${escapeHtml(u.username)}<br><small style="color:${u.displayName ? '#4a5568' : '#c53030'};">${u.displayName ? escapeHtml(u.displayName) : '⚠ חסר שם'}</small><br><small style="color:${u.phone ? '#4a5568' : '#c53030'};">${u.phone ? escapeHtml(u.phone) : '⚠ חסר טלפון'}</small></td>
                     <td>${Number(u.balance).toFixed(2)}</td>
                     <td>${statusBadge}</td>
                     <td>${created}</td>
                     <td style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
                         <button class="view-card-btn" onclick="openLibraryAddBalance('${u.id}')">💰 הטענה</button>
-                        <button class="view-card-btn" onclick="openLibraryEditName('${u.id}')">✏️ שם</button>
+                        <button class="view-card-btn" onclick="openLibraryEditName('${u.id}')">✏️ פרטים</button>
                         <button class="view-card-btn" onclick="openLibraryResetPassword('${u.id}')">🔑 איפוס סיסמה</button>
                         <button class="view-card-btn" onclick="openLibraryHistory('${u.id}')">📜 היסטוריה</button>
                         <button class="view-card-btn" onclick="toggleLibraryActive('${u.id}', ${!u.isActive})">${u.isActive ? '⏸ השבתה' : '▶️ הפעלה'}</button>
@@ -1776,9 +1777,10 @@
 
         const username = document.getElementById('libNewUsername').value.trim();
         const displayName = document.getElementById('libNewDisplayName').value.trim();
+        const phone = document.getElementById('libNewPhone').value.trim();
         const password = document.getElementById('libNewPassword').value;
-       if (!username || !password || !displayName) {
-    errorDiv.innerText = 'יש למלא תעודת זהות, שם מלא וסיסמה';
+       if (!username || !password || !displayName || !phone) {
+    errorDiv.innerText = 'יש למלא תעודת זהות, שם מלא, טלפון וסיסמה';
     errorDiv.style.display = 'block';
     return;
 }
@@ -1796,7 +1798,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             await authedFetch('/.netlify/functions/library-admin-create-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, displayName })
+                body: JSON.stringify({ username, password, displayName, phone })
             });
             successDiv.innerText = '✅ המשתמש נוצר בהצלחה.';
             successDiv.style.display = 'block';
@@ -1860,9 +1862,10 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     function openLibraryEditName(userId) {
         const u = libraryUsersData.find(x => x.id === userId);
         if (!u) return;
-        document.getElementById('libraryActionTitle').innerText = `עריכת שם - ${u.username}`;
+        document.getElementById('libraryActionTitle').innerText = `עריכת פרטים - ${u.username}`;
         document.getElementById('libraryActionBody').innerHTML = `
             <div class="field full" style="margin-bottom:12px;"><label>שם מלא</label><input type="text" id="libEditNameValue" value="${escapeHtml(u.displayName || '')}" placeholder="ישראל ישראלי"></div>
+            <div class="field full" style="margin-bottom:12px;"><label>טלפון</label><input type="tel" id="libEditPhoneValue" value="${escapeHtml(u.phone || '')}" placeholder="0501234567"></div>
             <button class="btn" id="libEditNameBtn" style="width:auto; padding:10px 22px;" onclick="submitLibraryEditName('${userId}')">שמירה</button>
             <div class="form-error" id="libraryActionError"></div>
         `;
@@ -1873,17 +1876,18 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         const errorDiv = document.getElementById('libraryActionError');
         errorDiv.style.display = 'none';
         const displayName = document.getElementById('libEditNameValue').value.trim();
+        const phone = document.getElementById('libEditPhoneValue').value.trim();
         const btn = document.getElementById('libEditNameBtn');
         btn.disabled = true;
         btn.innerText = 'שומר...';
         try {
-            const res = await authedFetch('/.netlify/functions/library-admin-set-name', {
+            const res = await authedFetch('/.netlify/functions/library-admin-set-details', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, displayName })
+                body: JSON.stringify({ userId, displayName, phone })
             });
             const u = libraryUsersData.find(x => x.id === userId);
-            if (u) u.displayName = displayName;
+            if (u && res.user) { u.displayName = res.user.displayName; u.phone = res.user.phone; }
             renderLibraryUsersTable();
             closeLibraryActionModal();
         } catch (err) {

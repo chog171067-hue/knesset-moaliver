@@ -17,8 +17,8 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    const { username, password, displayName } = JSON.parse(event.body || '{}');
-    const user = await createUser(event, { username, password, displayName });
+    const { username, password, displayName, phone } = JSON.parse(event.body || '{}');
+    const user = await createUser(event, { username, password, displayName, phone });
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, user }) };
   } catch (error) {
     return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: error.message }) };

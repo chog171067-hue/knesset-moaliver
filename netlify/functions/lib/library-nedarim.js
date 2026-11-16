@@ -29,7 +29,7 @@ function splitFullName(fullName) {
 // fullName / tz הם אופציונליים, אך מומלץ מאוד לספק אותם: חלק מהמוסדות בנדרים
 // פלוס מוגדרים כך שהם דורשים שם משלם (ולפעמים גם תעודת זהות) לפני שמאשרים
 // עסקה - ראו התיעוד, Zeout/FirstName/LastName תחת Action=CreateTransaction.
-async function createServerTransaction({ amount, param1, callbackUrl, fullName, tz }) {
+async function createServerTransaction({ amount, param1, callbackUrl, fullName, tz, phone }) {
   const { mosad, apiValid } = getLibraryNedarimCredentials();
   const { firstName, lastName } = splitFullName(fullName);
 
@@ -50,6 +50,7 @@ async function createServerTransaction({ amount, param1, callbackUrl, fullName, 
   // נדרים פלוס דוחה את כל העסקה אם ת"ז אינה ספרות בלבד (למשל משתמש בדיקה בשם "test2"),
   // ולכן שולחים ת"ז רק כשהיא תקינה - היא אופציונלית בכל מקרה.
   if (tz && /^\d{5,9}$/.test(String(tz))) params.Zeout = String(tz);
+  if (phone) params.Phone = String(phone).replace(/[-\s]/g, '');
 
   const body = new URLSearchParams(params);
 
