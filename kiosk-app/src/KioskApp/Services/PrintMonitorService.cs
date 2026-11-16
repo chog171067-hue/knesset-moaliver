@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Management;
 using System.Printing;
 using System.Threading;
@@ -18,8 +19,6 @@ namespace KioskApp.Services
     public class PrintRefundedEventArgs : EventArgs
     {
         public decimal NewBalance { get; init; }
-        /// <summary>תיאור התקלה בעברית, כפי שהמדפסת דיווחה ל-Windows (למשל "נגמר הנייר").</summary>
-        public string Reason { get; init; } = "";
     }
 
     public class PrintBlockedEventArgs : EventArgs
@@ -46,13 +45,28 @@ namespace KioskApp.Services
         private ManagementEventWatcher? _watcher;
         private CancellationTokenSource _stopCts = new();
 
-        // מעקב אחרי עבודה שכבר חויבה: אם היא תקועה בתקלה (מדפסת מנותקת, נגמר נייר...)
-        // ולא הודפס ממנה אף עמוד - אחרי ErrorTimeout מבטלים אותה ומחזירים את הכסף.
-        // StuckTimeout - רשת ביטחון לעבודה שלא זזה בכלל גם בלי סימון תקלה מפורש.
-        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
-        private static readonly TimeSpan ErrorTimeout = TimeSpan.FromSeconds(20);
-        private static readonly TimeSpan StuckTimeout = TimeSpan.FromMinutes(3);
+        // עבודות שכבר חויבו (לפי "מדפסת|מספר עבודה"). Windows מדווח לפעמים על אותה עבודה
+        // יותר מפעם אחת (בעיקר כשהמדפסת מנותקת) - בלי זה כל דיווח נוסף היה חיוב נוסף.
+        // סטטי: משותף לכל מופעי השירות, למקרה שבמעבר בין תוכנות שניים חופפים לרגע.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> ChargedJobs = new();
+
+        // מעקב אחרי עבודה שכבר חויבה. בעיה = המדפסת דיווחה על תקלה (מוצג מיד, עם הסיבה),
+        // או שההדפסה לא התחילה תוך NoProgressTimeout (יש מדפסות - למשל Canon בחיבור USB -
+        // שלא מדווחות ל-Windows כלום כשהן מנותקות). על בעיה שואלים את המשתמש: "בטל הדפסה"
+        // (ביטול + החזר כסף) או "המשך לחכות" (ואז שואלים שוב אחרי RepromptInterval).
+        private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan NoProgressTimeout = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan RepromptInterval = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan MaxWatchTime = TimeSpan.FromMinutes(15);
+
+        private const string NoProgressReason =
+            "ההדפסה לא מתחילה. ייתכן שהמדפסת כבויה, מנותקת או שאין בה נייר.";
+
+        /// <summary>
+        /// שואל את המשתמש אם לבטל הדפסה שנתקעה (מקבל את תיאור הבעיה, מחזיר true לביטול).
+        /// מוגדר ע"י ה-Overlay ונקרא על ה-UI thread. אם לא הוגדר - מבטלים אוטומטית.
+        /// </summary>
+        public Func<string, bool>? AskCancelStuckPrint { get; set; }
 
         public event EventHandler<PrintChargedEventArgs>? PrintCharged;
         public event EventHandler<PrintBlockedEventArgs>? PrintBlocked;
@@ -113,6 +127,18 @@ namespace KioskApp.Services
                 var userId = _getCurrentUserId();
                 if (string.IsNullOrEmpty(userId)) return; // אין משתמש מחובר כרגע (לא אמור לקרות, שכבת הגנה בלבד)
 
+                // ניקוי רשומות ישנות (מספרי עבודות מתאפסים כש-Windows מאתחל את שירות ההדפסה)
+                foreach (var old in ChargedJobs.Where(kv => DateTime.Now - kv.Value > TimeSpan.FromHours(2)).ToList())
+                    ChargedJobs.TryRemove(old.Key, out _);
+
+                var jobKey = $"{printerName}|{jobId}";
+                if (!ChargedJobs.TryAdd(jobKey, DateTime.Now))
+                {
+                    App.LogInfo($"הדפסה: דיווח כפול על אותה עבודה ({jobKey}) - לא מחייבים שוב");
+                    return;
+                }
+                App.LogInfo($"הדפסה: עבודה חדשה {jobKey}, {pages} עמודים - מחייב");
+
                 try
                 {
                     var result = await _apiClient.ChargePrintAsync(userId, pages);
@@ -146,59 +172,96 @@ namespace KioskApp.Services
         private async Task WatchChargedJobAsync(string printerName, int jobId, string userId, string transactionId, CancellationToken stopToken)
         {
             var started = DateTime.Now;
-            DateTime? errorSince = null;
-            var everInError = false;
-            var lastReason = "";
+            var nextPromptAt = DateTime.MinValue;
+            var problemSeen = false; // הייתה תקלה מדווחת, או שהמשתמש כבר ראה את חלון הבעיה
 
             try
             {
-                while (DateTime.Now - started < MaxWatchTime)
+                while (true)
                 {
                     var stopping = false;
                     try { await Task.Delay(PollInterval, stopToken); }
                     catch (OperationCanceledException) { stopping = true; }
 
                     var (state, reason) = ReadJobState(printerName, jobId);
-                    if (!string.IsNullOrEmpty(reason)) lastReason = reason;
 
+                    if (state == JobState.Printed) return;
                     if (state == JobState.Gone)
                     {
-                        // נעלמה אחרי תקלה (בוטלה ע"י המדפסת/המשתמש) - מחזירים. אחרת - הודפסה.
-                        if (everInError) await RefundAsync(userId, transactionId, lastReason, notify: !stopping);
+                        // העבודה יצאה מהתור. אם לא הייתה שום בעיה - זו הדפסה רגילה שהסתיימה.
+                        // אם הייתה בעיה - היא בוטלה/נזרקה בלי להיות מודפסת: מחזירים.
+                        if (problemSeen) await RefundAsync(userId, transactionId, notify: !stopping);
                         return;
                     }
-                    if (state == JobState.Printed) return;
 
+                    string? problem = null;
                     if (state == JobState.Error)
                     {
-                        everInError = true;
-                        errorSince ??= DateTime.Now;
+                        problemSeen = true;
+                        problem = reason;
                     }
-                    else
+                    else if (DateTime.Now - started >= NoProgressTimeout)
                     {
-                        errorSince = null;
+                        problem = NoProgressReason;
                     }
 
-                    var errorTooLong = errorSince.HasValue && DateTime.Now - errorSince.Value >= ErrorTimeout;
-                    var stuckTooLong = DateTime.Now - started >= StuckTimeout;
-
-                    // בניתוק: עבודה שתקועה כרגע בתקלה לא תודפס למשתמש הבא - מבטלים ומחזירים מיד
-                    if (errorTooLong || stuckTooLong || (stopping && state == JobState.Error))
+                    // בניתוק: עבודה בעייתית לא תחכה למשתמש הבא - מבטלים ומחזירים בשקט
+                    if (stopping)
                     {
-                        TryCancelPrintJob(printerName, jobId);
-                        await RefundAsync(userId, transactionId,
-                            string.IsNullOrEmpty(lastReason) ? "ההדפסה לא התקדמה (ייתכן שהמדפסת כבויה או מנותקת)" : lastReason,
-                            notify: !stopping);
+                        if (problem != null) await CancelAndRefundAsync(printerName, jobId, userId, transactionId, notify: false);
                         return;
                     }
 
-                    if (stopping) return; // תקינה ועדיין בתור - תמשיך להדפיס כרגיל
+                    // רשת ביטחון: עבודה שלא הודפסה גם אחרי זמן רב - מבטלים ומחזירים
+                    if (DateTime.Now - started >= MaxWatchTime)
+                    {
+                        await CancelAndRefundAsync(printerName, jobId, userId, transactionId, notify: true);
+                        return;
+                    }
+
+                    if (problem == null || DateTime.Now < nextPromptAt) continue;
+
+                    problemSeen = true;
+                    var cancel = AskUser(problem);
+
+                    // בזמן שהחלון היה פתוח ייתכן שהבעיה תוקנה וההדפסה יצאה בפועל - רק אז לא מחזירים.
+                    // (עבודה שסתם נעלמה מהתור אחרי שהיתה בעיה - לא נחשבת כמודפסת.)
+                    var (after, _) = ReadJobState(printerName, jobId);
+                    if (after == JobState.Printed) return;
+
+                    if (cancel || after == JobState.Gone)
+                    {
+                        await CancelAndRefundAsync(printerName, jobId, userId, transactionId, notify: true);
+                        return;
+                    }
+                    nextPromptAt = DateTime.Now + RepromptInterval;
                 }
             }
             catch (Exception ex)
             {
                 App.LogError($"שגיאה במעקב אחרי עבודת הדפסה (מדפסת: {printerName}, jobId: {jobId})", ex);
             }
+        }
+
+        private bool AskUser(string problem)
+        {
+            var ask = AskCancelStuckPrint;
+            if (ask == null) return true;
+            try
+            {
+                return Application.Current.Dispatcher.Invoke(() => ask(problem));
+            }
+            catch (Exception ex)
+            {
+                App.LogError("כשל בהצגת חלון בעיית הדפסה", ex);
+                return true;
+            }
+        }
+
+        private async Task CancelAndRefundAsync(string printerName, int jobId, string userId, string transactionId, bool notify)
+        {
+            TryCancelPrintJob(printerName, jobId);
+            await RefundAsync(userId, transactionId, notify);
         }
 
         private enum JobState { Gone, Printed, Error, Waiting }
@@ -211,26 +274,23 @@ namespace KioskApp.Services
                 using var queue = printServer.GetPrintQueue(printerName);
                 queue.Refresh();
 
-                PrintSystemJobInfo job;
-                try
+                // מחפשים את העבודה ברשימת העבודות של התור. "נעלמה" רק אם הרשימה נקראה בהצלחה
+                // והעבודה לא בה - תקלה רגעית בקריאה לא תיחשב כ"נעלמה".
+                using var jobs = queue.GetPrintJobInfoCollection();
+                PrintSystemJobInfo? job = null;
+                foreach (var j in jobs)
                 {
-                    job = queue.GetJob(jobId);
+                    if (j.JobIdentifier == jobId) job = j;
                 }
-                catch
-                {
-                    return (JobState.Gone, "");
-                }
+                if (job == null) return (JobState.Gone, "");
 
-                using (job)
-                {
-                    job.Refresh();
-                    if (job.IsPrinted || job.IsCompleted || job.NumberOfPagesPrinted > 0) return (JobState.Printed, "");
-                    if (job.IsDeleted || job.IsDeleting) return (JobState.Gone, "");
+                job.Refresh();
+                if (job.IsPrinted || job.NumberOfPagesPrinted > 0) return (JobState.Printed, "");
+                if (job.IsDeleted || job.IsDeleting) return (JobState.Gone, "");
 
-                    var reason = DescribeError(queue, job);
-                    if (reason != null) return (JobState.Error, reason);
-                    return (JobState.Waiting, "");
-                }
+                var reason = DescribeError(queue, job);
+                if (reason != null) return (JobState.Error, reason);
+                return (JobState.Waiting, "");
             }
             catch (Exception ex)
             {
@@ -247,32 +307,56 @@ namespace KioskApp.Services
         /// </summary>
         private static string? DescribeError(PrintQueue queue, PrintSystemJobInfo job)
         {
-            if (queue.IsPaperOut || job.IsPaperOut) return "נגמר הנייר במדפסת";
+            if (queue.IsOutOfPaper || job.IsPaperOut) return "נגמר הנייר במדפסת";
             if (queue.IsPaperJammed) return "נייר תקוע במדפסת";
             if (queue.IsDoorOpened) return "מכסה המדפסת פתוח";
             if (queue.IsOutOfMemory) return "זיכרון המדפסת מלא";
             if (queue.IsOffline || queue.IsNotAvailable || job.IsOffline) return "המדפסת כבויה או מנותקת";
             if (queue.IsInError || job.IsInError || job.IsBlocked || job.IsUserInterventionRequired
                 || queue.IsManualFeedRequired || queue.IsOutputBinFull)
-                return "שגיאה במדפסת (ייתכן שנגמר הדיו, או תקלה אחרת)";
+                return queue.IsTonerLow
+                    ? "שגיאה במדפסת - כנראה נגמר הדיו"
+                    : "שגיאה במדפסת (ייתכן שנגמר הדיו, או תקלה אחרת)";
             return null;
         }
 
-        private async Task RefundAsync(string userId, string transactionId, string reason, bool notify)
+        /// <summary>
+        /// מבקש מהשרת החזר. עד 3 ניסיונות (הפרעה רגעית באינטרנט לא תבטל החזר). אם כל הניסיונות
+        /// נכשלו - מודיעים למשתמש לפנות לצוות, והפרטים נרשמים ביומן לטיפול ידני.
+        /// </summary>
+        private async Task RefundAsync(string userId, string transactionId, bool notify)
         {
-            try
+            Exception? lastError = null;
+            for (var attempt = 1; attempt <= 3; attempt++)
             {
-                var newBalance = await _apiClient.RefundPrintAsync(userId, transactionId);
-                App.LogInfo($"הדפסה נכשלה ({reason}) - החיוב הוחזר (משתמש {userId}, עסקה {transactionId})");
-                if (notify)
+                try
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                        PrintRefunded?.Invoke(this, new PrintRefundedEventArgs { NewBalance = newBalance, Reason = reason }));
+                    var newBalance = await _apiClient.RefundPrintAsync(userId, transactionId);
+                    App.LogInfo($"הדפסה לא בוצעה - החיוב הוחזר (משתמש {userId}, עסקה {transactionId})");
+                    if (notify)
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                            PrintRefunded?.Invoke(this, new PrintRefundedEventArgs { NewBalance = newBalance }));
+                    }
+                    return;
+                }
+                catch (KioskApiException ex) when (ex.Message.Contains("כבר הוחזר"))
+                {
+                    return; // כבר הוחזר בעבר - אין מה לעשות
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt));
                 }
             }
-            catch (Exception ex)
+
+            App.LogError($"כשל בהחזר חיוב הדפסה אחרי 3 ניסיונות (משתמש {userId}, עסקה {transactionId}) - נדרש החזר ידני", lastError!);
+            if (notify)
             {
-                App.LogError($"כשל בהחזר חיוב הדפסה (משתמש {userId}, עסקה {transactionId})", ex);
+                Application.Current.Dispatcher.Invoke(() => MessageBox.Show(
+                    "ההדפסה בוטלה, אך החזרת הכסף ליתרה נכשלה.\nנא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.",
+                    "החזר לא בוצע", MessageBoxButton.OK, MessageBoxImage.Warning));
             }
         }
 
