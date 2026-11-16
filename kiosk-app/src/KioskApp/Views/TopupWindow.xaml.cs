@@ -16,6 +16,7 @@ namespace KioskApp.Views
     {
         private string? _pendingToken;
         private string? _transactionId;
+        private bool _completed;
         private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
         public TopupWindow()
@@ -82,6 +83,10 @@ namespace KioskApp.Views
 
             var command = JsonSerializer.Serialize(new { Name = "StartTransaction", TransactionId = _transactionId });
             WebView.CoreWebView2.PostWebMessageAsJson(command);
+
+            // לא מסתמכים רק על הודעת "הצלחה" מתוך הטופס של נדרים פלוס (היא לא תמיד מגיעה):
+            // שואלים את השרת שלנו - שמקבל אישור ישיר מנדרים פלוס - עד שהתשלום מאושר.
+            _ = PollTopupStatusAsync(maxAttempts: 90);
         }
 
         private void OnWebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
@@ -91,6 +96,7 @@ namespace KioskApp.Views
                 using var doc = JsonDocument.Parse(e.WebMessageAsJson);
                 var root = doc.RootElement;
                 var name = root.GetProperty("Name").GetString();
+                if (name != "Height") App.LogInfo($"הטענה: הודעה מטופס נדרים פלוס: {e.WebMessageAsJson}");
 
                 if (name == "TransactionResponse")
                 {
@@ -116,6 +122,8 @@ namespace KioskApp.Views
 
         private void OnPaymentFailed(string message)
         {
+            if (_completed) return;
+            _completed = true; // עוצר את בדיקת הסטטוס מול השרת
             // כמו ב-personal.html: עסקה שנכשלה לא מנסים שוב עם אותו מזהה - חוזרים למסך
             // הסכום, ו"המשך לתשלום" יקים עסקה חדשה
             PayButton.Visibility = Visibility.Collapsed;
@@ -133,25 +141,40 @@ namespace KioskApp.Views
         /// </summary>
         private async void OnPaymentAcceptedByIframe()
         {
+            if (_completed) return;
             PayButton.Visibility = Visibility.Collapsed;
             WebView.Visibility = Visibility.Collapsed;
             ShowStatus("התשלום התקבל, מאמתים מול השרת...");
-            await PollTopupStatusAsync();
+            // הבדיקה מול השרת כבר רצה מאז הלחיצה על "בצע תשלום" - היא תסיים את התהליך
+            await Task.CompletedTask;
         }
 
-        private async Task PollTopupStatusAsync()
+        private async Task PollTopupStatusAsync(int maxAttempts)
         {
             if (_pendingToken == null) return;
 
-            // עד כ-30 שניות (15 ניסיונות, 2 שניות בין כל אחד) - תואם את הלוגיקה
-            // המקבילה ב-personal.html (pollLibraryTopupStatus)
-            for (var attempt = 0; attempt < 15; attempt++)
+            // 2 שניות בין ניסיונות. מתחיל מיד עם הלחיצה על "בצע תשלום", ולכן מספר
+            // הניסיונות גבוה (90 = 3 דקות) - כולל הזמן שנדרים פלוס מעבד את הכרטיס.
+            for (var attempt = 0; attempt < maxAttempts && !_completed; attempt++)
             {
                 try
                 {
                     var status = await App.ApiClient.GetTopupStatusAsync(_pendingToken);
-                    if (status.Status == "confirmed")
+                    if (status.Status == "failed" && !_completed)
                     {
+                        // נדרים פלוס דיווח על התשלום, אבל זיכוי היתרה בשרת נכשל - צריך טיפול ידני
+                        _completed = true;
+                        PayButton.Visibility = Visibility.Collapsed;
+                        WebView.Visibility = Visibility.Collapsed;
+                        App.LogError("הטענה: התשלום התקבל אך זיכוי היתרה נכשל בשרת", new InvalidOperationException(_pendingToken));
+                        ShowStatus("התשלום התקבל, אך עדכון היתרה נכשל. נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.");
+                        return;
+                    }
+                    if (status.Status == "confirmed" && !_completed)
+                    {
+                        _completed = true;
+                        PayButton.Visibility = Visibility.Collapsed;
+                        WebView.Visibility = Visibility.Collapsed;
                         // status.Amount הוא הסכום שבאמת זוכה בשרת (ראו confirmPendingTopup) -
                         // ולכן זה חישוב מדויק, לא ניחוש, גם אם הוא שונה מהסכום שהוזן במסך
                         var newBalance = App.Session.CurrentUser!.Balance + status.Amount;
@@ -170,7 +193,11 @@ namespace KioskApp.Views
                 await Task.Delay(2000);
             }
 
-            ShowStatus("התשלום התקבל, אך האישור מהשרת מתעכב. היתרה תתעדכן אוטומטית תוך מספר דקות.");
+            if (_completed) return;
+            _completed = true;
+            PayButton.Visibility = Visibility.Collapsed;
+            WebView.Visibility = Visibility.Collapsed;
+            ShowStatus("לא התקבל אישור תשלום. אם חויבתם - היתרה תתעדכן אוטומטית תוך מספר דקות (אפשר להתנתק ולהתחבר מחדש כדי לראות). אחרת - סגרו חלון זה ונסו שוב.");
         }
 
         private void ShowStatus(string text)
