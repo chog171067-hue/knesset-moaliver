@@ -142,6 +142,33 @@ namespace KioskApp
             }
         }
 
+        /// <summary>
+        /// מסכי הקיוסק (התחברות, בחירת תוכנה) לעולם לא נשארים ממוזערים: במחשב נעול אין
+        /// שורת משימות, ומסך ממוזער הופך לפס קטן בפינה שאי אפשר להחזיר - המשתמש נתקע
+        /// מול מסך שחור. כל מזעור (למשל בעקבות דיאלוג "לשמור?" של תוכנה שנסגרת) מתוקן מיד.
+        /// </summary>
+        public static void KeepFullScreen(Window window)
+        {
+            window.StateChanged += (_, _) =>
+            {
+                if (window.WindowState != WindowState.Minimized) return;
+                window.Dispatcher.BeginInvoke(new Action(() => BringToFront(window)));
+            };
+            window.IsVisibleChanged += (_, _) =>
+            {
+                if (window.IsVisible) window.Dispatcher.BeginInvoke(new Action(() => BringToFront(window)));
+            };
+        }
+
+        public static void BringToFront(Window window)
+        {
+            if (!window.IsVisible) return;
+            window.WindowState = WindowState.Maximized;
+            window.Topmost = false; // "ניעור" של Topmost מחזיר את החלון לראש הערימה גם אם חלון אחר תפס אותו
+            window.Topmost = true;
+            window.Activate();
+        }
+
         public static void LogError(string context, Exception ex) => WriteLogLine($"{context}: {ex}");
 
         public static void LogInfo(string message) => WriteLogLine(message);

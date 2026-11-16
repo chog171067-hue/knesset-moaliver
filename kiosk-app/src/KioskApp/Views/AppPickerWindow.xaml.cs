@@ -11,6 +11,7 @@ namespace KioskApp.Views
         public AppPickerWindow()
         {
             InitializeComponent();
+            App.KeepFullScreen(this);
             Loaded += (_, _) => PopulateApps();
         }
 
@@ -113,6 +114,7 @@ namespace KioskApp.Views
             PopulateApps();
             Show();
             Application.Current.MainWindow = this;
+            App.BringToFront(this);
         }
     }
 }

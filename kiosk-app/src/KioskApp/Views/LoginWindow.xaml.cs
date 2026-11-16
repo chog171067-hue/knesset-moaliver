@@ -9,6 +9,7 @@ namespace KioskApp.Views
         public LoginWindow()
         {
             InitializeComponent();
+            App.KeepFullScreen(this);
             Loaded += (_, _) => UsernameBox.Focus();
         }
 
