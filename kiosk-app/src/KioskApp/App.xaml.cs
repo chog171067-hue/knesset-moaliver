@@ -55,6 +55,11 @@ namespace KioskApp
                 return;
             }
 
+            // "קו הבסיס" של שומר החלונות נלקח פעם אחת, בעליית הקיוסק - ולא בכל התחברות:
+            // כל תוכנה שנפתחה מאז (גם ע"י משתמש קודם שלא נסגרה) נחשבת תוכנת משתמש,
+            // נשמרת במסך מלא ונסגרת בניתוק. רק מה שרץ לפני הקיוסק עצמו לא נוגעים בו.
+            WindowGuard.CaptureBaseline();
+
             var loginWindow = new LoginWindow();
             MainWindow = loginWindow;
             loginWindow.Show();
