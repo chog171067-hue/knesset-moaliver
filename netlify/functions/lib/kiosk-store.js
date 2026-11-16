@@ -481,7 +481,13 @@ async function markPendingTopupOutcome(event, token, patch) {
 // נקרא ע"י ה-CallBack בלבד, אחרי אימות ה-IP מול נדרים פלוס. הסכום שמזוכה הוא
 // הסכום שנדרים פלוס בפועל מדווחת עליו (לא מה שביקשנו ביצירת האסימון) - כך
 // שאם משום מה יש פער, היתרה תמיד תשקף את מה שבאמת חויב בכרטיס האשראי.
-async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransactionId, confirmation, lastNum }) {
+async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransactionId, confirmation, lastNum, raw }) {
+  // זיכוי רק על עסקה שאושרה בפועל: לעסקת אשראי מאושרת יש תמיד מספר אישור.
+  // הודעה בלי מספר אישור (למשל עסקה שנדחתה) לא מזכה - והקוראת שומרת אותה לבדיקה ידנית.
+  if (!confirmation || !String(confirmation).trim()) {
+    throw new Error('התקבלה הודעה מנדרים פלוס ללא מספר אישור - לא זוכה (ייתכן שהעסקה נדחתה)');
+  }
+
   const claim = await claimPendingTopupForProcessing(event, token);
   if (claim.alreadyHandled) {
     return { duplicate: true, status: claim.entry.status };
@@ -506,7 +512,8 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
       amount: creditAmount,
       description: 'הטענת כסף באשראי דרך נדרים פלוס',
       nedarimTransactionId: nedarimTransactionId || null,
-      confirmation: confirmation || null
+      confirmation: confirmation || null,
+      nedarimRaw: raw || null
     });
 
     await markPendingTopupOutcome(event, token, {

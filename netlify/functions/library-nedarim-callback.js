@@ -18,6 +18,8 @@ exports.handler = async function (event) {
 
   try {
     const data = JSON.parse(event.body || '{}');
+    // רישום מלא של ההודעה (מופיע בלוגים של הפונקציה בנטליפיי) - לבירור מקרים חריגים
+    console.log('[library-nedarim-callback] התקבל:', JSON.stringify(data));
     const token = data.Param1 || data.Param2;
     if (!token) {
       console.error('[library-nedarim-callback] קאלבק ללא Param1/Param2 - לא ניתן לשייך לחשבון');
@@ -29,7 +31,8 @@ exports.handler = async function (event) {
       nedarimAmount: data.Amount,
       nedarimTransactionId: data.TransactionId,
       confirmation: data.Confirmation,
-      lastNum: data.LastNum
+      lastNum: data.LastNum,
+      raw: data
     });
 
     return { statusCode: 200, body: 'OK' };
@@ -49,7 +52,8 @@ exports.handler = async function (event) {
         confirmation: data.Confirmation || null,
         clientName: data.ClientName || null,
         zeout: data.Zeout || null,
-        phone: data.Phone || null
+        phone: data.Phone || null,
+        raw: data
       });
     } catch (recordError) {
       console.error('[library-nedarim-callback] גם שמירת התשלום לטיפול ידני נכשלה:', recordError.message);
