@@ -1,19 +1,27 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"></head>
+<head><meta charset="utf-8"><meta name="robots" content="noindex"><title>הטענת כסף - קיוסק</title></head>
 <body style="margin:0; padding:0;">
 <iframe id="NedarimFrame" style="width:100%; border:none; height:100vh;" scrolling="no"></iframe>
 <script>
+  // דף מתווך לחלון הטענת הכסף בעמדת הקיוסק (נטען ב-WebView2, ראו TopupWindow.xaml.cs).
+  // חייב להיות מאוחסן באתר (כתובת https אמיתית): הטופס של נדרים פלוס לא שולח את
+  // התשובה (אושר/נדחה) לדף בלי כתובת, כמו דף שנוצר בתוך התוכנה עצמה.
   var frame = document.getElementById('NedarimFrame');
+  var webview = window.chrome && window.chrome.webview;
+  if (!webview) {
+    document.body.innerHTML = '<p dir="rtl" style="font-family:sans-serif;padding:20px;">דף זה מיועד לעמדת הקיוסק בלבד.</p>';
+  }
 
   window.addEventListener('message', function (event) {
+    if (!webview || event.source !== frame.contentWindow) return;
     if (!event.data || !event.data.Name) return;
     if (event.data.Name === 'Height' || event.data.Name === 'TransactionResponse') {
-      window.chrome.webview.postMessage(event.data);
+      webview.postMessage(event.data);
     }
   });
 
-  window.chrome.webview.addEventListener('message', function (event) {
+  if (webview) webview.addEventListener('message', function (event) {
     var msg = event.data;
     if (!msg || !msg.Name) return;
     if (msg.Name === 'StartTransaction') {
@@ -24,7 +32,7 @@
   frame.onload = function () {
     frame.contentWindow.postMessage({ Name: 'GetHeight' }, '*');
   };
-  frame.src = 'https://www.matara.pro/nedarimplus/iframe/';
+  if (webview) frame.src = 'https://www.matara.pro/nedarimplus/iframe/';
 </script>
 </body>
 </html>
