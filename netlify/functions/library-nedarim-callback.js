@@ -3,7 +3,7 @@
 // אין כאן הרשאת station/admin רגילה - האימות היחיד האפשרי מול נדרים פלוס
 // הוא כתובת ה-IP השולחת (ראו lib/nedarim-security.js).
 const { isFromNedarim } = require('./lib/nedarim-security');
-const { confirmPendingTopup } = require('./lib/kiosk-store');
+const { confirmPendingTopup, recordOrphanTopup } = require('./lib/kiosk-store');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
@@ -38,6 +38,22 @@ exports.handler = async function (event) {
     // (ראו תיעוד: "המערכת לא תנסה לשדר יותר מפעם אחת") - כשל אמיתי כאן דורש
     // בדיקה ידנית של הלוגים, לא ניסיון חוזר אוטומטי מהצד שלהם.
     console.error('[library-nedarim-callback] שגיאה בעיבוד הקאלבק:', error.message);
+    // תשלום אמיתי שלא זוכה - שומרים את כל הפרטים לטיפול ידני, כדי שלא "ייעלם"
+    try {
+      const data = JSON.parse(event.body || '{}');
+      await recordOrphanTopup(event, {
+        reason: error.message,
+        token: data.Param1 || data.Param2 || null,
+        amount: data.Amount || null,
+        nedarimTransactionId: data.TransactionId || null,
+        confirmation: data.Confirmation || null,
+        clientName: data.ClientName || null,
+        zeout: data.Zeout || null,
+        phone: data.Phone || null
+      });
+    } catch (recordError) {
+      console.error('[library-nedarim-callback] גם שמירת התשלום לטיפול ידני נכשלה:', recordError.message);
+    }
     return { statusCode: 200, body: 'error logged' };
   }
 };
