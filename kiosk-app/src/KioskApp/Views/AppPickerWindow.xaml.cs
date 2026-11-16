@@ -17,6 +17,9 @@ namespace KioskApp.Views
         private void PopulateApps()
         {
             WelcomeText.Text = $"שלום, {App.Session.CurrentUser?.Username}!";
+            // רק למשתמשים שסומנו בדף הניהול כ"מורשה יציאה"
+            ExitToDesktopButton.Visibility = App.Session.CurrentUser?.CanExitKiosk == true
+                ? Visibility.Visible : Visibility.Collapsed;
             AppsPanel.Children.Clear();
 
             var apps = App.Session.Config?.AllowedApps ?? new System.Collections.Generic.List<AllowedApp>();
@@ -81,6 +84,18 @@ namespace KioskApp.Views
                 MessageBox.Show(ex.Message, "שגיאה בהפעלת התוכנה", MessageBoxButton.OK, MessageBoxImage.Error);
                 button.IsEnabled = true;
             }
+        }
+
+        private void OnExitToDesktopClick(object sender, RoutedEventArgs e)
+        {
+            if (App.Session.CurrentUser?.CanExitKiosk != true) return;
+
+            var answer = MessageBox.Show(
+                "לצאת מהקיוסק לשולחן העבודה של המחשב?\n\nכדי לחזור: הכפתור \"חזרה לקיוסק\" בפינת המסך, או יציאה מ-Windows.",
+                "יציאה למחשב", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (answer != MessageBoxResult.Yes) return;
+
+            App.ExitToDesktop();
         }
 
         private void OnLogoutClick(object sender, RoutedEventArgs e)

@@ -65,6 +65,83 @@ namespace KioskApp
             loginWindow.Show();
         }
 
+        /// <summary>
+        /// "יציאה למחשב" (למשתמש מורשה בלבד): מסתיר את כל חלונות הקיוסק, מפעיל את שולחן
+        /// העבודה של Windows (explorer.exe), ומציג כפתור קטן "חזרה לקיוסק" בפינת המסך.
+        /// הקיוסק עצמו ממשיך לרוץ ברקע - הוא ה-Shell של משתמש הקיוסק, ויציאה ממנו הייתה
+        /// משאירה מסך שחור.
+        /// </summary>
+        public static void ExitToDesktop()
+        {
+            LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username}");
+            Session.End();
+
+            foreach (Window w in Current.Windows)
+            {
+                w.Hide();
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                LogError("כשל בהפעלת שולחן העבודה", ex);
+            }
+
+            var returnWindow = new ReturnToKioskWindow();
+            returnWindow.Show();
+        }
+
+        /// <summary>חזרה מ"יציאה למחשב" למסך ההתחברות של הקיוסק.</summary>
+        public static void ReturnToKiosk()
+        {
+            LogInfo("חזרה לקיוסק משולחן העבודה");
+
+            // כשהקיוסק הוא ה-Shell (מחשב נעול), סוגרים את שולחן העבודה שהופעל ביציאה.
+            // במחשב שלא ננעל (בדיקות) - לא נוגעים ב-Explorer, הוא שולחן העבודה הרגיל של המנהל.
+            if (IsRunningAsShell())
+            {
+                var mySession = System.Diagnostics.Process.GetCurrentProcess().SessionId;
+                foreach (var p in System.Diagnostics.Process.GetProcessesByName("explorer"))
+                {
+                    try
+                    {
+                        if (p.SessionId == mySession) p.Kill();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogError("כשל בסגירת שולחן העבודה", ex);
+                    }
+                }
+            }
+
+            foreach (Window w in Current.Windows)
+            {
+                if (w is not ReturnToKioskWindow) w.Close();
+            }
+
+            var login = new LoginWindow();
+            Current.MainWindow = login;
+            login.Show();
+        }
+
+        private static bool IsRunningAsShell()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\Winlogon");
+                var shell = key?.GetValue("Shell") as string;
+                return !string.IsNullOrEmpty(shell)
+                       && shell.Contains("KioskApp.exe", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static void LogError(string context, Exception ex) => WriteLogLine($"{context}: {ex}");
 
         public static void LogInfo(string message) => WriteLogLine(message);

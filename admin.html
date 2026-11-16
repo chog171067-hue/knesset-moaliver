@@ -1752,7 +1752,7 @@
             const statusBadge = u.isActive ? '<span class="badge-success">פעיל</span>' : '<span class="badge-danger">מושבת</span>';
             tbody.innerHTML += `
                 <tr>
-                    <td>${escapeHtml(u.username)}<br><small style="color:${u.displayName ? '#4a5568' : '#c53030'};">${u.displayName ? escapeHtml(u.displayName) : '⚠ חסר שם'}</small><br><small style="color:${u.phone ? '#4a5568' : '#c53030'};">${u.phone ? escapeHtml(u.phone) : '⚠ חסר טלפון'}</small></td>
+                    <td>${escapeHtml(u.username)}${u.canExitKiosk ? ' <span title="מורשה יציאה מהקיוסק">🔧</span>' : ''}<br><small style="color:${u.displayName ? '#4a5568' : '#c53030'};">${u.displayName ? escapeHtml(u.displayName) : '⚠ חסר שם'}</small><br><small style="color:${u.phone ? '#4a5568' : '#c53030'};">${u.phone ? escapeHtml(u.phone) : '⚠ חסר טלפון'}</small></td>
                     <td>${Number(u.balance).toFixed(2)}</td>
                     <td>${statusBadge}</td>
                     <td>${created}</td>
@@ -1761,6 +1761,7 @@
                         <button class="view-card-btn" onclick="openLibraryEditName('${u.id}')">✏️ פרטים</button>
                         <button class="view-card-btn" onclick="openLibraryResetPassword('${u.id}')">🔑 איפוס סיסמה</button>
                         <button class="view-card-btn" onclick="openLibraryHistory('${u.id}')">📜 היסטוריה</button>
+                        <button class="view-card-btn" onclick="toggleLibraryCanExit('${u.id}', ${!u.canExitKiosk})">${u.canExitKiosk ? '🔧 בטל יציאה' : '🔧 אפשר יציאה'}</button>
                         <button class="view-card-btn" onclick="toggleLibraryActive('${u.id}', ${!u.isActive})">${u.isActive ? '⏸ השבתה' : '▶️ הפעלה'}</button>
                         <button class="remove-btn" onclick="deleteLibraryUser('${u.id}', '${escapeHtml(u.username)}')">מחיקה</button>
                     </td>
@@ -1856,6 +1857,26 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             errorDiv.style.display = 'block';
             btn.disabled = false;
             btn.innerText = 'הטענה';
+        }
+    }
+
+    async function toggleLibraryCanExit(userId, canExitKiosk) {
+        const u = libraryUsersData.find(x => x.id === userId);
+        if (!u) return;
+        const question = canExitKiosk
+            ? `לאפשר ל-${u.username} לצאת מהקיוסק לשולחן העבודה של המחשב?\n(כפתור "יציאה למחשב" יופיע לו בעמדה)`
+            : `לבטל ל-${u.username} את האפשרות לצאת מהקיוסק?`;
+        if (!confirm(question)) return;
+        try {
+            const res = await authedFetch('/.netlify/functions/library-admin-set-exit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, canExitKiosk })
+            });
+            if (res.user) u.canExitKiosk = res.user.canExitKiosk;
+            renderLibraryUsersTable();
+        } catch (err) {
+            alert(err.message);
         }
     }
 
