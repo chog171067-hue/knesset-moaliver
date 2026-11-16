@@ -38,6 +38,14 @@ exports.handler = async function (event) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, error: 'משתמש לא נמצא' }) };
     }
 
+    if (!user.displayName || !String(user.displayName).trim()) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, error: 'לא ניתן להטעין: חסר שם מלא בחשבון. נא לפנות לצוות הספרייה לעדכון השם.' })
+      };
+    }
+
     const pending = await createPendingTopup(event, { userId, amount });
     const { transactionId } = await createServerTransaction({
       amount: pending.amount,
