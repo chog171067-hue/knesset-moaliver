@@ -45,7 +45,9 @@ async function requirePersonalLibraryLink(event, context) {
     kioskUserId: kioskUser.id,
     verifiedTz,
     // השם מהאתר (לא מהקיוסק - שם לא נשמר שם) - שימושי למילוי אוטומטי בטופסי תשלום
-    fullName: (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || ''
+    fullName: (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || kioskUser.displayName || '',
+    // טלפון: מהאימות באתר, ואם אין - מחשבון הקיוסק (נדרש לנדרים פלוס)
+    phone: (user.app_metadata && user.app_metadata.verified_phone) || kioskUser.phone || ''
   };
 }
 

@@ -37,7 +37,8 @@ exports.handler = async function (event, context) {
       param1: pending.token,
       callbackUrl: buildCallbackUrl(event),
       fullName: auth.fullName,
-      tz: auth.verifiedTz
+      tz: auth.verifiedTz,
+      phone: auth.phone
     });
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, token: pending.token, transactionId }) };

@@ -97,6 +97,12 @@ function verifyPassword(password, salt, hash) {
   return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
 }
 
+// טלפון ישראלי: ספרות בלבד (מקפים/רווחים מוסרים), 9-10 ספרות, מתחיל ב-0
+function normalizePhone(phone) {
+  const clean = String(phone || '').replace(/[-\s]/g, '');
+  return /^0\d{8,9}$/.test(clean) ? clean : null;
+}
+
 function toPublicUser(user) {
   if (!user) return null;
   const { passwordSalt, passwordHash, ...publicFields } = user;
@@ -122,10 +128,12 @@ async function findUserByUsername(event, username) {
   return Object.values(users).find(u => u.username.toLowerCase() === needle) || null;
 }
 
-async function createUser(event, { username, password, displayName }) {
+async function createUser(event, { username, password, displayName, phone }) {
   const cleanUsername = String(username || '').trim();
   if (!cleanUsername) throw new Error('שם משתמש הוא שדה חובה');
   if (String(displayName || '').trim().length < 2) throw new Error('שם מלא הוא שדה חובה (נדרש לתשלומים בנדרים פלוס)');
+  const cleanPhone = normalizePhone(phone);
+  if (!cleanPhone) throw new Error('יש להזין מספר טלפון תקין (נדרש לתשלומים בנדרים פלוס)');
   if (!password || String(password).length < 4) throw new Error('הסיסמה חייבת להכיל לפחות 4 תווים');
 
   const store = getKioskStore(event);
@@ -144,6 +152,7 @@ async function createUser(event, { username, password, displayName }) {
       // כסף (ראו library-topup-init.js) - אופציונלי כדי לא לשבור משתמשים
       // ישנים שנוצרו בלי השדה הזה.
       displayName: String(displayName || '').trim(),
+      phone: cleanPhone,
       passwordSalt: salt,
       passwordHash: hash,
       balance: 0,
@@ -155,16 +164,19 @@ async function createUser(event, { username, password, displayName }) {
   });
 }
 
-// עדכון השם המלא (נשלח לנדרים פלוס כ"שם משלם" בכל הטענה - חלק מהמוסדות מחייבים אותו)
-async function setDisplayName(event, { userId, displayName }) {
+// עדכון שם מלא + טלפון (שניהם נשלחים לנדרים פלוס בכל הטענה - המוסד מחייב אותם)
+async function setUserDetails(event, { userId, displayName, phone }) {
   const name = String(displayName || '').trim();
   if (name.length < 2) throw new Error('יש להזין שם מלא');
+  const cleanPhone = normalizePhone(phone);
+  if (!cleanPhone) throw new Error('יש להזין מספר טלפון תקין (למשל 0501234567)');
 
   const store = getKioskStore(event);
   return writeWithRetry(store, USERS_KEY, {}, (users) => {
     const user = users[userId];
     if (!user) throw new Error('משתמש לא נמצא');
     user.displayName = name;
+    user.phone = cleanPhone;
     user.updatedAt = new Date().toISOString();
     return toPublicUser(user);
   });
@@ -506,7 +518,7 @@ module.exports = {
   findUserByUsername,
   createUser,
   resetPassword,
-  setDisplayName,
+  setUserDetails,
   setUserActive,
   deleteUser,
   addManualBalance,
