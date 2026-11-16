@@ -15,6 +15,9 @@ const USERS_KEY = 'users.json';
 const TRANSACTIONS_KEY = 'transactions.json';
 const CONFIG_KEY = 'config.json';
 const PENDING_TOPUPS_KEY = 'pending-topups.json';
+// אישורי תשלום מנדרים פלוס שלא הצלחנו לשייך לחשבון - נשמרים לטיפול ידני, כדי
+// שתשלום אמיתי לעולם לא "ייעלם" בשקט (נדרים פלוס לא שולחים אישור פעם שנייה)
+const ORPHAN_TOPUPS_KEY = 'orphan-topups.json';
 const MAX_WRITE_ATTEMPTS = 8;
 
 const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [] };
@@ -423,33 +426,68 @@ async function createPendingTopup(event, { userId, amount }) {
   });
 }
 
+// הרשומה "תשלום ממתין" נוצרת שניות ספורות לפני שהאישור מנדרים פלוס מגיע, והקריאה
+// עלולה לבוא מהמטמון ולא לראות אותה עדיין. במקום לדחות מיד - ממתינים ומנסים שוב.
+async function retryWhileTokenUnknown(fn) {
+  const delaysMs = [400, 800, 1200, 1600, 2000]; // סה"כ כ-6 שניות - בתוך מגבלת 10 השניות של פונקציה
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!err.unknownToken || attempt >= delaysMs.length) throw err;
+      await new Promise(resolve => setTimeout(resolve, delaysMs[attempt]));
+    }
+  }
+}
+
+function unknownTokenError() {
+  const err = new Error('אסימון תשלום לא מוכר');
+  err.unknownToken = true;
+  return err;
+}
+
 async function claimPendingTopupForProcessing(event, token) {
   const store = getKioskStore(event);
-  return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+  return retryWhileTokenUnknown(() => writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
     const entry = pending[token];
-    if (!entry) throw new Error('אסימון תשלום לא מוכר');
+    if (!entry) throw unknownTokenError();
     if (entry.status !== 'pending') {
       return { alreadyHandled: true, entry: { ...entry } };
     }
     entry.status = 'processing';
     return { alreadyHandled: false, entry: { ...entry } };
+  }));
+}
+
+// שמירת אישור תשלום שלא שויך לחשבון, לטיפול ידני (ראו ORPHAN_TOPUPS_KEY)
+async function recordOrphanTopup(event, details) {
+  const store = getKioskStore(event);
+  await writeWithRetry(store, ORPHAN_TOPUPS_KEY, [], (orphans) => {
+    orphans.push({ ...details, receivedAt: new Date().toISOString() });
+    return null;
   });
 }
 
 async function markPendingTopupOutcome(event, token, patch) {
   const store = getKioskStore(event);
-  await writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+  await retryWhileTokenUnknown(() => writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
     const entry = pending[token];
-    if (!entry) throw new Error('אסימון תשלום לא מוכר');
+    if (!entry) throw unknownTokenError();
     Object.assign(entry, patch);
     return entry;
-  });
+  }));
 }
 
 // נקרא ע"י ה-CallBack בלבד, אחרי אימות ה-IP מול נדרים פלוס. הסכום שמזוכה הוא
 // הסכום שנדרים פלוס בפועל מדווחת עליו (לא מה שביקשנו ביצירת האסימון) - כך
 // שאם משום מה יש פער, היתרה תמיד תשקף את מה שבאמת חויב בכרטיס האשראי.
-async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransactionId, confirmation, lastNum }) {
+async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransactionId, confirmation, lastNum, raw }) {
+  // זיכוי רק על עסקה שאושרה בפועל: לעסקת אשראי מאושרת יש תמיד מספר אישור.
+  // הודעה בלי מספר אישור (למשל עסקה שנדחתה) לא מזכה - והקוראת שומרת אותה לבדיקה ידנית.
+  if (!confirmation || !String(confirmation).trim()) {
+    throw new Error('התקבלה הודעה מנדרים פלוס ללא מספר אישור - לא זוכה (ייתכן שהעסקה נדחתה)');
+  }
+
   const claim = await claimPendingTopupForProcessing(event, token);
   if (claim.alreadyHandled) {
     return { duplicate: true, status: claim.entry.status };
@@ -474,7 +512,8 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
       amount: creditAmount,
       description: 'הטענת כסף באשראי דרך נדרים פלוס',
       nedarimTransactionId: nedarimTransactionId || null,
-      confirmation: confirmation || null
+      confirmation: confirmation || null,
+      nedarimRaw: raw || null
     });
 
     await markPendingTopupOutcome(event, token, {
@@ -496,7 +535,8 @@ async function getPendingTopupStatus(event, token) {
   const store = getKioskStore(event);
   const pending = (await store.get(PENDING_TOPUPS_KEY, { type: 'json' })) || {};
   const entry = pending[token];
-  if (!entry) throw new Error('אסימון תשלום לא מוכר');
+  // מהמטמון ייתכן שהרשומה עוד לא נראית - מבחינת העמדה זה פשוט "עדיין ממתין"
+  if (!entry) return { status: 'pending', amount: 0, confirmedAt: null };
   return { status: entry.status, amount: entry.amount, confirmedAt: entry.confirmedAt || null };
 }
 
@@ -530,5 +570,6 @@ module.exports = {
   refundPrintCharge,
   createPendingTopup,
   confirmPendingTopup,
+  recordOrphanTopup,
   getPendingTopupStatus
 };
