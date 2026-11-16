@@ -63,6 +63,8 @@ namespace KioskApp
             var loginWindow = new LoginWindow();
             MainWindow = loginWindow;
             loginWindow.Show();
+
+            StartScreenWatchdog();
         }
 
         /// <summary>
@@ -74,6 +76,7 @@ namespace KioskApp
         public static void ExitToDesktop()
         {
             LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username}");
+            _inDesktopMode = true;
             Session.End();
 
             foreach (Window w in Current.Windows)
@@ -98,6 +101,7 @@ namespace KioskApp
         public static void ReturnToKiosk()
         {
             LogInfo("חזרה לקיוסק משולחן העבודה");
+            _inDesktopMode = false;
 
             // כשהקיוסק הוא ה-Shell (מחשב נעול), סוגרים את שולחן העבודה שהופעל ביציאה.
             // במחשב שלא ננעל (בדיקות) - לא נוגעים ב-Explorer, הוא שולחן העבודה הרגיל של המנהל.
@@ -139,6 +143,84 @@ namespace KioskApp
             catch
             {
                 return false;
+            }
+        }
+
+        // --- שומר מסך: אף פעם לא להשאיר את המשתמש מול מסך שחור ---
+        private static bool _inDesktopMode;
+        private static DateTime? _noScreenSince;
+        private static DispatcherTimer? _screenWatchdog;
+
+        /// <summary>
+        /// כל 2 שניות: בודק שלפחות חלון אחד של הקיוסק גלוי ולא ממוזער (התחברות, בחירת תוכנה,
+        /// סרגל עליון, דיאלוג). במחשב נעול אין שולחן עבודה - אם אף מסך של הקיוסק לא גלוי,
+        /// המשתמש רואה מסך שחור בלי שום דרך להמשיך. זה קרה בפועל אחרי סגירת תוכנה עם דיאלוג
+        /// "לשמור?". במקרה כזה מחזירים את המסך המתאים ורושמים ביומן מה נמצא, לאבחון.
+        /// </summary>
+        private static void StartScreenWatchdog()
+        {
+            _screenWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _screenWatchdog.Tick += (_, _) =>
+            {
+                try
+                {
+                    CheckScreen();
+                }
+                catch (Exception ex)
+                {
+                    LogError("שומר מסך", ex);
+                }
+            };
+            _screenWatchdog.Start();
+        }
+
+        private static void CheckScreen()
+        {
+            if (_inDesktopMode) return; // "יציאה למחשב" - שולחן העבודה גלוי בכוונה
+
+            var windows = new System.Collections.Generic.List<Window>();
+            foreach (Window w in Current.Windows) windows.Add(w);
+
+            var anyShown = windows.Exists(w => w.IsVisible && w.WindowState != WindowState.Minimized);
+            if (anyShown)
+            {
+                _noScreenSince = null;
+                return;
+            }
+
+            // מעברים בין מסכים לוקחים רגע - מתקנים רק אם המצב נמשך
+            _noScreenSince ??= DateTime.Now;
+            if (DateTime.Now - _noScreenSince.Value < TimeSpan.FromSeconds(3)) return;
+            _noScreenSince = null;
+
+            var states = string.Join("; ", windows.ConvertAll(w => $"{w.GetType().Name}(visible={w.IsVisible}, state={w.WindowState})"));
+            LogInfo($"שומר מסך: אף מסך של הקיוסק לא גלוי - משחזר. חלונות: [{states}]");
+
+            if (Session.IsActive)
+            {
+                var picker = windows.Find(w => w is AppPickerWindow) as AppPickerWindow;
+                if (picker == null)
+                {
+                    picker = new AppPickerWindow();
+                }
+                foreach (var w in windows)
+                {
+                    if (w is OverlayWindow) w.Close(); // סרגל של תוכנה שכבר לא מוצגת
+                }
+                Current.MainWindow = picker;
+                picker.ShowAgain();
+            }
+            else
+            {
+                // קודם מציגים את מסך ההתחברות ורק אחר כך סוגרים את השאר - אחרת סגירת
+                // החלון האחרון הייתה מסיימת את האפליקציה כולה
+                var login = new LoginWindow();
+                Current.MainWindow = login;
+                login.Show();
+                foreach (var w in windows)
+                {
+                    if (w is not ReturnToKioskWindow) w.Close();
+                }
             }
         }
 

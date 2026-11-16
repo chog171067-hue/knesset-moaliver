@@ -179,6 +179,7 @@ namespace KioskApp.Views
 
         private void ReturnToPicker()
         {
+            App.LogInfo("חזרה למסך בחירת התוכנה");
             if (_returningToPicker) return;
             _returningToPicker = true;
             _guardTimer?.Stop();
