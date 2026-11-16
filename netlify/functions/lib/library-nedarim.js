@@ -47,7 +47,9 @@ async function createServerTransaction({ amount, param1, callbackUrl, fullName, 
   };
   if (firstName) params.FirstName = firstName;
   if (lastName) params.LastName = lastName;
-  if (tz) params.Zeout = tz;
+  // נדרים פלוס דוחה את כל העסקה אם ת"ז אינה ספרות בלבד (למשל משתמש בדיקה בשם "test2"),
+  // ולכן שולחים ת"ז רק כשהיא תקינה - היא אופציונלית בכל מקרה.
+  if (tz && /^\d{5,9}$/.test(String(tz))) params.Zeout = String(tz);
 
   const body = new URLSearchParams(params);
 

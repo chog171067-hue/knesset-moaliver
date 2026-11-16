@@ -125,6 +125,7 @@ async function findUserByUsername(event, username) {
 async function createUser(event, { username, password, displayName }) {
   const cleanUsername = String(username || '').trim();
   if (!cleanUsername) throw new Error('שם משתמש הוא שדה חובה');
+  if (String(displayName || '').trim().length < 2) throw new Error('שם מלא הוא שדה חובה (נדרש לתשלומים בנדרים פלוס)');
   if (!password || String(password).length < 4) throw new Error('הסיסמה חייבת להכיל לפחות 4 תווים');
 
   const store = getKioskStore(event);
@@ -151,6 +152,21 @@ async function createUser(event, { username, password, displayName }) {
       updatedAt: now
     };
     return toPublicUser(users[id]);
+  });
+}
+
+// עדכון השם המלא (נשלח לנדרים פלוס כ"שם משלם" בכל הטענה - חלק מהמוסדות מחייבים אותו)
+async function setDisplayName(event, { userId, displayName }) {
+  const name = String(displayName || '').trim();
+  if (name.length < 2) throw new Error('יש להזין שם מלא');
+
+  const store = getKioskStore(event);
+  return writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const user = users[userId];
+    if (!user) throw new Error('משתמש לא נמצא');
+    user.displayName = name;
+    user.updatedAt = new Date().toISOString();
+    return toPublicUser(user);
   });
 }
 
@@ -490,6 +506,7 @@ module.exports = {
   findUserByUsername,
   createUser,
   resetPassword,
+  setDisplayName,
   setUserActive,
   deleteUser,
   addManualBalance,
