@@ -15,6 +15,7 @@ namespace KioskApp.Views
     public partial class TopupWindow : Window
     {
         private string? _pendingToken;
+        private string? _transactionId;
         private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
         public TopupWindow()
@@ -46,22 +47,21 @@ namespace KioskApp.Views
             {
                 var initResult = await App.ApiClient.InitTopupAsync(userId, amount);
                 _pendingToken = initResult.Token;
+                _transactionId = initResult.TransactionId;
 
                 await WebView.EnsureCoreWebView2Async();
                 WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-                WebView.CoreWebView2.NavigationCompleted += async (_, _) =>
-                {
-                    // ראו הערה מקבילה ב-personal.html (startNewKeva): פרק זמן קצר
-                    // שנועד לתת לאייפרם המקונן בתוך הדף המקומי סיכוי סביר להיטען
-                    await Task.Delay(600);
-                    var command = JsonSerializer.Serialize(new { Name = "StartTransaction", TransactionId = initResult.TransactionId });
-                    WebView.CoreWebView2.PostWebMessageAsJson(command);
-                };
+                // לא שולחים את פקודת התשלום אוטומטית: היא הייתה נשלחת לפני שהמשתמש הספיק
+                // להקליד את פרטי הכרטיס, ונדרים פלוס מתעלם ממנה. המשתמש לוחץ "בצע תשלום"
+                // בעצמו אחרי שמילא את הפרטים (כמו ב-personal.html, submitLibraryPayment).
                 WebView.CoreWebView2.NavigateToString(NedarimWrapperHtml.Content);
 
                 AmountPanel.Visibility = Visibility.Collapsed;
                 WebView.Visibility = Visibility.Visible;
-                ShowStatus("ממתין להשלמת התשלום בטופס למעלה...");
+                PayButton.IsEnabled = true;
+                PayButton.Content = "✔ בצע תשלום";
+                PayButton.Visibility = Visibility.Visible;
+                ShowStatus("הקלידו את פרטי הכרטיס ולחצו \"בצע תשלום\" למטה.");
             }
             catch (Exception ex)
             {
@@ -70,6 +70,18 @@ namespace KioskApp.Views
                 ContinueButton.IsEnabled = true;
                 ContinueButton.Content = "המשך לתשלום";
             }
+        }
+
+        private void OnPayClick(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_transactionId) || WebView.CoreWebView2 == null) return;
+
+            PayButton.IsEnabled = false;
+            PayButton.Content = "שולח...";
+            ShowStatus("מבצע את התשלום, נא להמתין...");
+
+            var command = JsonSerializer.Serialize(new { Name = "StartTransaction", TransactionId = _transactionId });
+            WebView.CoreWebView2.PostWebMessageAsJson(command);
         }
 
         private void OnWebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
@@ -104,6 +116,9 @@ namespace KioskApp.Views
 
         private void OnPaymentFailed(string message)
         {
+            // כמו ב-personal.html: עסקה שנכשלה לא מנסים שוב עם אותו מזהה - חוזרים למסך
+            // הסכום, ו"המשך לתשלום" יקים עסקה חדשה
+            PayButton.Visibility = Visibility.Collapsed;
             WebView.Visibility = Visibility.Collapsed;
             AmountPanel.Visibility = Visibility.Visible;
             HideStatus();
@@ -118,6 +133,7 @@ namespace KioskApp.Views
         /// </summary>
         private async void OnPaymentAcceptedByIframe()
         {
+            PayButton.Visibility = Visibility.Collapsed;
             WebView.Visibility = Visibility.Collapsed;
             ShowStatus("התשלום התקבל, מאמתים מול השרת...");
             await PollTopupStatusAsync();

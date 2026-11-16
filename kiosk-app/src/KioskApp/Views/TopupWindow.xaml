@@ -20,6 +20,12 @@
                        TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
         </StackPanel>
 
+        <!-- כפתור התשלום: לאייפרם של נדרים פלוס אין כפתור שליחה משלו - האתר/האפליקציה
+             המארחת אמורה לשלוח FinishTransaction כשהמשתמש סיים להקליד את פרטי הכרטיס -->
+        <Button DockPanel.Dock="Bottom" x:Name="PayButton" Content="✔ בצע תשלום" FontSize="17" FontWeight="Bold"
+                Padding="12" Margin="0,10,0,0" Background="{StaticResource KioskAccentBrush}" Foreground="White"
+                BorderThickness="0" Click="OnPayClick" Cursor="Hand" Visibility="Collapsed" />
+
         <TextBlock DockPanel.Dock="Top" x:Name="StatusText" FontWeight="Bold" Margin="0,10,0,10"
                    Foreground="{StaticResource KioskPrimaryBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
 
