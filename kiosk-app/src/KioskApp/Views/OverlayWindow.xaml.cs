@@ -166,6 +166,7 @@ namespace KioskApp.Views
     // שה-Overlay עוקב אחריו - ראו ההערה המפורטת ב-ProcessLauncher.CloseAllTrackedAsync
     await ProcessLauncher.CloseAllTrackedAsync();
     await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
+    WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו אוטומטית - לא יוצג למשתמש הבא
 
     App.Session.End();
 
@@ -179,6 +180,7 @@ namespace KioskApp.Views
 
         private void ReturnToPicker()
         {
+            App.LogInfo("חזרה למסך בחירת התוכנה");
             if (_returningToPicker) return;
             _returningToPicker = true;
             _guardTimer?.Stop();

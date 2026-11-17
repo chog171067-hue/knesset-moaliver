@@ -27,6 +27,8 @@ $winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 Set-ItemProperty -Path $winlogon -Name "Shell" -Value "explorer.exe" -Type String
 Set-ItemProperty -Path $winlogon -Name "AutoAdminLogon" -Value "0" -Type String
 Remove-ItemProperty -Path $winlogon -Name "DefaultPassword" -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "KioskAutoLogonGuard" -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "KioskMaintenanceSignIn" -Confirm:$false -ErrorAction SilentlyContinue
 Write-Host "Auto-logon disabled, computer shell is explorer.exe." -ForegroundColor Green
 
 # שאריות מהגרסה הישנה של סקריפט הנעילה (הגבלות לכל המחשב)

@@ -174,6 +174,63 @@ foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassw
 Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
 Write-Host "Auto-logon to $KioskUsername enabled." -ForegroundColor Green
+
+# --- 5. שמירה על ההתחברות האוטומטית לאורך זמן ---
+# Windows מחליף את DefaultUserName למשתמש האחרון שנכנס. אחרי כניסת מנהל לתחזוקה, ההפעלה
+# הבאה ניסתה להיכנס למנהל עם סיסמת הקיוסק, נכשלה, והציגה מסך בחירת משתמשים. משימה
+# מתוזמנת (בהרשאות מערכת) מחזירה את ההגדרות למשתמש הקיוסק בכל הדלקה ובכל כניסה של משתמש.
+$taskName = "KioskAutoLogonGuard"
+$wl = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+$cmd = "reg add `"$wl`" /v DefaultUserName /t REG_SZ /d `"$KioskUsername`" /f & " +
+       "reg add `"$wl`" /v DefaultDomainName /t REG_SZ /d `"$env:COMPUTERNAME`" /f & " +
+       "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f"
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c $cmd"
+$triggers = @((New-ScheduledTaskTrigger -AtStartup), (New-ScheduledTaskTrigger -AtLogOn))
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -Principal $principal `
+    -Settings $settings -Description "Keeps the computer auto-logging on to the library kiosk user" -Force | Out-Null
+Write-Host "Auto-logon guard task '$taskName' installed (runs at every startup and sign-in)." -ForegroundColor Green
+
+# --- 6. "יציאה למחשב" ממסך הקיוסק (למשתמשי קיוסק מורשים) ---
+# משתמש הקיוסק לא מורשה לכבות את ההתחברות האוטומטית בעצמו (וטוב שכך). המשימה הזו רצה
+# בהרשאות מערכת, ומותר למשתמש הקיוסק רק להפעיל אותה (לא לשנות אותה): היא מכבה את
+# ההתחברות האוטומטית לחצי דקה - מספיק כדי שאחרי ההתנתקות יופיע מסך הכניסה של Windows -
+# ואז מחזירה אותה, כך שהפעלה מחדש של המחשב תמיד חוזרת לקיוסק.
+$maintTask = "KioskMaintenanceSignIn"
+$maintCmd = "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 0 /f & " +
+            "ping -n 31 127.0.0.1 >nul & " +
+            "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f"
+$svc = New-Object -ComObject "Schedule.Service"
+$svc.Connect()
+$def = $svc.NewTask(0)
+$def.RegistrationInfo.Description = "Lets an authorized kiosk user reach the Windows sign-in screen (auto-logon off for 30 seconds)"
+$def.Settings.Enabled = $true
+$def.Settings.AllowDemandStart = $true
+$def.Settings.DisallowStartIfOnBatteries = $false
+$def.Settings.StopIfGoingOnBatteries = $false
+$def.Settings.ExecutionTimeLimit = "PT5M"
+$def.Principal.RunLevel = 1
+$maintAction = $def.Actions.Create(0)
+$maintAction.Path = "cmd.exe"
+$maintAction.Arguments = "/c $maintCmd"
+# הרשאות: מערכת ומנהלים - מלאות; משתמש הקיוסק - קריאה והפעלה בלבד
+$sddl = "D:(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;$sid)"
+$svc.GetFolder("\").RegisterTaskDefinition($maintTask, $def, 6, "SYSTEM", $null, 5, $sddl) | Out-Null
+Write-Host "Maintenance sign-in task '$maintTask' installed (used by the kiosk 'exit to computer' button)." -ForegroundColor Green
+
+# --- 7. קיצור דרך "חזרה לקיוסק" על שולחן העבודה של המנהל ---
+# התנתקות מ-Windows מחזירה לקיוסק (ההתחברות האוטומטית פעילה). הקיצור פשוט מתנתק.
+$adminDesktop = [Environment]::GetFolderPath("Desktop")
+$shortcutPath = Join-Path $adminDesktop ([string]::new([char[]]@(0x05D7,0x05D6,0x05E8,0x05D4,0x0020,0x05DC,0x05E7,0x05D9,0x05D5,0x05E1,0x05E7)) + ".lnk")
+$shell = New-Object -ComObject WScript.Shell
+$lnk = $shell.CreateShortcut($shortcutPath)
+$lnk.TargetPath = "$env:SystemRoot\System32\shutdown.exe"
+$lnk.Arguments = "/l"
+$lnk.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
+$lnk.Description = "Sign out of Windows and return to the library kiosk"
+$lnk.Save()
+Write-Host "Desktop shortcut 'back to kiosk' created for '$me' (signs out of Windows)." -ForegroundColor Green
 Write-Host ""
 Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundColor Cyan
 Write-Host ""
@@ -181,4 +238,5 @@ Write-Host "MAINTENANCE ACCESS (write this down):" -ForegroundColor Yellow
 Write-Host "  1. Ctrl+Alt+Delete -> Sign out" -ForegroundColor Yellow
 Write-Host "  2. Immediately press and HOLD the Shift key until the sign-in screen appears" -ForegroundColor Yellow
 Write-Host "  3. Choose '$me' and sign in with its password - normal Windows desktop" -ForegroundColor Yellow
+Write-Host "  Back to the kiosk: the desktop shortcut (or simply sign out of Windows)" -ForegroundColor Yellow
 Write-Host "  To remove the lockdown completely: Remove-KioskLockdown.ps1" -ForegroundColor Yellow

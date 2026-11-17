@@ -63,83 +63,160 @@ namespace KioskApp
             var loginWindow = new LoginWindow();
             MainWindow = loginWindow;
             loginWindow.Show();
+
+            StartScreenWatchdog();
         }
 
         /// <summary>
-        /// "יציאה למחשב" (למשתמש מורשה בלבד): מסתיר את כל חלונות הקיוסק, מפעיל את שולחן
-        /// העבודה של Windows (explorer.exe), ומציג כפתור קטן "חזרה לקיוסק" בפינת המסך.
-        /// הקיוסק עצמו ממשיך לרוץ ברקע - הוא ה-Shell של משתמש הקיוסק, ויציאה ממנו הייתה
-        /// משאירה מסך שחור.
+        /// "יציאה למחשב" (למשתמש קיוסק מורשה בלבד): מבקש ממשימה מתוזמנת (בהרשאות מערכת,
+        /// שמותקנת ע"י Setup-KioskUser.ps1) לכבות את ההתחברות האוטומטית לחצי דקה, ומתנתק
+        /// מ-Windows. כך מופיע מסך הכניסה הרגיל של Windows, ונכנסים לחשבון המנהל עם הסיסמה
+        /// שלו - עם שולחן העבודה המלא. הפעלה מחדש של המחשב תמיד חוזרת לקיוסק.
+        /// מחזיר הודעת שגיאה, או null אם ההתנתקות התחילה.
         /// </summary>
-        public static void ExitToDesktop()
+        public static string? SignOutToWindowsSignIn()
         {
-            LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username}");
-            Session.End();
-
-            foreach (Window w in Current.Windows)
-            {
-                w.Hide();
-            }
-
+            const string taskName = "KioskMaintenanceSignIn";
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe") { UseShellExecute = true });
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "schtasks.exe",
+                    Arguments = $"/run /tn {taskName}",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                p?.WaitForExit(10000);
+                if (p == null || p.ExitCode != 0)
+                {
+                    LogInfo($"יציאה למחשב: הפעלת המשימה {taskName} נכשלה (קוד {p?.ExitCode})");
+                    return "היציאה למחשב זמינה רק במחשב שננעל עם סקריפט הנעילה (Setup-KioskUser.ps1).";
+                }
             }
             catch (Exception ex)
             {
-                LogError("כשל בהפעלת שולחן העבודה", ex);
+                LogError("יציאה למחשב: כשל בהפעלת המשימה", ex);
+                return "היציאה למחשב נכשלה: " + ex.Message;
             }
 
-            var returnWindow = new ReturnToKioskWindow();
-            returnWindow.Show();
+            LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username} - מתנתק למסך הכניסה של Windows");
+            Session.End();
+
+            // נותנים למשימה רגע לכבות את ההתחברות האוטומטית לפני ההתנתקות
+            System.Threading.Thread.Sleep(2000);
+            if (!ExitWindowsEx(EwxLogoff | EwxForceIfHung, 0))
+            {
+                return "ההתנתקות מ-Windows נכשלה. אפשר להתנתק ידנית: Ctrl+Alt+Delete ← יציאה.";
+            }
+            return null;
         }
 
-        /// <summary>חזרה מ"יציאה למחשב" למסך ההתחברות של הקיוסק.</summary>
-        public static void ReturnToKiosk()
-        {
-            LogInfo("חזרה לקיוסק משולחן העבודה");
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ExitWindowsEx(uint uFlags, uint dwReason);
+        private const uint EwxLogoff = 0x00000000;
+        private const uint EwxForceIfHung = 0x00000010;
 
-            // כשהקיוסק הוא ה-Shell (מחשב נעול), סוגרים את שולחן העבודה שהופעל ביציאה.
-            // במחשב שלא ננעל (בדיקות) - לא נוגעים ב-Explorer, הוא שולחן העבודה הרגיל של המנהל.
-            if (IsRunningAsShell())
+        // --- שומר מסך: אף פעם לא להשאיר את המשתמש מול מסך שחור ---
+        private static DateTime? _noScreenSince;
+        private static DispatcherTimer? _screenWatchdog;
+
+        /// <summary>
+        /// כל 2 שניות: בודק שלפחות חלון אחד של הקיוסק גלוי ולא ממוזער (התחברות, בחירת תוכנה,
+        /// סרגל עליון, דיאלוג). במחשב נעול אין שולחן עבודה - אם אף מסך של הקיוסק לא גלוי,
+        /// המשתמש רואה מסך שחור בלי שום דרך להמשיך. זה קרה בפועל אחרי סגירת תוכנה עם דיאלוג
+        /// "לשמור?". במקרה כזה מחזירים את המסך המתאים ורושמים ביומן מה נמצא, לאבחון.
+        /// </summary>
+        private static void StartScreenWatchdog()
+        {
+            _screenWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _screenWatchdog.Tick += (_, _) =>
             {
-                var mySession = System.Diagnostics.Process.GetCurrentProcess().SessionId;
-                foreach (var p in System.Diagnostics.Process.GetProcessesByName("explorer"))
+                try
                 {
-                    try
-                    {
-                        if (p.SessionId == mySession) p.Kill();
-                    }
-                    catch (Exception ex)
-                    {
-                        LogError("כשל בסגירת שולחן העבודה", ex);
-                    }
+                    CheckScreen();
+                }
+                catch (Exception ex)
+                {
+                    LogError("שומר מסך", ex);
+                }
+            };
+            _screenWatchdog.Start();
+        }
+
+        private static void CheckScreen()
+        {
+
+            var windows = new System.Collections.Generic.List<Window>();
+            foreach (Window w in Current.Windows) windows.Add(w);
+
+            var anyShown = windows.Exists(w => w.IsVisible && w.WindowState != WindowState.Minimized);
+            if (anyShown)
+            {
+                _noScreenSince = null;
+                return;
+            }
+
+            // מעברים בין מסכים לוקחים רגע - מתקנים רק אם המצב נמשך
+            _noScreenSince ??= DateTime.Now;
+            if (DateTime.Now - _noScreenSince.Value < TimeSpan.FromSeconds(3)) return;
+            _noScreenSince = null;
+
+            var states = string.Join("; ", windows.ConvertAll(w => $"{w.GetType().Name}(visible={w.IsVisible}, state={w.WindowState})"));
+            LogInfo($"שומר מסך: אף מסך של הקיוסק לא גלוי - משחזר. חלונות: [{states}]");
+
+            if (Session.IsActive)
+            {
+                var picker = windows.Find(w => w is AppPickerWindow) as AppPickerWindow;
+                if (picker == null)
+                {
+                    picker = new AppPickerWindow();
+                }
+                foreach (var w in windows)
+                {
+                    if (w is OverlayWindow) w.Close(); // סרגל של תוכנה שכבר לא מוצגת
+                }
+                Current.MainWindow = picker;
+                picker.ShowAgain();
+            }
+            else
+            {
+                // קודם מציגים את מסך ההתחברות ורק אחר כך סוגרים את השאר - אחרת סגירת
+                // החלון האחרון הייתה מסיימת את האפליקציה כולה
+                var login = new LoginWindow();
+                Current.MainWindow = login;
+                login.Show();
+                foreach (var w in windows)
+                {
+                    if (w != login) w.Close();
                 }
             }
-
-            foreach (Window w in Current.Windows)
-            {
-                if (w is not ReturnToKioskWindow) w.Close();
-            }
-
-            var login = new LoginWindow();
-            Current.MainWindow = login;
-            login.Show();
         }
 
-        private static bool IsRunningAsShell()
+        /// <summary>
+        /// מסכי הקיוסק (התחברות, בחירת תוכנה) לעולם לא נשארים ממוזערים: במחשב נעול אין
+        /// שורת משימות, ומסך ממוזער הופך לפס קטן בפינה שאי אפשר להחזיר - המשתמש נתקע
+        /// מול מסך שחור. כל מזעור (למשל בעקבות דיאלוג "לשמור?" של תוכנה שנסגרת) מתוקן מיד.
+        /// </summary>
+        public static void KeepFullScreen(Window window)
         {
-            try
+            window.StateChanged += (_, _) =>
             {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\Winlogon");
-                var shell = key?.GetValue("Shell") as string;
-                return !string.IsNullOrEmpty(shell)
-                       && shell.Contains("KioskApp.exe", StringComparison.OrdinalIgnoreCase);
-            }
-            catch
+                if (window.WindowState != WindowState.Minimized) return;
+                window.Dispatcher.BeginInvoke(new Action(() => BringToFront(window)));
+            };
+            window.IsVisibleChanged += (_, _) =>
             {
-                return false;
-            }
+                if (window.IsVisible) window.Dispatcher.BeginInvoke(new Action(() => BringToFront(window)));
+            };
+        }
+
+        public static void BringToFront(Window window)
+        {
+            if (!window.IsVisible) return;
+            window.WindowState = WindowState.Maximized;
+            window.Topmost = false; // "ניעור" של Topmost מחזיר את החלון לראש הערימה גם אם חלון אחר תפס אותו
+            window.Topmost = true;
+            window.Activate();
         }
 
         public static void LogError(string context, Exception ex) => WriteLogLine($"{context}: {ex}");

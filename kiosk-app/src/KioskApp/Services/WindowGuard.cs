@@ -165,6 +165,38 @@ namespace KioskApp.Services
             }
         }
 
+        /// <summary>
+        /// מוחק "זיכרון" שתוכנות שומרות אוטומטית בין הפעלות, כדי שהמשתמש הבא לא יראה מה
+        /// שהקודם עשה. נקרא בניתוק, אחרי שהתוכנות נסגרו.
+        /// פנקס הרשימות של Windows 11 שומר טקסט שלא נשמר (גם בלי לשאול) ומשחזר אותו
+        /// בפתיחה הבאה - נמצא בבדיקה במחשב נעול.
+        /// </summary>
+        public static void ClearAppSessionState()
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var foldersToEmpty = new[]
+            {
+                System.IO.Path.Combine(localAppData, @"Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\LocalState\TabState"),
+                System.IO.Path.Combine(localAppData, @"Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\LocalState\WindowState"),
+            };
+
+            foreach (var folder in foldersToEmpty)
+            {
+                try
+                {
+                    if (!System.IO.Directory.Exists(folder)) continue;
+                    foreach (var file in System.IO.Directory.GetFiles(folder))
+                    {
+                        System.IO.File.Delete(file);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    App.LogError($"ניקוי מצב תוכנות: {folder}", ex);
+                }
+            }
+        }
+
         private static bool IsUserAppWindow(IntPtr hWnd)
         {
             if (!IsWindowVisible(hWnd)) return false;
