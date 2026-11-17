@@ -146,6 +146,10 @@ try {
     $exp = "$hiveRoot\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
     Set-Value $exp "NoRun" 1 DWord
     Set-Value $exp "NoDriveTypeAutoRun" 0xFF DWord
+    # בלי "יציאה" ב-Ctrl+Alt+Delete: ההתחברות האוטומטית פועלת רק בהדלקה, ולכן משתמש
+    # שהיה מתנתק היה תוקע את העמדה במסך הכניסה של Windows. נשארים כיבוי/הפעלה מחדש -
+    # שניהם חוזרים לקיוסק. (כפתור "יציאה למחשב" בקיוסק מתנתק בקוד, לא דרך התפריט.)
+    Set-Value $exp "NoLogoff" 1 DWord
 
     Write-Host "Kiosk restrictions applied to $KioskUsername only." -ForegroundColor Green
 }
@@ -168,9 +172,15 @@ Remove-Variable plainForUse
 
 # ניקוי שאריות מהגרסה הקודמת של הסקריפט (הגבלות שחלו על כל המחשב)
 $oldSys = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword", "HideFastUserSwitching")) {
+foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword")) {
     Remove-ItemProperty -Path $oldSys -Name $n -ErrorAction SilentlyContinue
 }
+
+# בלי "החלפת משתמש": היא משאירה את הקיוסק פתוח ברקע ומציגה מסך כניסה, וכדי לחזור
+# לקיוסק משם צריך את סיסמת משתמש הקיוסק (שאיש לא יודע) - העמדה הייתה נתקעת.
+# Windows מאפשר להסתיר אותה רק לכל המחשב; למנהל זה לא מפריע.
+if (-not (Test-Path $oldSys)) { New-Item -Path $oldSys -Force | Out-Null }
+Set-ItemProperty -Path $oldSys -Name "HideFastUserSwitching" -Value 1 -Type DWord
 Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
 Write-Host "Auto-logon to $KioskUsername enabled." -ForegroundColor Green
@@ -220,23 +230,23 @@ $svc.GetFolder("\").RegisterTaskDefinition($maintTask, $def, 6, "SYSTEM", $null,
 Write-Host "Maintenance sign-in task '$maintTask' installed (used by the kiosk 'exit to computer' button)." -ForegroundColor Green
 
 # --- 7. קיצור דרך "חזרה לקיוסק" על שולחן העבודה של המנהל ---
-# התנתקות מ-Windows מחזירה לקיוסק (ההתחברות האוטומטית פעילה). הקיצור פשוט מתנתק.
+# ההתחברות האוטומטית פועלת רק בהדלקה (לא אחרי התנתקות) - לכן הקיצור מפעיל מחדש את המחשב.
 $adminDesktop = [Environment]::GetFolderPath("Desktop")
 $shortcutPath = Join-Path $adminDesktop ([string]::new([char[]]@(0x05D7,0x05D6,0x05E8,0x05D4,0x0020,0x05DC,0x05E7,0x05D9,0x05D5,0x05E1,0x05E7)) + ".lnk")
 $shell = New-Object -ComObject WScript.Shell
 $lnk = $shell.CreateShortcut($shortcutPath)
 $lnk.TargetPath = "$env:SystemRoot\System32\shutdown.exe"
-$lnk.Arguments = "/l"
+$lnk.Arguments = "/r /t 0"
 $lnk.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
-$lnk.Description = "Sign out of Windows and return to the library kiosk"
+$lnk.Description = "Restart the computer back into the library kiosk"
 $lnk.Save()
-Write-Host "Desktop shortcut 'back to kiosk' created for '$me' (signs out of Windows)." -ForegroundColor Green
+Write-Host "Desktop shortcut 'back to kiosk' created for '$me' (restarts the computer)." -ForegroundColor Green
 Write-Host ""
 Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "MAINTENANCE ACCESS (write this down):" -ForegroundColor Yellow
-Write-Host "  1. Ctrl+Alt+Delete -> Sign out" -ForegroundColor Yellow
-Write-Host "  2. Immediately press and HOLD the Shift key until the sign-in screen appears" -ForegroundColor Yellow
-Write-Host "  3. Choose '$me' and sign in with its password - normal Windows desktop" -ForegroundColor Yellow
-Write-Host "  Back to the kiosk: the desktop shortcut (or simply sign out of Windows)" -ForegroundColor Yellow
+Write-Host "  Usual way: an authorized kiosk account -> 'exit to computer' button -> sign in as '$me'" -ForegroundColor Yellow
+Write-Host "  Without a kiosk account: Ctrl+Alt+Delete -> power icon -> Restart," -ForegroundColor Yellow
+Write-Host "     and HOLD the Shift key while Windows starts, until the sign-in screen appears" -ForegroundColor Yellow
+Write-Host "  Back to the kiosk: the desktop shortcut (restarts the computer)" -ForegroundColor Yellow
 Write-Host "  To remove the lockdown completely: Remove-KioskLockdown.ps1" -ForegroundColor Yellow
