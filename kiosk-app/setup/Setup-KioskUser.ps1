@@ -172,9 +172,15 @@ Remove-Variable plainForUse
 
 # ניקוי שאריות מהגרסה הקודמת של הסקריפט (הגבלות שחלו על כל המחשב)
 $oldSys = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword", "HideFastUserSwitching")) {
+foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword")) {
     Remove-ItemProperty -Path $oldSys -Name $n -ErrorAction SilentlyContinue
 }
+
+# בלי "החלפת משתמש": היא משאירה את הקיוסק פתוח ברקע ומציגה מסך כניסה, וכדי לחזור
+# לקיוסק משם צריך את סיסמת משתמש הקיוסק (שאיש לא יודע) - העמדה הייתה נתקעת.
+# Windows מאפשר להסתיר אותה רק לכל המחשב; למנהל זה לא מפריע.
+if (-not (Test-Path $oldSys)) { New-Item -Path $oldSys -Force | Out-Null }
+Set-ItemProperty -Path $oldSys -Name "HideFastUserSwitching" -Value 1 -Type DWord
 Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
 Write-Host "Auto-logon to $KioskUsername enabled." -ForegroundColor Green
