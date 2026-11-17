@@ -167,6 +167,7 @@ namespace KioskApp.Views
     await ProcessLauncher.CloseAllTrackedAsync();
     await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
     WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו אוטומטית - לא יוצג למשתמש הבא
+    WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
 
     App.Session.End();
 

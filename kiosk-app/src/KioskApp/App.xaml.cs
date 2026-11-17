@@ -111,6 +111,25 @@ namespace KioskApp
             return null;
         }
 
+        /// <summary>
+        /// האם הקיוסק רץ כ-Shell של המשתמש הנוכחי (כלומר: מחשב נעול, משתמש הקיוסק).
+        /// פעולות הרסניות (כמו מחיקת קבצי משתמש) מותרות רק כשזה נכון.
+        /// </summary>
+        public static bool IsRunningAsKioskShell()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\Winlogon");
+                var shell = key?.GetValue("Shell") as string;
+                return !string.IsNullOrEmpty(shell)
+                       && shell.Contains("KioskApp.exe", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
         private static extern bool ExitWindowsEx(uint uFlags, uint dwReason);
         private const uint EwxLogoff = 0x00000000;

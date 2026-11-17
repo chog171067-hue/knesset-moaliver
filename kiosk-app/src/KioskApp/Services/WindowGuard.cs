@@ -197,6 +197,74 @@ namespace KioskApp.Services
             }
         }
 
+        /// <summary>
+        /// מוחק קבצים שמשתמש שמר בתיקיות האישיות של משתמש הקיוסק (מסמכים, הורדות, שולחן עבודה,
+        /// תמונות), כדי שהמשתמש הבא לא יראה אותם. רשת ביטחון - כונן C חסום ממילא בחלונות
+        /// השמירה. ⚠️ פועל רק כשהקיוסק הוא ה-Shell (מחשב נעול, משתמש הקיוסק) - במחשב שלא
+        /// ננעל הקיוסק רץ בחשבון רגיל, ושם אסור בשום אופן למחוק קבצים.
+        /// </summary>
+        public static void ClearUserFiles()
+        {
+            if (!App.IsRunningAsKioskShell()) return;
+            if (IsCurrentUserAdministrator())
+            {
+                App.LogInfo("ניקוי קבצי משתמש: דילוג - המשתמש הנוכחי הוא מנהל (לא משתמש קיוסק)");
+                return;
+            }
+
+            var folders = new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+            };
+
+            foreach (var folder in folders)
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(folder) || !System.IO.Directory.Exists(folder)) continue;
+                    var dir = new System.IO.DirectoryInfo(folder);
+                    foreach (var file in dir.GetFiles())
+                    {
+                        if (file.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+                        file.Attributes = System.IO.FileAttributes.Normal;
+                        file.Delete();
+                    }
+                    foreach (var sub in dir.GetDirectories())
+                    {
+                        // תיקיות מערכת מיוחדות (למשל "My Music" הישנה) - קישורים, לא נוגעים
+                        if ((sub.Attributes & System.IO.FileAttributes.ReparsePoint) != 0) continue;
+                        sub.Delete(true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    App.LogError($"ניקוי קבצי משתמש: {folder}", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// חבר בקבוצת המנהלים - גם כש-UAC מסנן את ההרשאות (הקבוצה מופיעה אז כ-"deny only",
+        /// ולכן בודקים את רשימת הקבוצות עצמה ולא IsInRole).
+        /// </summary>
+        private static bool IsCurrentUserAdministrator()
+        {
+            try
+            {
+                using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var adminsSid = new System.Security.Principal.SecurityIdentifier(
+                    System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null);
+                return identity.Groups?.Contains(adminsSid) == true;
+            }
+            catch
+            {
+                return true; // בספק - מתייחסים כמנהל, כלומר לא מוחקים
+            }
+        }
+
         private static bool IsUserAppWindow(IntPtr hWnd)
         {
             if (!IsWindowVisible(hWnd)) return false;
