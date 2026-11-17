@@ -2065,7 +2065,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
         tbody.innerHTML = libraryAppsDraft.map((app, idx) => `
             <tr>
                 <td><input type="text" value="${escapeHtml(app.displayName || '')}" oninput="libraryAppsDraft[${idx}].displayName=this.value" style="width:100%;"></td>
-                <td><input type="text" value="${escapeHtml(app.exePath || '')}" oninput="libraryAppsDraft[${idx}].exePath=this.value" style="width:100%;"></td>
+                <td><input type="text" value="${escapeHtml(app.exePath || '')}" oninput="libraryAppsDraft[${idx}].exePath=this.value.trim().replace(/^"+|"+$/g, '')" style="width:100%;"></td>
                 <td><input type="text" value="${escapeHtml(app.iconPath || '')}" oninput="libraryAppsDraft[${idx}].iconPath=this.value" style="width:100%;"></td>
                 <td><input type="number" value="${app.sortOrder != null ? app.sortOrder : idx}" oninput="libraryAppsDraft[${idx}].sortOrder=Number(this.value)" style="width:70px;"></td>
                 <td><button class="remove-btn" onclick="removeLibraryAppRow(${idx})">הסרה</button></td>
