@@ -20,6 +20,9 @@ namespace KioskApp.Services
 
         public static Process Launch(string exePath)
         {
+            // נתיב שהועתק מ"העתק כנתיב" ב-Windows מגיע עם מירכאות ("C:\...\app.exe") - מסירים
+            exePath = (exePath ?? "").Trim().Trim('"').Trim();
+
             if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
             {
                 throw new InvalidOperationException(
