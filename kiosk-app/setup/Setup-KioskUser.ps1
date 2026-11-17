@@ -218,6 +218,19 @@ $maintAction.Arguments = "/c $maintCmd"
 $sddl = "D:(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;$sid)"
 $svc.GetFolder("\").RegisterTaskDefinition($maintTask, $def, 6, "SYSTEM", $null, 5, $sddl) | Out-Null
 Write-Host "Maintenance sign-in task '$maintTask' installed (used by the kiosk 'exit to computer' button)." -ForegroundColor Green
+
+# --- 7. קיצור דרך "חזרה לקיוסק" על שולחן העבודה של המנהל ---
+# התנתקות מ-Windows מחזירה לקיוסק (ההתחברות האוטומטית פעילה). הקיצור פשוט מתנתק.
+$adminDesktop = [Environment]::GetFolderPath("Desktop")
+$shortcutPath = Join-Path $adminDesktop ([string]::new([char[]]@(0x05D7,0x05D6,0x05E8,0x05D4,0x0020,0x05DC,0x05E7,0x05D9,0x05D5,0x05E1,0x05E7)) + ".lnk")
+$shell = New-Object -ComObject WScript.Shell
+$lnk = $shell.CreateShortcut($shortcutPath)
+$lnk.TargetPath = "$env:SystemRoot\System32\shutdown.exe"
+$lnk.Arguments = "/l"
+$lnk.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
+$lnk.Description = "Sign out of Windows and return to the library kiosk"
+$lnk.Save()
+Write-Host "Desktop shortcut 'back to kiosk' created for '$me' (signs out of Windows)." -ForegroundColor Green
 Write-Host ""
 Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundColor Cyan
 Write-Host ""
@@ -225,4 +238,5 @@ Write-Host "MAINTENANCE ACCESS (write this down):" -ForegroundColor Yellow
 Write-Host "  1. Ctrl+Alt+Delete -> Sign out" -ForegroundColor Yellow
 Write-Host "  2. Immediately press and HOLD the Shift key until the sign-in screen appears" -ForegroundColor Yellow
 Write-Host "  3. Choose '$me' and sign in with its password - normal Windows desktop" -ForegroundColor Yellow
+Write-Host "  Back to the kiosk: the desktop shortcut (or simply sign out of Windows)" -ForegroundColor Yellow
 Write-Host "  To remove the lockdown completely: Remove-KioskLockdown.ps1" -ForegroundColor Yellow
