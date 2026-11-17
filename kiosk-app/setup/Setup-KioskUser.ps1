@@ -254,7 +254,7 @@ Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundC
 Write-Host ""
 Write-Host "MAINTENANCE ACCESS (write this down):" -ForegroundColor Yellow
 Write-Host "  Usual way: an authorized kiosk account -> 'exit to computer' button -> sign in as '$me'" -ForegroundColor Yellow
-Write-Host "  Without a kiosk account: Ctrl+Alt+Delete -> power icon -> Restart," -ForegroundColor Yellow
-Write-Host "     and HOLD the Shift key while Windows starts, until the sign-in screen appears" -ForegroundColor Yellow
+Write-Host "  Without a kiosk account: short press on the computer's physical power button (shuts down)," -ForegroundColor Yellow
+Write-Host "     turn it on again and HOLD the Shift key while Windows starts, until the sign-in screen appears" -ForegroundColor Yellow
 Write-Host "  Back to the kiosk: the desktop shortcut (restarts the computer)" -ForegroundColor Yellow
 Write-Host "  To remove the lockdown completely: Remove-KioskLockdown.ps1" -ForegroundColor Yellow
