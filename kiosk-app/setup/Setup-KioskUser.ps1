@@ -174,6 +174,23 @@ foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassw
 Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
 Write-Host "Auto-logon to $KioskUsername enabled." -ForegroundColor Green
+
+# --- 5. שמירה על ההתחברות האוטומטית לאורך זמן ---
+# Windows מחליף את DefaultUserName למשתמש האחרון שנכנס. אחרי כניסת מנהל לתחזוקה, ההפעלה
+# הבאה ניסתה להיכנס למנהל עם סיסמת הקיוסק, נכשלה, והציגה מסך בחירת משתמשים. משימה
+# מתוזמנת (בהרשאות מערכת) מחזירה את ההגדרות למשתמש הקיוסק בכל הדלקה ובכל כניסה של משתמש.
+$taskName = "KioskAutoLogonGuard"
+$wl = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+$cmd = "reg add `"$wl`" /v DefaultUserName /t REG_SZ /d `"$KioskUsername`" /f & " +
+       "reg add `"$wl`" /v DefaultDomainName /t REG_SZ /d `"$env:COMPUTERNAME`" /f & " +
+       "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f"
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c $cmd"
+$triggers = @((New-ScheduledTaskTrigger -AtStartup), (New-ScheduledTaskTrigger -AtLogOn))
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -Principal $principal `
+    -Settings $settings -Description "Keeps the computer auto-logging on to the library kiosk user" -Force | Out-Null
+Write-Host "Auto-logon guard task '$taskName' installed (runs at every startup and sign-in)." -ForegroundColor Green
 Write-Host ""
 Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundColor Cyan
 Write-Host ""
