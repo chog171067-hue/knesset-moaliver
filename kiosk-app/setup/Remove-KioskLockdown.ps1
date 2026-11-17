@@ -76,6 +76,9 @@ if ($user) {
         }
     }
 
+    # ביטול חסימת הכתיבה בתיקייה הציבורית (הרשאות הקריאה-בלבד בתיקיות הקיוסק נשארות - הן לא מזיקות)
+    icacls "C:\Users\Public" /remove:d "*$sid" | Out-Null
+
     if ($RemoveUser) {
         Remove-LocalUser -Name $KioskUsername
         Write-Host "User $KioskUsername deleted." -ForegroundColor Green

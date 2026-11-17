@@ -50,7 +50,12 @@ namespace KioskApp.Views
                 _pendingToken = initResult.Token;
                 _transactionId = initResult.TransactionId;
 
-                await WebView.EnsureCoreWebView2Async();
+                // נתוני הדפדפן הפנימי - בתיקייה האישית של המשתמש, ולא ליד קובץ ה-exe (ברירת המחדל):
+                // תיקיית הקיוסק היא "קריאה בלבד" למשתמש הקיוסק (ראו Setup-KioskUser.ps1)
+                var webViewData = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KioskApp", "WebView2");
+                var webViewEnv = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(null, webViewData);
+                await WebView.EnsureCoreWebView2Async(webViewEnv);
                 WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
                 // לא שולחים את פקודת התשלום אוטומטית: היא הייתה נשלחת לפני שהמשתמש הספיק
                 // להקליד את פרטי הכרטיס, ונדרים פלוס מתעלם ממנה. המשתמש לוחץ "בצע תשלום"

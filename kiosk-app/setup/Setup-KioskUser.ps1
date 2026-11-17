@@ -32,7 +32,9 @@
 #>
 param(
     [string]$KioskUsername = "kiosk-user",
-    [string]$KioskAppPath = "C:\KioskApp\KioskApp.exe"
+    [string]$KioskAppPath = "C:\KioskApp\KioskApp.exe",
+    # תיקיות נוספות שמשתמש הקיוסק יכול רק לקרוא (למשל תיקיות התקנה של התוכנות המאושרות)
+    [string[]]$ReadOnlyFolders = @("C:\KioskSource", "C:\$([string]::new([char[]]@(0x05D0,0x05D5,0x05E6,0x05E8,0x05D9,0x05D0)))")
 )
 
 $ErrorActionPreference = "Stop"
@@ -171,6 +173,33 @@ finally {
         reg unload "HKU\$hiveName" | Out-Null
     }
 }
+
+# --- 3ב. הרשאות קבצים: ההגנה האמיתית ---
+# הגבלות התצוגה (NoViewOnDrive וכו') רק מסתירות; מי שמתעקש מגיע לקבצים בדרכים אחרות.
+# תיקיות שנוצרות ישירות ב-C פתוחות ב-Windows לשינוי ולמחיקה ע"י כל משתמש - ולכן משתמש
+# בספרייה יכול היה למחוק את הקיוסק או ספרים. כאן הן הופכות לקריאה בלבד למשתמשים רגילים.
+function Protect-Folder($folder) {
+    if (-not (Test-Path $folder)) { Write-Host "  (skipped, not found: $folder)" -ForegroundColor DarkGray; return }
+    # מערכת ומנהלים - מלא; משתמשים רגילים - קריאה והפעלה בלבד. בלי ירושה מ-C.
+    icacls "$folder" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-32-545:(OI)(CI)RX" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not set permissions on $folder" }
+    # כל מה שבתוכה - יורש מהתיקייה (מבטל הרשאות כתיבה ישנות שהוגדרו על קבצים בודדים)
+    icacls "$folder\*" /reset /T /C /Q | Out-Null
+    Write-Host "  Read-only for standard users: $folder" -ForegroundColor Green
+}
+Write-Host "Protecting folders (standard users can only read):" -ForegroundColor Cyan
+$kioskDir = Split-Path $KioskAppPath
+Protect-Folder $kioskDir
+foreach ($f in $ReadOnlyFolders) { Protect-Folder $f }
+
+# הקיוסק כותב יומן - הרשאת שינוי לקובץ הזה בלבד
+$logFile = Join-Path $kioskDir "kiosk-app.log"
+if (-not (Test-Path $logFile)) { New-Item -ItemType File -Path $logFile | Out-Null }
+icacls "$logFile" /grant "*${sid}:M" | Out-Null
+
+# התיקייה הציבורית של Windows פתוחה לכתיבה לכל המשתמשים - חוסמים בה כתיבה/מחיקה למשתמש הקיוסק
+icacls "C:\Users\Public" /deny "*${sid}:(OI)(CI)(W,D,DC)" | Out-Null
+Write-Host "  $KioskUsername cannot write to C:\Users\Public" -ForegroundColor Green
 
 # --- 4. התחברות אוטומטית, ו-Shell רגיל לכל המחשב (מתקן גם התקנה ישנה) ---
 $winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
