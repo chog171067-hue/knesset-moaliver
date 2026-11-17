@@ -78,6 +78,9 @@ if ($user) {
 
     # ביטול חסימת הכתיבה בתיקייה הציבורית (הרשאות הקריאה-בלבד בתיקיות הקיוסק נשארות - הן לא מזיקות)
     icacls "C:\Users\Public" /remove:d "*$sid" | Out-Null
+    foreach ($d in @(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object { $_.DeviceID })) {
+        if ($d -ne $env:SystemDrive) { icacls "$d\" /remove:d "*$sid" | Out-Null }
+    }
 
     if ($RemoveUser) {
         Remove-LocalUser -Name $KioskUsername
