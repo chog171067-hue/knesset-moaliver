@@ -92,11 +92,15 @@ namespace KioskApp.Views
             if (App.Session.CurrentUser?.CanExitKiosk != true) return;
 
             var answer = MessageBox.Show(
-                "לצאת מהקיוסק לשולחן העבודה של המחשב?\n\nכדי לחזור: הכפתור \"חזרה לקיוסק\" בפינת המסך, או יציאה מ-Windows.",
+                "לצאת מהקיוסק למסך הכניסה של Windows?\n\nשם בוחרים את חשבון המנהל ומקלידים את הסיסמה שלו.\nכדי לחזור לקיוסק: להפעיל את המחשב מחדש (או להתנתק מ-Windows).",
                 "יציאה למחשב", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (answer != MessageBoxResult.Yes) return;
 
-            App.ExitToDesktop();
+            var error = App.SignOutToWindowsSignIn();
+            if (error != null)
+            {
+                MessageBox.Show(error, "יציאה למחשב", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void OnLogoutClick(object sender, RoutedEventArgs e)

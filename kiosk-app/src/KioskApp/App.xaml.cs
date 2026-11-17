@@ -68,86 +68,55 @@ namespace KioskApp
         }
 
         /// <summary>
-        /// "יציאה למחשב" (למשתמש מורשה בלבד): מסתיר את כל חלונות הקיוסק, מפעיל את שולחן
-        /// העבודה של Windows (explorer.exe), ומציג כפתור קטן "חזרה לקיוסק" בפינת המסך.
-        /// הקיוסק עצמו ממשיך לרוץ ברקע - הוא ה-Shell של משתמש הקיוסק, ויציאה ממנו הייתה
-        /// משאירה מסך שחור.
+        /// "יציאה למחשב" (למשתמש קיוסק מורשה בלבד): מבקש ממשימה מתוזמנת (בהרשאות מערכת,
+        /// שמותקנת ע"י Setup-KioskUser.ps1) לכבות את ההתחברות האוטומטית לחצי דקה, ומתנתק
+        /// מ-Windows. כך מופיע מסך הכניסה הרגיל של Windows, ונכנסים לחשבון המנהל עם הסיסמה
+        /// שלו - עם שולחן העבודה המלא. הפעלה מחדש של המחשב תמיד חוזרת לקיוסק.
+        /// מחזיר הודעת שגיאה, או null אם ההתנתקות התחילה.
         /// </summary>
-        public static void ExitToDesktop()
+        public static string? SignOutToWindowsSignIn()
         {
-            LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username}");
-            _inDesktopMode = true;
-            Session.End();
-
-            foreach (Window w in Current.Windows)
-            {
-                w.Hide();
-            }
-
+            const string taskName = "KioskMaintenanceSignIn";
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe") { UseShellExecute = true });
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "schtasks.exe",
+                    Arguments = $"/run /tn {taskName}",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                p?.WaitForExit(10000);
+                if (p == null || p.ExitCode != 0)
+                {
+                    LogInfo($"יציאה למחשב: הפעלת המשימה {taskName} נכשלה (קוד {p?.ExitCode})");
+                    return "היציאה למחשב זמינה רק במחשב שננעל עם סקריפט הנעילה (Setup-KioskUser.ps1).";
+                }
             }
             catch (Exception ex)
             {
-                LogError("כשל בהפעלת שולחן העבודה", ex);
+                LogError("יציאה למחשב: כשל בהפעלת המשימה", ex);
+                return "היציאה למחשב נכשלה: " + ex.Message;
             }
 
-            var returnWindow = new ReturnToKioskWindow();
-            returnWindow.Show();
+            LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username} - מתנתק למסך הכניסה של Windows");
+            Session.End();
+
+            // נותנים למשימה רגע לכבות את ההתחברות האוטומטית לפני ההתנתקות
+            System.Threading.Thread.Sleep(2000);
+            if (!ExitWindowsEx(EwxLogoff | EwxForceIfHung, 0))
+            {
+                return "ההתנתקות מ-Windows נכשלה. אפשר להתנתק ידנית: Ctrl+Alt+Delete ← יציאה.";
+            }
+            return null;
         }
 
-        /// <summary>חזרה מ"יציאה למחשב" למסך ההתחברות של הקיוסק.</summary>
-        public static void ReturnToKiosk()
-        {
-            LogInfo("חזרה לקיוסק משולחן העבודה");
-            _inDesktopMode = false;
-
-            // כשהקיוסק הוא ה-Shell (מחשב נעול), סוגרים את שולחן העבודה שהופעל ביציאה.
-            // במחשב שלא ננעל (בדיקות) - לא נוגעים ב-Explorer, הוא שולחן העבודה הרגיל של המנהל.
-            if (IsRunningAsShell())
-            {
-                var mySession = System.Diagnostics.Process.GetCurrentProcess().SessionId;
-                foreach (var p in System.Diagnostics.Process.GetProcessesByName("explorer"))
-                {
-                    try
-                    {
-                        if (p.SessionId == mySession) p.Kill();
-                    }
-                    catch (Exception ex)
-                    {
-                        LogError("כשל בסגירת שולחן העבודה", ex);
-                    }
-                }
-            }
-
-            foreach (Window w in Current.Windows)
-            {
-                if (w is not ReturnToKioskWindow) w.Close();
-            }
-
-            var login = new LoginWindow();
-            Current.MainWindow = login;
-            login.Show();
-        }
-
-        private static bool IsRunningAsShell()
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\Winlogon");
-                var shell = key?.GetValue("Shell") as string;
-                return !string.IsNullOrEmpty(shell)
-                       && shell.Contains("KioskApp.exe", StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ExitWindowsEx(uint uFlags, uint dwReason);
+        private const uint EwxLogoff = 0x00000000;
+        private const uint EwxForceIfHung = 0x00000010;
 
         // --- שומר מסך: אף פעם לא להשאיר את המשתמש מול מסך שחור ---
-        private static bool _inDesktopMode;
         private static DateTime? _noScreenSince;
         private static DispatcherTimer? _screenWatchdog;
 
@@ -176,7 +145,6 @@ namespace KioskApp
 
         private static void CheckScreen()
         {
-            if (_inDesktopMode) return; // "יציאה למחשב" - שולחן העבודה גלוי בכוונה
 
             var windows = new System.Collections.Generic.List<Window>();
             foreach (Window w in Current.Windows) windows.Add(w);
@@ -219,7 +187,7 @@ namespace KioskApp
                 login.Show();
                 foreach (var w in windows)
                 {
-                    if (w is not ReturnToKioskWindow) w.Close();
+                    if (w != login) w.Close();
                 }
             }
         }

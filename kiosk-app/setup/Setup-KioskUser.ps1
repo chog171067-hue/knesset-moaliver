@@ -191,6 +191,33 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -Principal $principal `
     -Settings $settings -Description "Keeps the computer auto-logging on to the library kiosk user" -Force | Out-Null
 Write-Host "Auto-logon guard task '$taskName' installed (runs at every startup and sign-in)." -ForegroundColor Green
+
+# --- 6. "יציאה למחשב" ממסך הקיוסק (למשתמשי קיוסק מורשים) ---
+# משתמש הקיוסק לא מורשה לכבות את ההתחברות האוטומטית בעצמו (וטוב שכך). המשימה הזו רצה
+# בהרשאות מערכת, ומותר למשתמש הקיוסק רק להפעיל אותה (לא לשנות אותה): היא מכבה את
+# ההתחברות האוטומטית לחצי דקה - מספיק כדי שאחרי ההתנתקות יופיע מסך הכניסה של Windows -
+# ואז מחזירה אותה, כך שהפעלה מחדש של המחשב תמיד חוזרת לקיוסק.
+$maintTask = "KioskMaintenanceSignIn"
+$maintCmd = "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 0 /f & " +
+            "ping -n 31 127.0.0.1 >nul & " +
+            "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f"
+$svc = New-Object -ComObject "Schedule.Service"
+$svc.Connect()
+$def = $svc.NewTask(0)
+$def.RegistrationInfo.Description = "Lets an authorized kiosk user reach the Windows sign-in screen (auto-logon off for 30 seconds)"
+$def.Settings.Enabled = $true
+$def.Settings.AllowDemandStart = $true
+$def.Settings.DisallowStartIfOnBatteries = $false
+$def.Settings.StopIfGoingOnBatteries = $false
+$def.Settings.ExecutionTimeLimit = "PT5M"
+$def.Principal.RunLevel = 1
+$maintAction = $def.Actions.Create(0)
+$maintAction.Path = "cmd.exe"
+$maintAction.Arguments = "/c $maintCmd"
+# הרשאות: מערכת ומנהלים - מלאות; משתמש הקיוסק - קריאה והפעלה בלבד
+$sddl = "D:(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;$sid)"
+$svc.GetFolder("\").RegisterTaskDefinition($maintTask, $def, 6, "SYSTEM", $null, 5, $sddl) | Out-Null
+Write-Host "Maintenance sign-in task '$maintTask' installed (used by the kiosk 'exit to computer' button)." -ForegroundColor Green
 Write-Host ""
 Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundColor Cyan
 Write-Host ""
