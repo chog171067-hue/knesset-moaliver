@@ -62,7 +62,7 @@ if ($user) {
                 Remove-ItemProperty -Path $sys -Name $n -ErrorAction SilentlyContinue
             }
             $exp = "$hiveRoot\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-            foreach ($n in @("NoRun", "NoDriveTypeAutoRun", "NoLogoff")) {
+            foreach ($n in @("NoRun", "NoDriveTypeAutoRun", "NoLogoff", "NoClose")) {
                 Remove-ItemProperty -Path $exp -Name $n -ErrorAction SilentlyContinue
             }
             Write-Host "Restrictions removed from $KioskUsername." -ForegroundColor Green
