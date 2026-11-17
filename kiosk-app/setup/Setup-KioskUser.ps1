@@ -153,6 +153,14 @@ try {
     # בלי כפתור כיבוי/שינה/הפעלה מחדש ב-Ctrl+Alt+Delete: משתמש בספרייה לא יכבה או ירדים
     # את העמדה. כפתור ההדלקה הפיזי של המחשב ממשיך לכבות אותו כרגיל (לצוות בסוף היום).
     Set-Value $exp "NoClose" 1 DWord
+    # חלונות "פתח"/"שמירה בשם" בתוך התוכנות (למשל שמירת עמוד כ-PDF באוצריא) הם דרך
+    # לדפדף בקבצי המחשב ולהפעיל תוכנות. למשתמש הקיוסק בלבד:
+    # - כונן C מוסתר וחסום (התוכנות עצמן ממשיכות לעבוד - החסימה היא רק בדפדוף)
+    # - שמירה אפשרית לדיסק-און-קי (כוננים אחרים לא חסומים)
+    # - בלי תפריט לחיצה ימנית (שממנו אפשר להפעיל/למחוק/לשנות שם)
+    Set-Value $exp "NoDrives" 4 DWord
+    Set-Value $exp "NoViewOnDrive" 4 DWord
+    Set-Value $exp "NoViewContextMenu" 1 DWord
 
     Write-Host "Kiosk restrictions applied to $KioskUsername only." -ForegroundColor Green
 }
