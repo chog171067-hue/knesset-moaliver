@@ -150,6 +150,9 @@ try {
     # שהיה מתנתק היה תוקע את העמדה במסך הכניסה של Windows. נשארים כיבוי/הפעלה מחדש -
     # שניהם חוזרים לקיוסק. (כפתור "יציאה למחשב" בקיוסק מתנתק בקוד, לא דרך התפריט.)
     Set-Value $exp "NoLogoff" 1 DWord
+    # בלי כפתור כיבוי/שינה/הפעלה מחדש ב-Ctrl+Alt+Delete: משתמש בספרייה לא יכבה או ירדים
+    # את העמדה. כפתור ההדלקה הפיזי של המחשב ממשיך לכבות אותו כרגיל (לצוות בסוף היום).
+    Set-Value $exp "NoClose" 1 DWord
 
     Write-Host "Kiosk restrictions applied to $KioskUsername only." -ForegroundColor Green
 }
@@ -175,6 +178,11 @@ $oldSys = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword")) {
     Remove-ItemProperty -Path $oldSys -Name $n -ErrorAction SilentlyContinue
 }
+
+# העמדה לא נרדמת ולא מכבה מסך/דיסק מעצמה (במחובר לחשמל) - כדי שתהיה תמיד זמינה
+powercfg /change standby-timeout-ac 0 | Out-Null
+powercfg /change hibernate-timeout-ac 0 | Out-Null
+Write-Host "Sleep and hibernate on AC power disabled." -ForegroundColor Green
 
 # בלי "החלפת משתמש": היא משאירה את הקיוסק פתוח ברקע ומציגה מסך כניסה, וכדי לחזור
 # לקיוסק משם צריך את סיסמת משתמש הקיוסק (שאיש לא יודע) - העמדה הייתה נתקעת.
@@ -246,7 +254,7 @@ Write-Host "=== DONE. Restart the computer to start the kiosk. ===" -ForegroundC
 Write-Host ""
 Write-Host "MAINTENANCE ACCESS (write this down):" -ForegroundColor Yellow
 Write-Host "  Usual way: an authorized kiosk account -> 'exit to computer' button -> sign in as '$me'" -ForegroundColor Yellow
-Write-Host "  Without a kiosk account: Ctrl+Alt+Delete -> power icon -> Restart," -ForegroundColor Yellow
-Write-Host "     and HOLD the Shift key while Windows starts, until the sign-in screen appears" -ForegroundColor Yellow
+Write-Host "  Without a kiosk account: short press on the computer's physical power button (shuts down)," -ForegroundColor Yellow
+Write-Host "     turn it on again and HOLD the Shift key while Windows starts, until the sign-in screen appears" -ForegroundColor Yellow
 Write-Host "  Back to the kiosk: the desktop shortcut (restarts the computer)" -ForegroundColor Yellow
 Write-Host "  To remove the lockdown completely: Remove-KioskLockdown.ps1" -ForegroundColor Yellow
