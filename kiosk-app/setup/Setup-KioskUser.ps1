@@ -249,6 +249,16 @@ powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
 Write-Host "Sleep and hibernate on AC power disabled." -ForegroundColor Green
 
+# אחרי הפסקת חשמל Windows עלול להציג בהדלקה "תיקון אוטומטי" / "Windows לא נסגר כראוי"
+# ולחכות שמישהו יבחר אפשרות - והעמדה תקועה. כאן מגדירים לו לעלות כרגיל בכל מקרה.
+bcdedit /set "{current}" bootstatuspolicy ignoreallfailures | Out-Null
+bcdedit /set "{current}" recoveryenabled No | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Windows will start normally after a power failure (no repair screens)." -ForegroundColor Green
+} else {
+    Write-Host "WARNING: could not change the boot recovery settings" -ForegroundColor Yellow
+}
+
 # בלי "החלפת משתמש": היא משאירה את הקיוסק פתוח ברקע ומציגה מסך כניסה, וכדי לחזור
 # לקיוסק משם צריך את סיסמת משתמש הקיוסק (שאיש לא יודע) - העמדה הייתה נתקעת.
 # Windows מאפשר להסתיר אותה רק לכל המחשב; למנהל זה לא מפריע.

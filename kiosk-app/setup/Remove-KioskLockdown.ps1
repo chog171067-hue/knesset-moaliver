@@ -29,6 +29,8 @@ Set-ItemProperty -Path $winlogon -Name "AutoAdminLogon" -Value "0" -Type String
 Remove-ItemProperty -Path $winlogon -Name "DefaultPassword" -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "KioskAutoLogonGuard" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "KioskMaintenanceSignIn" -Confirm:$false -ErrorAction SilentlyContinue
+bcdedit /set "{current}" bootstatuspolicy displayallfailures | Out-Null
+bcdedit /set "{current}" recoveryenabled Yes | Out-Null
 Write-Host "Auto-logon disabled, computer shell is explorer.exe." -ForegroundColor Green
 
 # שאריות מהגרסה הישנה של סקריפט הנעילה (הגבלות לכל המחשב)
