@@ -293,7 +293,16 @@ Write-Host "Auto-logon guard task '$taskName' installed (runs at every startup a
 $maintTask = "KioskMaintenanceSignIn"
 # בסוף: אם תוך 5 דקות אף אחד לא נכנס ל-Windows (מורשה לחץ "יציאה למחשב" והלך) - הפעלה
 # מחדש, וחזרה לקיוסק. quser מחזיר שגיאה כשאין אף משתמש מחובר.
-$maintCmd = "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 0 /f & " +
+# בנוסף: מסמנים מראש את חשבון המנהל במסך הכניסה, כך שנשאר רק להקליד את הסיסמה שלו.
+$adminSid = (Get-LocalUser -Name $me).SID.Value
+$lui = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI"
+$preselect = "reg add `"$lui`" /v LastLoggedOnSAMUser /t REG_SZ /d `".\$me`" /f & " +
+             "reg add `"$lui`" /v LastLoggedOnUser /t REG_SZ /d `".\$me`" /f & " +
+             "reg add `"$lui`" /v LastLoggedOnDisplayName /t REG_SZ /d `"$me`" /f & " +
+             "reg add `"$lui`" /v LastLoggedOnUserSID /t REG_SZ /d `"$adminSid`" /f & " +
+             "reg add `"$lui`" /v SelectedUserSID /t REG_SZ /d `"$adminSid`" /f & "
+$maintCmd = $preselect +
+            "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 0 /f & " +
             "ping -n 31 127.0.0.1 >nul & " +
             "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f & " +
             "ping -n 271 127.0.0.1 >nul & " +
