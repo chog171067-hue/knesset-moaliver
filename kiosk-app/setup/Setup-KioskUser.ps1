@@ -269,11 +269,11 @@ Write-Host "Auto-logon guard task '$taskName' installed (runs at every startup a
 # ההתחברות האוטומטית לחצי דקה - מספיק כדי שאחרי ההתנתקות יופיע מסך הכניסה של Windows -
 # ואז מחזירה אותה, כך שהפעלה מחדש של המחשב תמיד חוזרת לקיוסק.
 $maintTask = "KioskMaintenanceSignIn"
+# בסוף: אם תוך 5 דקות אף אחד לא נכנס ל-Windows (מורשה לחץ "יציאה למחשב" והלך) - הפעלה
+# מחדש, וחזרה לקיוסק. quser מחזיר שגיאה כשאין אף משתמש מחובר.
 $maintCmd = "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 0 /f & " +
             "ping -n 31 127.0.0.1 >nul & " +
             "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f & " +
-            # אם תוך 5 דקות אף אחד לא נכנס ל-Windows (מורשה לחץ "יציאה למחשב" והלך) - הפעלה
-            # מחדש, וחזרה לקיוסק. quser מחזיר שגיאה כשאין אף משתמש מחובר.
             "ping -n 271 127.0.0.1 >nul & " +
             "quser >nul 2>&1 || shutdown /r /t 0 /c `"Back to the library kiosk`""
 $svc = New-Object -ComObject "Schedule.Service"
