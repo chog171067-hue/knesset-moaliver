@@ -265,6 +265,21 @@ namespace KioskApp.Services
             }
         }
 
+        /// <summary>תהליך של תוכנת משתמש: לא הקיוסק, לא תהליך שרץ לפני הקיוסק, ולא רכיב מערכת</summary>
+        public static bool IsUserProcess(int pid)
+        {
+            if (pid == 0 || pid == OwnPid || _baselinePids.Contains(pid)) return false;
+            try
+            {
+                using var p = Process.GetProcessById(pid);
+                return !IgnoredProcessNames.Contains(p.ProcessName);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static bool IsUserAppWindow(IntPtr hWnd)
         {
             if (!IsWindowVisible(hWnd)) return false;

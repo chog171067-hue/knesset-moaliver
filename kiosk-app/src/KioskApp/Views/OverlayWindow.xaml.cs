@@ -16,6 +16,7 @@ namespace KioskApp.Views
         private DateTime _launchedAt = DateTime.Now;
         private bool _launchedProcessExited;
         private bool _returningToPicker;
+        private bool _inGuardTick;
 
         // זמן חסד אחרי הפעלה: תוכנות עם "Launcher" סוגרות את התהליך שהפעלנו ופותחות
         // את החלון האמיתי רק אחרי כמה שניות - לא חוזרים למסך הבחירה לפני שזה קרה.
@@ -55,6 +56,8 @@ namespace KioskApp.Views
             _printMonitor.MonitorError += (_, msg) => App.LogError("PrintMonitorService", new InvalidOperationException(msg));
             _printMonitor.Start();
 
+            FileDialogAssistant.UserMessage += OnFileDialogMessage;
+
             _guardTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _guardTimer.Tick += OnGuardTick;
             _guardTimer.Start();
@@ -66,9 +69,13 @@ namespace KioskApp.Views
         /// </summary>
         private void OnGuardTick(object? sender, EventArgs e)
         {
+            if (_inGuardTick) return; // הודעה למשתמש פתוחה (לולאה מקוננת) - לא נכנסים שוב
+            _inGuardTick = true;
             try
             {
                 WindowGuard.Enforce(OverlayHeightInPixels());
+                // חלונות "שמירה"/"בחירת תיקייה" - נשמרים אוטומטית לדיסק-און-קי
+                FileDialogAssistant.Tick(WindowGuard.IsUserProcess);
 
                 if (_launchedProcessExited
                     && DateTime.Now - _launchedAt > LaunchGracePeriod
@@ -80,6 +87,10 @@ namespace KioskApp.Views
             catch (Exception ex)
             {
                 App.LogError("OverlayWindow.OnGuardTick", ex);
+            }
+            finally
+            {
+                _inGuardTick = false;
             }
         }
 
@@ -110,6 +121,13 @@ namespace KioskApp.Views
             // שפתח את החלון האמיתי בתהליך אחר. OnGuardTick יחזיר למסך הבחירה רק כשבאמת
             // לא נשאר אף חלון של תוכנה פתוח.
             _launchedProcessExited = true;
+        }
+
+        private void OnFileDialogMessage(string message)
+        {
+            // אחרי שהטיפול בחלון הסתיים - לא מתוך סבב השומר
+            Dispatcher.BeginInvoke(new Action(() =>
+                MessageBox.Show(this, message, "שמירת קובץ", MessageBoxButton.OK, MessageBoxImage.Information)));
         }
 
         private void OnSessionBalanceChanged(object? sender, decimal newBalance) => UpdateBalanceText(newBalance);
@@ -199,6 +217,7 @@ namespace KioskApp.Views
             App.Session.BalanceChanged -= OnSessionBalanceChanged;
             _clockTimer?.Stop();
             _guardTimer?.Stop();
+            FileDialogAssistant.UserMessage -= OnFileDialogMessage;
             _printMonitor?.Dispose();
         }
     }
