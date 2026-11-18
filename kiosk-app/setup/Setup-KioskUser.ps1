@@ -271,7 +271,11 @@ Write-Host "Auto-logon guard task '$taskName' installed (runs at every startup a
 $maintTask = "KioskMaintenanceSignIn"
 $maintCmd = "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 0 /f & " +
             "ping -n 31 127.0.0.1 >nul & " +
-            "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f"
+            "reg add `"$wl`" /v AutoAdminLogon /t REG_SZ /d 1 /f & " +
+            # אם תוך 5 דקות אף אחד לא נכנס ל-Windows (מורשה לחץ "יציאה למחשב" והלך) - הפעלה
+            # מחדש, וחזרה לקיוסק. quser מחזיר שגיאה כשאין אף משתמש מחובר.
+            "ping -n 271 127.0.0.1 >nul & " +
+            "quser >nul 2>&1 || shutdown /r /t 0 /c `"Back to the library kiosk`""
 $svc = New-Object -ComObject "Schedule.Service"
 $svc.Connect()
 $def = $svc.NewTask(0)
@@ -280,7 +284,7 @@ $def.Settings.Enabled = $true
 $def.Settings.AllowDemandStart = $true
 $def.Settings.DisallowStartIfOnBatteries = $false
 $def.Settings.StopIfGoingOnBatteries = $false
-$def.Settings.ExecutionTimeLimit = "PT5M"
+$def.Settings.ExecutionTimeLimit = "PT10M"
 $def.Principal.RunLevel = 1
 $maintAction = $def.Actions.Create(0)
 $maintAction.Path = "cmd.exe"
