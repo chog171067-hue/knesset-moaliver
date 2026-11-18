@@ -100,6 +100,13 @@ if (-not $ctx.ValidateCredentials($KioskUsername, $plainForUse)) {
     exit 1
 }
 
+# שומרים את הסיסמה החדשה להתחברות האוטומטית מיד - כדי שגם אם שלב מאוחר יותר ייכשל,
+# הסיסמה השמורה תתאים לסיסמה של המשתמש (אחרת: מסך בחירת משתמשים במקום קיוסק)
+$winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+Set-ItemProperty -Path $winlogon -Name "DefaultUserName" -Value $KioskUsername -Type String
+Set-ItemProperty -Path $winlogon -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String
+Set-ItemProperty -Path $winlogon -Name "DefaultPassword" -Value $plainForUse -Type String
+
 # --- 2. פרופיל המשתמש (נוצר בכניסה הראשונה; כאן יוצרים אותו בלי להתנתק) ---
 $sid = (Get-LocalUser -Name $KioskUsername).SID.Value
 $userProfile = Get-CimInstance Win32_UserProfile | Where-Object { $_.SID -eq $sid }
@@ -189,9 +196,14 @@ function Protect-Folder($folder) {
     if (-not (Test-Path $folder)) { Write-Host "  (skipped, not found: $folder)" -ForegroundColor DarkGray; return }
     # מערכת ומנהלים - מלא; משתמשים רגילים - קריאה והפעלה בלבד. בלי ירושה מ-C.
     icacls "$folder" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-32-545:(OI)(CI)RX" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Could not set permissions on $folder" }
+    if ($LASTEXITCODE -ne 0) {
+        # לא עוצרים את כל הסקריפט בגלל תיקייה אחת - הנעילה עצמה חשובה יותר
+        Write-Host "  WARNING: could not set permissions on $folder - continuing" -ForegroundColor Yellow
+        return
+    }
     # כל מה שבתוכה - יורש מהתיקייה (מבטל הרשאות כתיבה ישנות שהוגדרו על קבצים בודדים)
     icacls "$folder\*" /reset /T /C /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "  WARNING: some files inside $folder kept their old permissions" -ForegroundColor Yellow }
     Write-Host "  Read-only for standard users: $folder" -ForegroundColor Green
 }
 Write-Host "Protecting folders (standard users can only read):" -ForegroundColor Cyan
