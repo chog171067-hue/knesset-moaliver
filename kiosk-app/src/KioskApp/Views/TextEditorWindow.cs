@@ -28,6 +28,27 @@ namespace KioskApp.Views
         private readonly Button _backButton;
         private bool _closingForSessionEnd;
 
+        // קבצים שנשמרו בהתחברות הנוכחית, לפי סיומת (".docx"/".pdf"): שם הקובץ שהמשתמש הקליד והנתיב
+        // בפועל. שמירה חוזרת באותו שם מעדכנת את אותו קובץ במקום ליצור "(2)", "(3)"... הקיוסק דורס
+        // רק קובץ שהוא עצמו יצר בהתחברות הזו - לעולם לא קובץ אחר של המשתמש. נמחק עם החלון בניתוק.
+        private readonly System.Collections.Generic.Dictionary<string, (string Name, string Path)> _savedThisSession = new();
+
+        /// <summary>
+        /// לאן לשמור: אם באותה התחברות כבר נשמר קובץ מאותו סוג ובאותו שם, והוא עדיין בדיסק-און-קי -
+        /// אותו נתיב (עדכון). אחרת - נתיב חדש שלא דורס שום קובץ קיים.
+        /// </summary>
+        private (string Path, bool IsUpdate) TargetPath(string usb, string name, string extension)
+        {
+            if (_savedThisSession.TryGetValue(extension, out var prev)
+                && prev.Name == name
+                && prev.Path.StartsWith(usb, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(prev.Path))
+            {
+                return (prev.Path, true);
+            }
+            return (FileDialogAssistant.UniquePath(usb, name + extension), false);
+        }
+
         /// <summary>פותח את העורך (או מציג אותו שוב עם הטקסט שהיה בו).</summary>
         /// <param name="backLabel">טקסט כפתור החזרה, למשל "⬅ חזרה לתוכנה" או "⬅ חזרה לבחירת תוכנה"</param>
         public static void ShowEditor(string backLabel)
@@ -307,10 +328,14 @@ namespace KioskApp.Views
 
             try
             {
-                var path = FileDialogAssistant.UniquePath(usb, SafeFileName(_fileName.Text) + ".pdf");
+                var name = SafeFileName(_fileName.Text);
+                var (path, isUpdate) = TargetPath(usb, name, ".pdf");
+                // "Microsoft Print to PDF" כותב את הקובץ ברקע - לעדכון מוחקים קודם את הגרסה הקודמת
+                if (isUpdate) File.Delete(path);
                 TextPrinter.Print(_editor.Text, TextPrinter.PdfPrinterName, path);
-                App.LogInfo($"עורך טקסט: נשמר PDF בדיסק-און-קי ({path})");
-                ShowStatus($"✅ נשמר בדיסק-און-קי: {path}", isError: false);
+                _savedThisSession[".pdf"] = (name, path);
+                App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} PDF בדיסק-און-קי ({path})");
+                ShowStatus($"✅ {(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
             }
             catch (Exception ex)
             {
@@ -347,10 +372,23 @@ namespace KioskApp.Views
             var name = SafeFileName(_fileName.Text);
             try
             {
-                var path = FileDialogAssistant.UniquePath(usb, name + ".docx");
-                SimpleDocxWriter.Write(path, _editor.Text);
-                App.LogInfo($"עורך טקסט: נשמר קובץ בדיסק-און-קי ({path})");
-                ShowStatus($"✅ נשמר בדיסק-און-קי: {path}", isError: false);
+                var (path, isUpdate) = TargetPath(usb, name, ".docx");
+                if (isUpdate)
+                {
+                    // קודם כותבים לקובץ זמני, ורק אם הצליח מחליפים - כדי שתקלה באמצע לא תמחק את הקודם
+                    var temp = path + ".tmp";
+                    if (File.Exists(temp)) File.Delete(temp);
+                    SimpleDocxWriter.Write(temp, _editor.Text);
+                    File.Copy(temp, path, overwrite: true);
+                    File.Delete(temp);
+                }
+                else
+                {
+                    SimpleDocxWriter.Write(path, _editor.Text);
+                }
+                _savedThisSession[".docx"] = (name, path);
+                App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} קובץ בדיסק-און-קי ({path})");
+                ShowStatus($"✅ {(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
             }
             catch (Exception ex)
             {
