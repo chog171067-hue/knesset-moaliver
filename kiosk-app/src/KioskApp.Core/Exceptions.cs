@@ -20,6 +20,17 @@ namespace KioskApp.Core
     }
 
     /// <summary>
+    /// הכניסה הצליחה עם סיסמה זמנית (שחזור בטלפון דרך ימות המשיח) - השרת לא מחזיר
+    /// את פרטי המשתמש עד שתיקבע סיסמה חדשה (ChangePasswordAsync). הקורא חייב לתפוס
+    /// את זה בנפרד ולהציג מסך "בחירת סיסמה חדשה" - זו לא תקלה.
+    /// </summary>
+    public class PasswordChangeRequiredException : KioskApiException
+    {
+        public PasswordChangeRequiredException()
+            : base("נכנסת עם סיסמה זמנית - יש לבחור סיסמה חדשה", 200) { }
+    }
+
+    /// <summary>
     /// יתרה לא מספיקה לחיוב הדפסה (library-print-charge.js, err.insufficientFunds).
     /// חובה על הקורא לתפוס את זה בנפרד מ-KioskApiException הכללית, כדי להציג את מסך
     /// "הטענת כסף" במקום הודעת שגיאה סתמית - זו לא תקלה, זו התנהגות צפויה.

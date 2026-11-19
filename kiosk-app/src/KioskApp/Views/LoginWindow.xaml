@@ -27,7 +27,7 @@
             <TextBlock x:Name="DateText" FontSize="14" Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Right" />
         </StackPanel>
 
-        <!-- כרטיס ההתחברות -->
+        <!-- הכרטיס המרכזי -->
         <Border Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskBorderBrush}"
                 BorderThickness="1" CornerRadius="20" Width="460"
                 HorizontalAlignment="Center" VerticalAlignment="Center" Padding="44,40,44,36">
@@ -35,22 +35,87 @@
                 <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.12" Color="#5B4636" />
             </Border.Effect>
             <StackPanel>
-                <TextBlock Text="ברוכים הבאים" Style="{StaticResource KioskHeading}" FontSize="34"
-                           HorizontalAlignment="Center" Margin="0,0,0,6" />
-                <TextBlock Text="התחברו עם תעודת הזהות והסיסמה שלכם" FontSize="16"
-                           Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Center"
-                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,26" />
+                <Grid>
 
-                <TextBlock Text="תעודת זהות" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <TextBox x:Name="UsernameBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,18"
-                         KeyDown="OnFieldKeyDown" />
+                    <!-- מסך כניסה רגיל -->
+                    <StackPanel x:Name="LoginPanel">
+                        <TextBlock Text="ברוכים הבאים" Style="{StaticResource KioskHeading}" FontSize="34"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6" />
+                        <TextBlock Text="התחברו עם תעודת הזהות והסיסמה שלכם" FontSize="16"
+                                   Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Center"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,26" />
 
-                <TextBlock Text="סיסמה" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <PasswordBox x:Name="PasswordBox" Style="{StaticResource KioskPasswordBox}" Margin="0,0,0,24"
-                             KeyDown="OnFieldKeyDown" />
+                        <TextBlock Text="תעודת זהות" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBox x:Name="UsernameBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,18"
+                                 KeyDown="OnFieldKeyDown" />
 
-                <Button x:Name="LoginButton" Content="התחברות" Style="{StaticResource KioskPrimaryButton}"
-                        MinHeight="52" FontSize="19" Click="OnLoginClick" />
+                        <TextBlock Text="סיסמה" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <PasswordBox x:Name="PasswordBox" Style="{StaticResource KioskPasswordBox}" Margin="0,0,0,24"
+                                     KeyDown="OnFieldKeyDown" />
+
+                        <Button x:Name="LoginButton" Content="התחברות" Style="{StaticResource KioskPrimaryButton}"
+                                MinHeight="52" FontSize="19" Click="OnLoginClick" />
+
+                        <!-- מוצג רק כשמוגדר מספר לשחזור סיסמה (דף הניהול ← קיוסק ספרייה ← הגדרות) -->
+                        <Button x:Name="ForgotPasswordButton" Content="שכחתי סיסמה" FontSize="15"
+                                Padding="6" Margin="0,14,0,0" HorizontalAlignment="Center"
+                                Background="Transparent" BorderThickness="0"
+                                Foreground="{StaticResource KioskAccentBrush}" Cursor="Hand"
+                                Click="OnForgotPasswordClick" Visibility="Collapsed" />
+                    </StackPanel>
+
+                    <!-- שכחתי סיסמה: לאן להתקשר ומאיזה טלפון (מוסתר) -->
+                    <StackPanel x:Name="ForgotPanel" Visibility="Collapsed">
+                        <TextBlock Text="שחזור סיסמה בטלפון" Style="{StaticResource KioskHeading}" FontSize="30"
+                                   HorizontalAlignment="Center" Margin="0,0,0,22" />
+
+                        <TextBlock Text="לאיפוס הסיסמה יש להתקשר למספר" FontSize="16"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock x:Name="ResetPhoneText" FontSize="30" FontWeight="Bold"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource KioskAccentBrush}" Margin="0,4,0,18" />
+
+                        <StackPanel x:Name="RegisteredPhoneSection">
+                            <TextBlock Text="מהטלפון שנרשמת איתו למערכת:" FontSize="16"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock x:Name="MaskedPhoneText" FontSize="24" FontWeight="Bold"
+                                       FlowDirection="LeftToRight" HorizontalAlignment="Center"
+                                       Margin="0,4,0,18" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="ForgotInstructionsText" FontSize="15"
+                                   Foreground="{StaticResource KioskMutedBrush}"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,22" />
+
+                        <Button Content="חזרה למסך הכניסה" Style="{StaticResource KioskPrimaryButton}"
+                                MinHeight="52" FontSize="19" Click="OnBackToLoginClick" />
+                    </StackPanel>
+
+                    <!-- בחירת סיסמה חדשה - אחרי כניסה עם סיסמה זמנית מהטלפון -->
+                    <StackPanel x:Name="ChangePasswordPanel" Visibility="Collapsed">
+                        <TextBlock Text="בחירת סיסמה חדשה" Style="{StaticResource KioskHeading}" FontSize="30"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6" />
+                        <TextBlock Text="נכנסתם עם סיסמה זמנית. כדי להמשיך יש לבחור סיסמה חדשה (לפחות 4 תווים)."
+                                   FontSize="15" Foreground="{StaticResource KioskMutedBrush}"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,24" />
+
+                        <TextBlock Text="סיסמה חדשה" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <PasswordBox x:Name="NewPasswordBox" Style="{StaticResource KioskPasswordBox}" Margin="0,0,0,18"
+                                     KeyDown="OnChangeFieldKeyDown" />
+
+                        <TextBlock Text="אימות סיסמה חדשה" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <PasswordBox x:Name="ConfirmPasswordBox" Style="{StaticResource KioskPasswordBox}" Margin="0,0,0,24"
+                                     KeyDown="OnChangeFieldKeyDown" />
+
+                        <Button x:Name="ChangePasswordButton" Content="שמירה וכניסה" Style="{StaticResource KioskPrimaryButton}"
+                                MinHeight="52" FontSize="19" Click="OnChangePasswordClick" />
+
+                        <Button Content="ביטול" FontSize="15" Padding="6" Margin="0,12,0,0"
+                                Background="Transparent" BorderThickness="0"
+                                Foreground="{StaticResource KioskMutedBrush}"
+                                Click="OnCancelChangeClick" Cursor="Hand" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
 
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}"
                            FontWeight="SemiBold" FontSize="15" TextWrapping="Wrap" TextAlignment="Center"

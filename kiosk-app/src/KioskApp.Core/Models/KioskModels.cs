@@ -34,6 +34,19 @@ namespace KioskApp.Core.Models
         public List<AllowedApp> AllowedApps { get; set; } = new List<AllowedApp>();
         /// <summary>להציג את עורך הטקסט המובנה (נקבע בדף הניהול)</summary>
         public bool TextEditorEnabled { get; set; }
+        /// <summary>מספר הטלפון לשחזור סיסמה (ימות המשיח). ריק = לא מציגים "שכחתי סיסמה"</summary>
+        public string PasswordResetPhone { get; set; } = "";
+    }
+
+    /// <summary>תשובת library-station-reset-info - למסך "שכחתי סיסמה"</summary>
+    public class PasswordResetInfo
+    {
+        /// <summary>המספר שאליו מתקשרים (ימות המשיח)</summary>
+        public string ResetPhone { get; set; } = "";
+        /// <summary>האם נמצא חשבון פעיל עם תעודת הזהות שהוקלדה</summary>
+        public bool Found { get; set; }
+        /// <summary>הטלפון הרשום בחשבון, מוסתר (למשל 050-•••••67). הטלפון המלא לא נשלח לעמדה.</summary>
+        public string MaskedPhone { get; set; } = "";
     }
 
     public class TransactionRecord

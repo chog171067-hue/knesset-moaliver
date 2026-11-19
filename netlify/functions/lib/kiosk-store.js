@@ -18,9 +18,14 @@ const PENDING_TOPUPS_KEY = 'pending-topups.json';
 // אישורי תשלום מנדרים פלוס שלא הצלחנו לשייך לחשבון - נשמרים לטיפול ידני, כדי
 // שתשלום אמיתי לעולם לא "ייעלם" בשקט (נדרים פלוס לא שולחים אישור פעם שנייה)
 const ORPHAN_TOPUPS_KEY = 'orphan-topups.json';
+// יומן שחזורי סיסמה בטלפון (ימות המשיח) - כל ניסיון נרשם כאן, גם כושל. מאותו
+// יומן מחושבות גם מגבלות הניסיונות (ראו PHONE_RESET_LIMITS), כך שאין מקור אמת נוסף.
+const PASSWORD_RESETS_KEY = 'password-resets.json';
+const MAX_PASSWORD_RESET_LOG = 3000;
 const MAX_WRITE_ATTEMPTS = 8;
 
-const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false };
+// passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
+const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false, passwordResetPhone: '' };
 
 // ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
 // כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
@@ -108,8 +113,23 @@ function normalizePhone(phone) {
 
 function toPublicUser(user) {
   if (!user) return null;
-  const { passwordSalt, passwordHash, ...publicFields } = user;
+  const { passwordSalt, passwordHash, tempPasswordSalt, tempPasswordHash, tempFailedAttempts, ...publicFields } = user;
   return publicFields;
+}
+
+// שם המשתמש בקיוסק הוא תעודת זהות. בטלפון אנשים מקלידים לפעמים בלי אפס מוביל,
+// לכן משווים ספרות בלבד, בלי אפסים מובילים, ורק כששם המשתמש עצמו הוא מספר.
+function normalizeTz(value) {
+  const digits = String(value || '').trim();
+  if (!/^\d{5,9}$/.test(digits)) return null;
+  return digits.replace(/^0+/, '') || null;
+}
+
+// מספר המתקשר כפי שימות המשיח מעבירה אותו (ApiPhone) - לפעמים בפורמט בינלאומי
+function normalizeCallerPhone(phone) {
+  let clean = String(phone || '').replace(/[^\d]/g, '');
+  if (clean.startsWith('972')) clean = '0' + clean.slice(3);
+  return normalizePhone(clean);
 }
 
 async function listUsers(event) {
@@ -196,9 +216,231 @@ async function resetPassword(event, { userId, newPassword }) {
     if (!user) throw new Error('משתמש לא נמצא');
     user.passwordSalt = salt;
     user.passwordHash = hash;
+    clearTempPassword(user);
     user.updatedAt = new Date().toISOString();
     return toPublicUser(user);
   });
+}
+
+// ===================== שחזור סיסמה בטלפון (ימות המשיח) =====================
+//
+// העיקרון: הסיסמה הזמנית נשמרת בשדות נפרדים (tempPassword*), ולא מחליפה את
+// הסיסמה הרגילה. כך, אם מישהו אחר ביקש איפוס (למשל התחזה למספר הטלפון), בעל
+// החשבון עדיין נכנס עם הסיסמה הרגילה שלו, והסיסמה הזמנית פשוט פגה.
+// כניסה עם הסיסמה הזמנית לא פותחת את הקיוסק - היא מאפשרת רק לקבוע סיסמה חדשה.
+
+const TEMP_PASSWORD_DIGITS = 6;
+const TEMP_PASSWORD_TTL_MINUTES = 15;
+// כמה ניסיונות כניסה שגויים מותרים בזמן שיש סיסמה זמנית פעילה. אחרי זה היא נמחקת,
+// כדי שאי אפשר יהיה לנחש אותה בעמדה (מיליון אפשרויות, אבל בלי הגבלה זה עדיין סיכון).
+const TEMP_PASSWORD_MAX_FAILED_LOGINS = 5;
+
+const PHONE_RESET_LIMITS = {
+  // ניסיונות כושלים (תעודת זהות לא תואמת) מאותו מספר טלפון, בשעה האחרונה
+  failedPerPhonePerHour: 3,
+  // סיסמאות זמניות שהונפקו לאותו חשבון, ב-24 השעות האחרונות
+  issuedPerUserPerDay: 3,
+  // כל הניסיונות (מוצלחים וכושלים) מאותו מספר טלפון, ב-24 השעות האחרונות
+  attemptsPerPhonePerDay: 10
+};
+
+function clearTempPassword(user) {
+  delete user.tempPasswordSalt;
+  delete user.tempPasswordHash;
+  delete user.tempPasswordExpiresAt;
+  delete user.tempFailedAttempts;
+}
+
+function hasActiveTempPassword(user, now = Date.now()) {
+  return !!(user.tempPasswordHash && user.tempPasswordExpiresAt && Date.parse(user.tempPasswordExpiresAt) > now);
+}
+
+function generateTempPassword() {
+  // crypto.randomInt - אקראיות קריפטוגרפית, לא Math.random
+  let digits = '';
+  for (let i = 0; i < TEMP_PASSWORD_DIGITS; i++) digits += String(crypto.randomInt(0, 10));
+  return digits;
+}
+
+async function readPasswordResetLog(store) {
+  return (await store.get(PASSWORD_RESETS_KEY, { type: 'json' })) || [];
+}
+
+async function appendPasswordResetLog(event, entry) {
+  const store = getKioskStore(event);
+  const record = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...entry };
+  await writeWithRetry(store, PASSWORD_RESETS_KEY, [], (log) => {
+    log.push(record);
+    if (log.length > MAX_PASSWORD_RESET_LOG) log.splice(0, log.length - MAX_PASSWORD_RESET_LOG);
+    return record;
+  });
+  return record;
+}
+
+async function listPasswordResetLog(event) {
+  const store = getKioskStore(event);
+  const log = await readPasswordResetLog(store);
+  return log.slice().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+// טלפון מוסתר לתצוגה: הקידומת ו-2 הספרות האחרונות בלבד.
+// נייד (10 ספרות): 050-•••••67 | קווי (9 ספרות): 02-•••••67
+function maskPhone(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length < 9) return '';
+  const prefixLength = d.length === 10 ? 3 : 2;
+  return `${d.slice(0, prefixLength)}-${'•'.repeat(d.length - prefixLength - 2)}${d.slice(-2)}`;
+}
+
+// למסך "שכחתי סיסמה" בעמדה: לפי תעודת הזהות שהוקלדה, מחזיר את הטלפון הרשום
+// בצורה מוסתרת בלבד. הטלפון המלא לעולם לא נשלח לעמדה.
+async function getPasswordResetInfo(event, username) {
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  const needle = String(username || '').trim().toLowerCase();
+  const tz = normalizeTz(needle);
+  const user = Object.values(users).find(u =>
+    u.username.toLowerCase() === needle || (tz && normalizeTz(u.username) === tz));
+  if (!user || !user.isActive) return { found: false };
+  const maskedPhone = maskPhone(user.phone);
+  return maskedPhone ? { found: true, maskedPhone } : { found: false };
+}
+
+// בודק אם מותר למספר הטלפון הזה (ולחשבון, אם כבר זוהה) לבקש איפוס כרגע.
+// מחזיר null אם מותר, או סיבת חסימה ('phone-locked' / 'user-limit').
+async function checkPhoneResetLimits(event, { phone, userId }) {
+  const store = getKioskStore(event);
+  const log = await readPasswordResetLog(store);
+  const now = Date.now();
+  const since = (ms) => log.filter(e => Date.parse(e.timestamp) > now - ms);
+  const lastHour = since(60 * 60 * 1000);
+  const lastDay = since(24 * 60 * 60 * 1000);
+
+  const failedThisHour = lastHour.filter(e => e.phone === phone && e.outcome === 'mismatch').length;
+  if (failedThisHour >= PHONE_RESET_LIMITS.failedPerPhonePerHour) return 'phone-locked';
+
+  const attemptsToday = lastDay.filter(e => e.phone === phone && (e.outcome === 'mismatch' || e.outcome === 'issued')).length;
+  if (attemptsToday >= PHONE_RESET_LIMITS.attemptsPerPhonePerDay) return 'phone-locked';
+
+  if (userId) {
+    const issuedToday = lastDay.filter(e => e.userId === userId && e.outcome === 'issued').length;
+    if (issuedToday >= PHONE_RESET_LIMITS.issuedPerUserPerDay) return 'user-limit';
+  }
+  return null;
+}
+
+// מחפש חשבון פעיל שתעודת הזהות שלו היא tz והטלפון הרשום בו הוא phone.
+// מחזיר את המשתמש (בלי שדות סודיים) או null - בלי לפרט מה בדיוק לא התאים.
+async function findUserForPhoneReset(event, { tz, phone }) {
+  const cleanTz = normalizeTz(tz);
+  if (!cleanTz || !phone) return null;
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  const user = Object.values(users).find(u => normalizeTz(u.username) === cleanTz);
+  if (!user || !user.isActive || user.phone !== phone) return null;
+  return toPublicUser(user);
+}
+
+// מנפיק סיסמה זמנית ומחזיר אותה (כטקסט גלוי - פעם אחת בלבד, להקראה בטלפון).
+// בודק שוב את התאמת הטלפון בתוך הכתיבה עצמה, למקרה שהפרטים השתנו בינתיים.
+async function issueTemporaryPassword(event, { userId, phone }) {
+  const tempPassword = generateTempPassword();
+  const { salt, hash } = hashPassword(tempPassword);
+  const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MINUTES * 60 * 1000).toISOString();
+
+  const store = getKioskStore(event);
+  const user = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[userId];
+    if (!u || !u.isActive || u.phone !== phone) throw new Error('החשבון אינו זמין לאיפוס');
+    u.tempPasswordSalt = salt;
+    u.tempPasswordHash = hash;
+    u.tempPasswordExpiresAt = expiresAt;
+    u.tempFailedAttempts = 0;
+    u.updatedAt = new Date().toISOString();
+    return toPublicUser(u);
+  });
+
+  return { tempPassword, expiresAt, user, ttlMinutes: TEMP_PASSWORD_TTL_MINUTES };
+}
+
+// אימות כניסה בעמדה. מחזיר:
+//   { ok: false }                         - פרטים שגויים
+//   { ok: true, user, viaTemp: false }    - סיסמה רגילה
+//   { ok: true, user, viaTemp: true }     - סיסמה זמנית בתוקף: חובה להחליף סיסמה
+// בכישלון כשיש סיסמה זמנית פעילה - סופרים ניסיון שגוי, ואחרי כמה ניסיונות מוחקים אותה.
+async function authenticateKioskUser(event, { username, password }) {
+  const user = await findUserByUsername(event, username);
+  if (!user) return { ok: false };
+  const pwd = String(password);
+
+  if (verifyPassword(pwd, user.passwordSalt, user.passwordHash)) {
+    return { ok: true, user, viaTemp: false };
+  }
+
+  if (!hasActiveTempPassword(user)) return { ok: false };
+
+  if (verifyPassword(pwd, user.tempPasswordSalt, user.tempPasswordHash)) {
+    return { ok: true, user, viaTemp: true };
+  }
+
+  // ניסיון שגוי בזמן שיש סיסמה זמנית - נספר
+  const store = getKioskStore(event);
+  const burned = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[user.id];
+    if (!u || !hasActiveTempPassword(u)) return false;
+    u.tempFailedAttempts = (u.tempFailedAttempts || 0) + 1;
+    if (u.tempFailedAttempts >= TEMP_PASSWORD_MAX_FAILED_LOGINS) {
+      clearTempPassword(u);
+      return true;
+    }
+    return false;
+  });
+  if (burned) {
+    await appendPasswordResetLog(event, {
+      userId: user.id, username: user.username, phone: user.phone,
+      outcome: 'temp-burned', note: `הסיסמה הזמנית בוטלה אחרי ${TEMP_PASSWORD_MAX_FAILED_LOGINS} ניסיונות כניסה שגויים`
+    }).catch(() => {});
+  }
+  return { ok: false };
+}
+
+// החלפת סיסמה ע"י המשתמש עצמו בעמדה (אחרי כניסה עם סיסמה זמנית, או בכלל).
+// האימות של הסיסמה הנוכחית נעשה בתוך הכתיבה, כך שאין חלון זמן בין בדיקה לשינוי.
+async function changeOwnPassword(event, { username, currentPassword, newPassword }) {
+  const next = String(newPassword || '');
+  if (next.length < 4) throw new Error('הסיסמה החדשה חייבת להכיל לפחות 4 תווים');
+
+  const existing = await findUserByUsername(event, username);
+  if (!existing) throw new Error('שם משתמש או סיסמה שגויים');
+
+  const { salt, hash } = hashPassword(next);
+  const store = getKioskStore(event);
+  let usedTemp = false;
+
+  const user = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[existing.id];
+    if (!u) throw new Error('שם משתמש או סיסמה שגויים');
+    const cur = String(currentPassword || '');
+    const viaMain = verifyPassword(cur, u.passwordSalt, u.passwordHash);
+    const viaTemp = !viaMain && hasActiveTempPassword(u) && verifyPassword(cur, u.tempPasswordSalt, u.tempPasswordHash);
+    if (!viaMain && !viaTemp) throw new Error('הסיסמה הזמנית שגויה או שפג תוקפה - יש להתקשר שוב לקבלת סיסמה חדשה');
+    if (!u.isActive) throw new Error('החשבון מושבת - יש לפנות לצוות הספרייה');
+    if (next === cur) throw new Error('הסיסמה החדשה חייבת להיות שונה מהסיסמה הזמנית');
+    usedTemp = viaTemp;
+    u.passwordSalt = salt;
+    u.passwordHash = hash;
+    clearTempPassword(u);
+    u.updatedAt = new Date().toISOString();
+    return toPublicUser(u);
+  });
+
+  if (usedTemp) {
+    await appendPasswordResetLog(event, {
+      userId: user.id, username: user.username, phone: user.phone,
+      outcome: 'completed', note: 'המשתמש קבע סיסמה חדשה בעמדה'
+    }).catch(() => {});
+  }
+  return user;
 }
 
 async function setUserActive(event, { userId, isActive }) {
@@ -397,12 +639,19 @@ async function updateConfig(event, patch) {
   if (patch.allowedApps !== undefined && !Array.isArray(patch.allowedApps)) {
     throw new Error('רשימת התוכנות המאושרות חייבת להיות מערך');
   }
+  let resetPhone;
+  if (patch.passwordResetPhone !== undefined) {
+    resetPhone = String(patch.passwordResetPhone || '').trim();
+    // ספרות, מקפים ורווחים בלבד (ריק = שחזור בטלפון לא מוצג בעמדה)
+    if (resetPhone && !/^[\d\- ]{3,20}$/.test(resetPhone)) throw new Error('מספר הטלפון לשחזור סיסמה אינו תקין');
+  }
 
   const store = getKioskStore(event);
   return writeWithRetry(store, CONFIG_KEY, { ...DEFAULT_CONFIG }, (config) => {
     if (patch.pricePerPage !== undefined) config.pricePerPage = Number(patch.pricePerPage);
     if (patch.allowedApps !== undefined) config.allowedApps = patch.allowedApps;
     if (patch.textEditorEnabled !== undefined) config.textEditorEnabled = !!patch.textEditorEnabled;
+    if (resetPhone !== undefined) config.passwordResetPhone = resetPhone;
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };
   });
@@ -572,6 +821,16 @@ module.exports = {
   findUserByUsername,
   createUser,
   resetPassword,
+  normalizeCallerPhone,
+  maskPhone,
+  getPasswordResetInfo,
+  findUserForPhoneReset,
+  checkPhoneResetLimits,
+  issueTemporaryPassword,
+  appendPasswordResetLog,
+  listPasswordResetLog,
+  authenticateKioskUser,
+  changeOwnPassword,
   setUserDetails,
   setUserCanExit,
   setUserActive,
