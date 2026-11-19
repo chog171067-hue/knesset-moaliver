@@ -50,7 +50,7 @@ namespace KioskApp.Views
         }
 
         /// <summary>פותח את העורך (או מציג אותו שוב עם הטקסט שהיה בו).</summary>
-        /// <param name="backLabel">טקסט כפתור החזרה, למשל "⬅ חזרה לתוכנה" או "⬅ חזרה לבחירת תוכנה"</param>
+        /// <param name="backLabel">טקסט כפתור החזרה, למשל "חזרה לתוכנה" או "חזרה לבחירת תוכנה"</param>
         public static void ShowEditor(string backLabel)
         {
             _instance ??= new TextEditorWindow();
@@ -80,108 +80,105 @@ namespace KioskApp.Views
             Topmost = true;
             ShowInTaskbar = false;
             FlowDirection = FlowDirection.RightToLeft;
-            Background = (Brush)Application.Current.Resources["KioskPrimaryBrush"];
+            Background = Res<Brush>("KioskGroundBrush");
+            FontFamily = Res<FontFamily>("KioskBodyFont");
+            Foreground = Res<Brush>("KioskTextBrush");
             App.KeepFullScreen(this);
 
-            // --- סרגל עליון ---
-            var bar = new DockPanel { Margin = new Thickness(20, 10, 20, 10), LastChildFill = false };
-
-            bar.Children.Add(new TextBlock
+            // --- סרגל עליון (כרטיס שמנת). מימין: כותרת ושם הקובץ; משמאל: פעולות, יתרה וחזרה.
+            //     WrapPanel - במסך צר הכפתורים יורדים שורה, במקום לעלות על הטקסט.
+            var right = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+            right.Children.Add(new TextBlock
             {
-                Text = "📝 עורך טקסט",
-                FontSize = 20,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
+                Text = "עורך טקסט",
+                Style = Res<Style>("KioskHeading"),
+                FontSize = 22,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 0)
             });
-
-            // במצב מימין לשמאל, Dock.Left = צד ימין במסך. הסדר מימין: כותרת | שם הקובץ | שמירה | ניקוי,
-            // וכפתור החזרה בקצה השמאלי (Dock.Right).
-            var nameLabel = new TextBlock
+            right.Children.Add(new TextBlock
             {
-                Text = "שם הקובץ:",
-                Foreground = Brushes.White,
+                Text = "שם הקובץ",
+                Foreground = Res<Brush>("KioskMutedBrush"),
                 FontSize = 15,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(30, 0, 6, 0)
-            };
-            DockPanel.SetDock(nameLabel, Dock.Left);
-            bar.Children.Add(nameLabel);
-
+                Margin = new Thickness(24, 0, 8, 0)
+            });
             _fileName = new TextBox
             {
                 Text = "טקסט מהספרייה",
+                Style = Res<Style>("KioskTextBox"),
                 FontSize = 15,
-                Width = 170,
-                Padding = new Thickness(6),
-                Margin = new Thickness(0, 0, 10, 0),
-                VerticalContentAlignment = VerticalAlignment.Center,
+                MinHeight = 40,
+                Width = 200,
+                VerticalAlignment = VerticalAlignment.Center,
                 ToolTip = "שם הקובץ שיישמר בדיסק-און-קי"
             };
-            DockPanel.SetDock(_fileName, Dock.Left);
-            bar.Children.Add(_fileName);
+            right.Children.Add(_fileName);
 
-            var saveButton = MakeButton("💾 Word לדיסק-און-קי",
-                (Brush)Application.Current.Resources["KioskAccentBrush"], OnSaveClick);
-            DockPanel.SetDock(saveButton, Dock.Left);
-            bar.Children.Add(saveButton);
-
-            var pdfButton = MakeButton("📄 PDF לדיסק-און-קי",
-                (Brush)Application.Current.Resources["KioskAccentBrush"], OnSavePdfClick);
-            DockPanel.SetDock(pdfButton, Dock.Left);
-            bar.Children.Add(pdfButton);
-
-            var printButton = MakeButton("🖨 הדפסה",
-                (Brush)Application.Current.Resources["KioskAccentBrush"], OnPrintClick);
-            DockPanel.SetDock(printButton, Dock.Left);
-            bar.Children.Add(printButton);
-
-            var clearButton = MakeButton("🗑 ניקוי", Brushes.Transparent, OnClearClick);
-            clearButton.BorderBrush = Brushes.White;
-            clearButton.BorderThickness = new Thickness(1);
-            DockPanel.SetDock(clearButton, Dock.Left);
-            bar.Children.Add(clearButton);
-
-            _backButton = MakeButton("⬅ חזרה", Brushes.Transparent, OnBackClick);
-            _backButton.BorderBrush = Brushes.White;
-            _backButton.BorderThickness = new Thickness(1);
-            _backButton.Margin = new Thickness(0);
-            DockPanel.SetDock(_backButton, Dock.Right);
-            bar.Children.Add(_backButton);
-
-            _balance = new TextBlock
+            var left = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+            left.Children.Add(MakeButton("שמירה כ-Word", "KioskPrimaryButton", OnSaveClick));
+            left.Children.Add(MakeButton("שמירה כ-PDF", "KioskPrimaryButton", OnSavePdfClick));
+            left.Children.Add(MakeButton("הדפסה", "KioskSecondaryButton", OnPrintClick));
+            left.Children.Add(MakeButton("ניקוי", "KioskSecondaryButton", OnClearClick));
+            left.Children.Add(new Border
             {
-                Foreground = Brushes.White,
-                FontSize = 15,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 20, 0)
-            };
-            DockPanel.SetDock(_balance, Dock.Right);
-            bar.Children.Add(_balance);
+                Width = 1,
+                Height = 28,
+                Background = Res<Brush>("KioskBorderBrush"),
+                Margin = new Thickness(6, 0, 14, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            _balance = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold };
+            left.Children.Add(new Border
+            {
+                Style = Res<Style>("KioskPill"),
+                Child = _balance,
+                Margin = new Thickness(0, 0, 12, 0)
+            });
+            _backButton = MakeButton("חזרה", "KioskSoftButton", OnBackClick);
+            _backButton.Margin = new Thickness(0);
+            left.Children.Add(_backButton);
             UpdateBalance(App.Session.CurrentUser?.Balance ?? 0);
             App.Session.BalanceChanged += OnBalanceChanged;
+
+            var barContent = new DockPanel { LastChildFill = false };
+            DockPanel.SetDock(right, Dock.Left);
+            DockPanel.SetDock(left, Dock.Right);
+            barContent.Children.Add(right);
+            barContent.Children.Add(left);
+
+            var bar = new Border
+            {
+                Background = Res<Brush>("KioskCardBrush"),
+                BorderBrush = Res<Brush>("KioskBorderBrush"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(20, 12, 20, 12),
+                Child = barContent
+            };
 
             // --- שורת מצב ---
             _status = new TextBlock
             {
                 Text = "הקלידו או הדביקו כאן טקסט (Ctrl+V). אפשר להדפיס, או לשמור כ-Word / PDF לדיסק-און-קי. הטקסט נמחק בניתוק.",
-                Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE0)),
-                FontSize = 14,
-                Margin = new Thickness(20, 0, 20, 10),
+                Foreground = Res<Brush>("KioskMutedBrush"),
+                FontSize = 15,
+                Margin = new Thickness(24, 12, 24, 10),
                 TextWrapping = TextWrapping.Wrap
             };
 
-            // --- אזור הכתיבה ---
+            // --- אזור הכתיבה: דף לבן ---
             _editor = new TextBox
             {
                 AcceptsReturn = true,
                 AcceptsTab = true,
                 TextWrapping = TextWrapping.Wrap,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                FontSize = 20,
-                FontFamily = new FontFamily("David, Arial"),
-                Padding = new Thickness(16),
+                FontSize = 22,
+                FontFamily = Res<FontFamily>("KioskHeadingFont"),
+                Foreground = new SolidColorBrush(Color.FromRgb(0x2E, 0x24, 0x1B)),
+                Background = Brushes.White,
+                Padding = new Thickness(28, 20, 28, 20),
                 FlowDirection = FlowDirection.RightToLeft,
                 BorderThickness = new Thickness(0)
             };
@@ -190,17 +187,20 @@ namespace KioskApp.Views
             var page = new Border
             {
                 Background = Brushes.White,
-                CornerRadius = new CornerRadius(8),
-                Margin = new Thickness(20, 0, 20, 20),
+                BorderBrush = Res<Brush>("KioskBorderBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(8),
+                Margin = new Thickness(24, 0, 24, 0),
                 Child = _editor
             };
 
             // --- מונה מילים בתחתית ---
             _counter = new TextBlock
             {
-                Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE0)),
+                Foreground = Res<Brush>("KioskMutedBrush"),
                 FontSize = 14,
-                Margin = new Thickness(20, -12, 20, 10)
+                Margin = new Thickness(24, 10, 24, 14)
             };
             _editor.TextChanged += (_, _) => UpdateCounter();
             UpdateCounter();
@@ -224,19 +224,18 @@ namespace KioskApp.Views
             };
         }
 
-        private Button MakeButton(string text, Brush background, RoutedEventHandler onClick)
+        private static T Res<T>(string key) => (T)Application.Current.Resources[key];
+
+        private Button MakeButton(string text, string styleKey, RoutedEventHandler onClick)
         {
             var b = new Button
             {
                 Content = text,
+                Style = Res<Style>(styleKey),
                 FontSize = 15,
-                FontWeight = FontWeights.Bold,
-                Padding = new Thickness(14, 8, 14, 8),
-                Margin = new Thickness(0, 0, 10, 0),
-                Background = background,
-                Foreground = Brushes.White,
-                BorderThickness = new Thickness(0),
-                Cursor = Cursors.Hand
+                MinHeight = 40,
+                Padding = new Thickness(14, 0, 14, 0),
+                Margin = new Thickness(0, 4, 8, 4)
             };
             b.Click += onClick;
             return b;
@@ -297,7 +296,7 @@ namespace KioskApp.Views
                 // החיוב עצמו - דרך מעקב ההדפסות הרגיל (כולל החזר אם ההדפסה נכשלת)
                 TextPrinter.Print(_editor.Text, printer);
                 App.LogInfo($"עורך טקסט: נשלחו להדפסה {pages} עמודים ({printer})");
-                ShowStatus($"🖨 נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")}.", isError: false);
+                ShowStatus($"נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")}.", isError: false);
             }
             catch (Exception ex)
             {
@@ -335,7 +334,7 @@ namespace KioskApp.Views
                 TextPrinter.Print(_editor.Text, TextPrinter.PdfPrinterName, path);
                 _savedThisSession[".pdf"] = (name, path);
                 App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} PDF בדיסק-און-קי ({path})");
-                ShowStatus($"✅ {(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
+                ShowStatus($"{(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
             }
             catch (Exception ex)
             {
@@ -388,7 +387,7 @@ namespace KioskApp.Views
                 }
                 _savedThisSession[".docx"] = (name, path);
                 App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} קובץ בדיסק-און-קי ({path})");
-                ShowStatus($"✅ {(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
+                ShowStatus($"{(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
             }
             catch (Exception ex)
             {
@@ -409,9 +408,8 @@ namespace KioskApp.Views
         private void ShowStatus(string text, bool isError)
         {
             _status.Text = text;
-            _status.Foreground = isError
-                ? new SolidColorBrush(Color.FromRgb(0xFE, 0xB2, 0xB2))
-                : new SolidColorBrush(Color.FromRgb(0x9A, 0xE6, 0xB4));
+            _status.Foreground = isError ? Res<Brush>("KioskDangerBrush") : Res<Brush>("KioskSuccessBrush");
+            _status.FontWeight = FontWeights.SemiBold;
         }
     }
 }

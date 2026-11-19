@@ -34,14 +34,15 @@ namespace KioskApp.Views
             Top = 0;
             Width = SystemParameters.PrimaryScreenWidth;
 
-            UsernameText.Text = App.Session.CurrentUser?.Username ?? "";
+            var user = App.Session.CurrentUser;
+            UsernameText.Text = string.IsNullOrWhiteSpace(user?.DisplayName) ? user?.Username ?? "" : user!.DisplayName!;
             UpdateBalanceText(App.Session.CurrentUser?.Balance ?? 0);
             TextEditorButton.Visibility = App.Session.Config?.TextEditorEnabled == true
                 ? Visibility.Visible : Visibility.Collapsed;
             App.Session.BalanceChanged += OnSessionBalanceChanged;
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _clockTimer.Tick += (_, _) => TimerText.Text = $"זמן חיבור: {App.Session.Elapsed:hh\\:mm\\:ss}";
+            _clockTimer.Tick += (_, _) => TimerText.Text = $"זמן: {App.Session.Elapsed:hh\\:mm\\:ss}";
             _clockTimer.Start();
 
 
@@ -126,7 +127,7 @@ namespace KioskApp.Views
         private void OnTextEditorClick(object sender, RoutedEventArgs e)
         {
             // נפתח מעל התוכנה בלי לסגור אותה - אפשר להעתיק ממנה ולהדביק בעורך הלוך ושוב
-            TextEditorWindow.ShowEditor("⬅ חזרה לתוכנה");
+            TextEditorWindow.ShowEditor("חזרה לתוכנה");
         }
 
         private void OnTopupClick(object sender, RoutedEventArgs e)

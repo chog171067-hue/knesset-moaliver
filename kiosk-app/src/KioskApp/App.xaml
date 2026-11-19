@@ -1,9 +1,227 @@
 <Application x:Class="KioskApp.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        השפה העיצובית של הקיוסק: גווני חום בהיר ושמנת (אושרה בהדמיה).
+        כל המסכים משתמשים רק במשאבים שכאן - כדי ששינוי צבע או כפתור ייעשה במקום אחד.
+    -->
     <Application.Resources>
-        <SolidColorBrush x:Key="KioskPrimaryBrush" Color="#1A365D" />
-        <SolidColorBrush x:Key="KioskAccentBrush" Color="#2B6CB0" />
-        <SolidColorBrush x:Key="KioskDangerBrush" Color="#C53030" />
+        <!-- צבעים -->
+        <SolidColorBrush x:Key="KioskGroundBrush" Color="#F4ECDD" />    <!-- רקע המסכים -->
+        <SolidColorBrush x:Key="KioskCardBrush" Color="#FFFDF8" />      <!-- כרטיסים וסרגלים -->
+        <SolidColorBrush x:Key="KioskSoftBrush" Color="#EFE4D2" />      <!-- הדגשה רכה (יתרה, אריחי סמל) -->
+        <SolidColorBrush x:Key="KioskBorderBrush" Color="#E6D9C3" />    <!-- קווי מתאר עדינים -->
+        <SolidColorBrush x:Key="KioskOutlineBrush" Color="#C9B28F" />   <!-- מסגרת כפתור משני ושדות -->
+        <SolidColorBrush x:Key="KioskInputBrush" Color="#FBF7EF" />     <!-- רקע שדות קלט -->
+        <SolidColorBrush x:Key="KioskTextBrush" Color="#3E2F23" />      <!-- טקסט וכותרות -->
+        <SolidColorBrush x:Key="KioskSecondaryTextBrush" Color="#5B4636" />
+        <SolidColorBrush x:Key="KioskMutedBrush" Color="#7A6A58" />     <!-- טקסט משני -->
+        <SolidColorBrush x:Key="KioskSuccessBrush" Color="#5E7A3A" />
+
+        <!-- שמות ישנים - נשמרים למקומות בקוד שעוד משתמשים בהם -->
+        <SolidColorBrush x:Key="KioskPrimaryBrush" Color="#3E2F23" />
+        <SolidColorBrush x:Key="KioskAccentBrush" Color="#8C5E2E" />    <!-- כפתור ראשי -->
+        <SolidColorBrush x:Key="KioskDangerBrush" Color="#A23B2A" />    <!-- ניתוק / שגיאה -->
+
+        <!-- גופנים (מותקנים ב-Windows; אם חסר - Windows בוחר גופן קרוב מהרשימה) -->
+        <FontFamily x:Key="KioskHeadingFont">FrankRuehl, David, Segoe UI</FontFamily>
+        <FontFamily x:Key="KioskBodyFont">Segoe UI, Arial</FontFamily>
+
+        <!-- כפתורים: בסיס עם פינות מעוגלות -->
+        <Style x:Key="KioskButtonBase" TargetType="Button">
+            <Setter Property="FontFamily" Value="{StaticResource KioskBodyFont}" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="18,0" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10" Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              RecognizesAccessKey="False" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.75" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="KioskPrimaryButton" TargetType="Button" BasedOn="{StaticResource KioskButtonBase}">
+            <Setter Property="Background" Value="{StaticResource KioskAccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="KioskSecondaryButton" TargetType="Button" BasedOn="{StaticResource KioskButtonBase}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource KioskSecondaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource KioskOutlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style x:Key="KioskSoftButton" TargetType="Button" BasedOn="{StaticResource KioskSecondaryButton}">
+            <Setter Property="Background" Value="{StaticResource KioskSoftBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style x:Key="KioskDangerButton" TargetType="Button" BasedOn="{StaticResource KioskButtonBase}">
+            <Setter Property="Background" Value="{StaticResource KioskDangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <!-- אריח תוכנה במסך הבחירה -->
+        <Style x:Key="KioskTileButton" TargetType="Button">
+            <Setter Property="Width" Value="260" />
+            <Setter Property="Height" Value="200" />
+            <Setter Property="Margin" Value="12" />
+            <Setter Property="Background" Value="{StaticResource KioskCardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource KioskBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
+            <Setter Property="FontFamily" Value="{StaticResource KioskBodyFont}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="18" Padding="16" SnapsToDevicePixels="True">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.10" Color="#5B4636" />
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              RecognizesAccessKey="False" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource KioskOutlineBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource KioskSoftBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- שדות קלט -->
+        <Style x:Key="KioskTextBox" TargetType="TextBox">
+            <Setter Property="FontFamily" Value="{StaticResource KioskBodyFont}" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
+            <Setter Property="Background" Value="{StaticResource KioskInputBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource KioskOutlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource KioskAccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="KioskPasswordBox" TargetType="PasswordBox">
+            <Setter Property="FontFamily" Value="{StaticResource KioskBodyFont}" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
+            <Setter Property="Background" Value="{StaticResource KioskInputBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource KioskOutlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource KioskAccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- כותרות -->
+        <Style x:Key="KioskHeading" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource KioskHeadingFont}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
+        </Style>
+
+        <!-- גלולה (יתרה בסרגל) -->
+        <Style x:Key="KioskPill" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource KioskSoftBrush}" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="14,5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- סמלים (קווי מתאר פשוטים, 24x24) -->
+        <Geometry x:Key="IconBook">M2,4 L8,4 A4,4 0 0 1 12,8 L12,21 A3,3 0 0 0 9,18 L2,18 Z M22,4 L16,4 A4,4 0 0 0 12,8 L12,21 A3,3 0 0 1 15,18 L22,18 Z</Geometry>
+        <Geometry x:Key="IconPen">M12,20 L21,20 M16.5,3.5 A2.1,2.1 0 0 1 19.5,6.5 L7,19 L3,20 L4,16 Z</Geometry>
+        <Geometry x:Key="IconPlus">M12,5 L12,19 M5,12 L19,12</Geometry>
+        <Geometry x:Key="IconLogout">M9,21 L5,21 A2,2 0 0 1 3,19 L3,5 A2,2 0 0 1 5,3 L9,3 M16,17 L21,12 L16,7 M21,12 L9,12</Geometry>
+        <Geometry x:Key="IconGrid">M3,3 L10,3 L10,10 L3,10 Z M14,3 L21,3 L21,10 L14,10 Z M3,14 L10,14 L10,21 L3,21 Z M14,14 L21,14 L21,21 L14,21 Z</Geometry>
+        <Geometry x:Key="IconTool">M14.7,6.3 A1,1 0 0 0 14.7,7.7 L16.3,9.3 A1,1 0 0 0 17.7,9.3 L21,6 A6,6 0 0 1 13,14 L6,21 A2.1,2.1 0 0 1 3,18 L10,11 A6,6 0 0 1 18,3 Z</Geometry>
+        <Geometry x:Key="IconArrowBack">M5,12 L19,12 M13,5 L20,12 L13,19</Geometry>
+
+        <Style x:Key="KioskIcon" TargetType="Path">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="StrokeThickness" Value="1.8" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+            <Setter Property="Margin" Value="0,0,0,0" />
+            <Setter Property="FlowDirection" Value="LeftToRight" />
+        </Style>
     </Application.Resources>
 </Application>

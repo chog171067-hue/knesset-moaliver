@@ -11,6 +11,13 @@ namespace KioskApp.Views
             InitializeComponent();
             App.KeepFullScreen(this);
             Loaded += (_, _) => UsernameBox.Focus();
+
+            // שעה ותאריך עברי בפינת המסך
+            UpdateClock();
+            var clock = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+            clock.Tick += (_, _) => UpdateClock();
+            clock.Start();
+            Closed += (_, _) => clock.Stop();
         }
 
         private void OnFieldKeyDown(object sender, KeyEventArgs e)
@@ -56,6 +63,22 @@ namespace KioskApp.Views
             {
                 LoginButton.IsEnabled = true;
                 LoginButton.Content = "התחברות";
+            }
+        }
+
+        private void UpdateClock()
+        {
+            var now = DateTime.Now;
+            ClockText.Text = now.ToString("HH:mm");
+            try
+            {
+                var hebrew = new System.Globalization.CultureInfo("he-IL");
+                hebrew.DateTimeFormat.Calendar = new System.Globalization.HebrewCalendar();
+                DateText.Text = now.ToString("dddd · d MMMM", hebrew);
+            }
+            catch
+            {
+                DateText.Text = now.ToString("dd/MM/yyyy");
             }
         }
 

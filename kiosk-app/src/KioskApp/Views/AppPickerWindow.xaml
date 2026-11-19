@@ -7,26 +7,57 @@
         ResizeMode="NoResize"
         Topmost="True"
         FlowDirection="RightToLeft"
-        Background="{StaticResource KioskPrimaryBrush}">
+        FontFamily="{StaticResource KioskBodyFont}"
+        Foreground="{StaticResource KioskTextBrush}"
+        Background="{StaticResource KioskGroundBrush}">
     <DockPanel>
-        <Grid DockPanel.Dock="Top" Height="70" Background="#14FFFFFF">
-            <TextBlock x:Name="WelcomeText" Text="שלום!" FontSize="22" FontWeight="Bold"
-                       Foreground="White" VerticalAlignment="Center" Margin="30,0,0,0" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,30,0">
-                <Button x:Name="ExitToDesktopButton" Content="🔧 יציאה למחשב" FontSize="14" Padding="14,8"
-                        Margin="0,0,12,0" Background="Transparent" Foreground="White" BorderBrush="White"
-                        BorderThickness="1" Click="OnExitToDesktopClick" Cursor="Hand" Visibility="Collapsed" />
-                <Button x:Name="LogoutButton" Content="↩ ניתוק" FontSize="14" Padding="14,8"
-                        Background="Transparent" Foreground="White" BorderBrush="White" BorderThickness="1"
-                        Click="OnLogoutClick" Cursor="Hand" />
-            </StackPanel>
-        </Grid>
+        <!-- סרגל עליון -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource KioskCardBrush}"
+                BorderBrush="{StaticResource KioskBorderBrush}" BorderThickness="0,0,0,1" Padding="40,14">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="WelcomeText" Text="שלום!" Style="{StaticResource KioskHeading}" FontSize="24"
+                               VerticalAlignment="Center" Margin="0,0,24,0" />
+                    <Border Style="{StaticResource KioskPill}">
+                        <TextBlock x:Name="BalanceText" FontSize="16" FontWeight="SemiBold" />
+                    </Border>
+                </StackPanel>
 
-        <TextBlock DockPanel.Dock="Top" Text="בחרו תוכנה להפעלה" FontSize="18"
-                    Foreground="White" HorizontalAlignment="Center" Margin="0,30,0,20" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ExitToDesktopButton" Style="{StaticResource KioskSecondaryButton}" Margin="0,0,12,0"
+                            Click="OnExitToDesktopClick" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconTool}" Style="{StaticResource KioskIcon}" Margin="0,0,8,0"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <TextBlock Text="יציאה למחשב" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource KioskSecondaryButton}" Margin="0,0,12,0" Click="OnTopupClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconPlus}" Style="{StaticResource KioskIcon}" Margin="0,0,8,0"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <TextBlock Text="הטענת כסף" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="LogoutButton" Style="{StaticResource KioskDangerButton}" Click="OnLogoutClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconLogout}" Style="{StaticResource KioskIcon}" Margin="0,0,8,0"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <TextBlock Text="ניתוק" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <TextBlock DockPanel.Dock="Bottom" x:Name="FooterText" FontSize="14" Foreground="{StaticResource KioskMutedBrush}"
+                   HorizontalAlignment="Center" Margin="0,0,0,24" />
+
+        <TextBlock DockPanel.Dock="Top" Text="במה תרצו להשתמש?" Style="{StaticResource KioskHeading}" FontSize="32"
+                   HorizontalAlignment="Center" Margin="0,44,0,20" />
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <WrapPanel x:Name="AppsPanel" HorizontalAlignment="Center" Margin="30" />
+            <WrapPanel x:Name="AppsPanel" HorizontalAlignment="Center" Margin="30,10,30,30" />
         </ScrollViewer>
     </DockPanel>
 </Window>
