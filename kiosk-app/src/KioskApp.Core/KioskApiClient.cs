@@ -36,14 +36,57 @@ namespace KioskApp.Core
             _http.Timeout = TimeSpan.FromSeconds(20);
         }
 
+        /// <summary>
+        /// זורק PasswordChangeRequiredException כשנכנסו עם סיסמה זמנית (שחזור בטלפון) -
+        /// אז חובה לקרוא ל-ChangePasswordAsync לפני שפותחים את הקיוסק.
+        /// </summary>
         public async Task<KioskUser> LoginAsync(string username, string password, CancellationToken ct = default)
         {
             var response = await PostAsync<LoginResponse>("/.netlify/functions/library-station-login", new { username, password }, ct);
+            if (response.Success && response.MustChangePassword)
+            {
+                throw new PasswordChangeRequiredException();
+            }
             if (!response.Success || response.User == null)
             {
                 throw new KioskAuthException(response.Error ?? "שם משתמש או סיסמה שגויים", 401);
             }
             return response.User;
+        }
+
+        /// <summary>
+        /// המשתמש קובע לעצמו סיסמה חדשה (currentPassword = הסיסמה הזמנית או הרגילה).
+        /// מחזיר את המשתמש - ומכאן ממשיכים כמו אחרי כניסה רגילה.
+        /// </summary>
+        public async Task<KioskUser> ChangePasswordAsync(string username, string currentPassword, string newPassword, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<LoginResponse>(
+                "/.netlify/functions/library-station-change-password", new { username, currentPassword, newPassword }, ct);
+            if (!response.Success || response.User == null)
+            {
+                if (statusCode == 401) throw new KioskAuthException(response.Error ?? "הסיסמה הזמנית שגויה או שפג תוקפה", 401);
+                throw new KioskApiException(response.Error ?? "החלפת הסיסמה נכשלה", statusCode);
+            }
+            return response.User;
+        }
+
+        /// <summary>
+        /// למסך "שכחתי סיסמה": לאיזה מספר להתקשר, והטלפון הרשום בחשבון (מוסתר).
+        /// </summary>
+        public async Task<PasswordResetInfo> GetPasswordResetInfoAsync(string username, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<ResetInfoResponse>(
+                "/.netlify/functions/library-station-reset-info", new { username }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בטעינת פרטי שחזור הסיסמה", statusCode);
+            }
+            return new PasswordResetInfo
+            {
+                ResetPhone = response.ResetPhone ?? "",
+                Found = response.Found,
+                MaskedPhone = response.MaskedPhone ?? ""
+            };
         }
 
         public async Task<KioskConfig> GetConfigAsync(CancellationToken ct = default)
@@ -177,6 +220,14 @@ namespace KioskApp.Core
         private class LoginResponse : ApiEnvelope
         {
             public KioskUser? User { get; set; }
+            public bool MustChangePassword { get; set; }
+        }
+
+        private class ResetInfoResponse : ApiEnvelope
+        {
+            public string? ResetPhone { get; set; }
+            public bool Found { get; set; }
+            public string? MaskedPhone { get; set; }
         }
 
         private class ConfigResponse : ApiEnvelope

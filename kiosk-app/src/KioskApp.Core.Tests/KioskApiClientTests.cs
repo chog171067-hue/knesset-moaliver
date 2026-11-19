@@ -57,6 +57,85 @@ namespace KioskApp.Core.Tests
         }
 
         [Fact]
+        public async Task LoginAsync_TemporaryPassword_ThrowsPasswordChangeRequired()
+        {
+            var json = """{ "success": true, "mustChangePassword": true }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            await Assert.ThrowsAsync<PasswordChangeRequiredException>(() => client.LoginAsync("dani", "123456"));
+        }
+
+        [Fact]
+        public async Task ChangePasswordAsync_Success_SendsBodyAndReturnsUser()
+        {
+            var json = """{ "success": true, "user": { "id": "u1", "username": "dani", "balance": 3, "isActive": true } }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var user = await client.ChangePasswordAsync("dani", "123456", "newpass");
+
+            Assert.Equal("u1", user.Id);
+            Assert.Contains("/.netlify/functions/library-station-change-password", handler.LastRequest!.RequestUri!.ToString());
+            using var body = JsonDocument.Parse(handler.LastRequestBody!);
+            Assert.Equal("dani", body.RootElement.GetProperty("username").GetString());
+            Assert.Equal("123456", body.RootElement.GetProperty("currentPassword").GetString());
+            Assert.Equal("newpass", body.RootElement.GetProperty("newPassword").GetString());
+        }
+
+        [Fact]
+        public async Task ChangePasswordAsync_ExpiredTemp_ThrowsKioskAuthException()
+        {
+            var json = """{ "success": false, "error": "פג תוקף" }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.Unauthorized, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var ex = await Assert.ThrowsAsync<KioskAuthException>(() => client.ChangePasswordAsync("dani", "123456", "newpass"));
+            Assert.Equal("פג תוקף", ex.Message);
+        }
+
+        [Fact]
+        public async Task ChangePasswordAsync_TooShort_ThrowsApiExceptionNotAuth()
+        {
+            var json = """{ "success": false, "error": "קצרה מדי" }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.BadRequest, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var ex = await Assert.ThrowsAsync<KioskApiException>(() => client.ChangePasswordAsync("dani", "123456", "ab"));
+            Assert.IsNotType<KioskAuthException>(ex);
+        }
+
+        [Fact]
+        public async Task GetPasswordResetInfoAsync_ParsesMaskedPhone()
+        {
+            var json = """{ "success": true, "resetPhone": "02-1234567", "found": true, "maskedPhone": "050-•••••67" }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var info = await client.GetPasswordResetInfoAsync("123456789");
+
+            Assert.True(info.Found);
+            Assert.Equal("02-1234567", info.ResetPhone);
+            Assert.Equal("050-•••••67", info.MaskedPhone);
+            Assert.Contains("/.netlify/functions/library-station-reset-info", handler.LastRequest!.RequestUri!.ToString());
+            using var body = JsonDocument.Parse(handler.LastRequestBody!);
+            Assert.Equal("123456789", body.RootElement.GetProperty("username").GetString());
+        }
+
+        [Fact]
+        public async Task GetPasswordResetInfoAsync_NotFound_ReturnsFoundFalse()
+        {
+            var json = """{ "success": true, "resetPhone": "02-1234567", "found": false }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var info = await client.GetPasswordResetInfoAsync("999");
+
+            Assert.False(info.Found);
+            Assert.Equal("", info.MaskedPhone);
+        }
+
+        [Fact]
         public async Task GetConfigAsync_ParsesPriceAndAllowedApps()
         {
             var json = """

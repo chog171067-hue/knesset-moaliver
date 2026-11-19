@@ -537,6 +537,7 @@
                 <div class="sub-nav">
                     <button class="sub-nav-btn active" data-subtab="lib-sub-users" onclick="switchLibrarySubTab('lib-sub-users')">משתמשים</button>
                     <button class="sub-nav-btn" data-subtab="lib-sub-settings" onclick="switchLibrarySubTab('lib-sub-settings')">הגדרות</button>
+                    <button class="sub-nav-btn" data-subtab="lib-sub-resets" onclick="switchLibrarySubTab('lib-sub-resets')">שחזור סיסמה בטלפון</button>
                 </div>
 
                 <div class="sub-panel active" id="lib-sub-users">
@@ -575,6 +576,15 @@
                     <div class="form-error" id="libPriceError"></div>
                     <div class="success-box" id="libPriceSuccess"></div>
 
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">שחזור סיסמה בטלפון</h3>
+                    <p class="panel-desc">מספר הטלפון של שלוחת שחזור הסיסמה בימות המשיח. בעמדה, משתמש שמקליד תעודת זהות ולוחץ "שכחתי סיסמה" יראה את המספר הזה, ואת הטלפון הרשום בחשבונו בצורה מוסתרת (למשל 050-•••••67). כשהשדה ריק, הכפתור "שכחתי סיסמה" לא מוצג בעמדה.</p>
+                    <div class="form-grid">
+                        <div class="field"><label>מספר לשחזור סיסמה</label><input type="tel" id="libPasswordResetPhone" placeholder="לדוגמה: 02-1234567" dir="ltr"></div>
+                    </div>
+                    <button class="btn" id="libSaveResetPhoneBtn" onclick="saveLibraryResetPhone()" style="width:auto; padding:10px 22px;">שמירת מספר</button>
+                    <div class="form-error" id="libResetPhoneError"></div>
+                    <div class="success-box" id="libResetPhoneSuccess"></div>
+
                     <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">עורך טקסט מובנה</h3>
                     <p class="panel-desc">עורך פשוט בתוך הקיוסק: מעתיקים טקסט מתוכנה (למשל אוצריא) ושומרים אותו כקובץ Word ישירות לדיסק-און-קי. נפתח מהסרגל העליון בלי לסגור את התוכנה, או ממסך בחירת התוכנה. הטקסט נמחק בניתוק.</p>
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -595,6 +605,19 @@
                     <button class="btn" id="libSaveAppsBtn" onclick="saveLibraryApps()" style="width:auto; padding:10px 22px; margin-top:10px;">שמירת רשימת תוכנות</button>
                     <div class="form-error" id="libAppsError"></div>
                     <div class="success-box" id="libAppsSuccess"></div>
+                </div>
+                <div class="sub-panel" id="lib-sub-resets">
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:0;">יומן שחזור סיסמה בטלפון (ימות המשיח)</h3>
+                    <p class="panel-desc">כל שיחה לשלוחת שחזור הסיסמה נרשמת כאן: סיסמאות זמניות שהונפקו, ניסיונות שלא התאימו, חסימות, ביטולים, והחלפת הסיסמה בעמדה. מוצגות 500 הרשומות האחרונות.</p>
+                    <button class="history-btn" onclick="fetchLibraryPasswordResets()">🔄 רענון</button>
+                    <div id="libResetsLoading" class="loading" style="display:none;">טוען נתונים...</div>
+                    <div id="libResetsError" class="form-error"></div>
+                    <div id="libResetsTableWrap" class="table-scroll" style="display:none;">
+                        <table class="history-table">
+                            <thead><tr><th>תאריך</th><th>תוצאה</th><th>שם משתמש</th><th>טלפון מתקשר</th><th>פרטים</th></tr></thead>
+                            <tbody id="libResetsTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -1720,6 +1743,47 @@
         document.getElementById(subId).classList.add('active');
         document.querySelector(`#tab-library .sub-nav-btn[data-subtab="${subId}"]`).classList.add('active');
         if (subId === 'lib-sub-settings' && !libraryConfigLoaded) fetchLibraryConfig();
+        if (subId === 'lib-sub-resets') fetchLibraryPasswordResets();
+    }
+
+    const LIB_RESET_OUTCOMES = {
+        'issued':      '<span class="badge-success">סיסמה זמנית הונפקה</span>',
+        'completed':   '<span class="badge-success">סיסמה הוחלפה בעמדה</span>',
+        'mismatch':    '<span class="badge-danger">פרטים לא תואמים</span>',
+        'blocked':     '<span class="badge-danger">נחסם - יותר מדי ניסיונות</span>',
+        'temp-burned': '<span class="badge-danger">סיסמה זמנית בוטלה</span>',
+        'cancelled':   'בוטל ע"י המתקשר',
+        'error':       '<span class="badge-danger">תקלה</span>'
+    };
+
+    async function fetchLibraryPasswordResets() {
+        const loadingDiv = document.getElementById('libResetsLoading');
+        const errorDiv = document.getElementById('libResetsError');
+        const tableWrap = document.getElementById('libResetsTableWrap');
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        tableWrap.style.display = 'none';
+        try {
+            const result = await authedFetch('/.netlify/functions/library-admin-password-resets', { method: 'GET' });
+            const entries = result.entries || [];
+            const tbody = document.getElementById('libResetsTableBody');
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">אין עדיין רשומות.</td></tr>';
+            } else {
+                tbody.innerHTML = entries.map(e => {
+                    const time = e.timestamp ? new Date(e.timestamp).toLocaleString('he-IL') : '-';
+                    const outcome = LIB_RESET_OUTCOMES[e.outcome] || escapeHtml(e.outcome || '-');
+                    const details = [e.note, e.tzEntered ? `ת"ז שהוקשה: ${e.tzEntered}` : ''].filter(Boolean).join(' | ');
+                    return `<tr><td>${time}</td><td>${outcome}</td><td>${escapeHtml(e.username || '-')}</td><td>${escapeHtml(e.phone || '-')}</td><td>${escapeHtml(details || '-')}</td></tr>`;
+                }).join('');
+            }
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
     }
 
     async function fetchLibraryUsers() {
@@ -2023,6 +2087,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             libraryConfigLoaded = true;
             document.getElementById('libPricePerPage').value = result.config.pricePerPage;
             document.getElementById('libTextEditorEnabled').checked = !!result.config.textEditorEnabled;
+            document.getElementById('libPasswordResetPhone').value = result.config.passwordResetPhone || '';
             libraryAppsDraft = (result.config.allowedApps || []).map(a => ({ ...a }));
             renderLibraryAppsTable();
         } catch (err) {
@@ -2048,6 +2113,32 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             errorDiv.style.display = 'block';
         } finally {
             checkbox.disabled = false;
+        }
+    }
+
+    async function saveLibraryResetPhone() {
+        const errorDiv = document.getElementById('libResetPhoneError');
+        const successDiv = document.getElementById('libResetPhoneSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        const phone = document.getElementById('libPasswordResetPhone').value.trim();
+        const btn = document.getElementById('libSaveResetPhoneBtn');
+        btn.disabled = true;
+        btn.innerText = 'שומר...';
+        try {
+            await authedFetch('/.netlify/functions/library-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ passwordResetPhone: phone })
+            });
+            successDiv.innerText = phone ? '✅ המספר נשמר. הוא יוצג בעמדה בכניסה הבאה למסך ההתחברות.' : '✅ המספר נמחק. "שכחתי סיסמה" לא יוצג בעמדה.';
+            successDiv.style.display = 'block';
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'שמירת מספר';
         }
     }
 
