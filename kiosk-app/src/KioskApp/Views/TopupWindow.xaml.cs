@@ -68,7 +68,7 @@ namespace KioskApp.Views
                 AmountPanel.Visibility = Visibility.Collapsed;
                 WebView.Visibility = Visibility.Visible;
                 PayButton.IsEnabled = true;
-                PayButton.Content = "✔ בצע תשלום";
+                PayButton.Content = "בצע תשלום";
                 PayButton.Visibility = Visibility.Visible;
                 ShowStatus("הקלידו את פרטי הכרטיס ולחצו \"בצע תשלום\" למטה.");
             }

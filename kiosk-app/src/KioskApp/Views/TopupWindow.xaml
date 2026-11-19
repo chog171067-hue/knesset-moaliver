@@ -3,31 +3,32 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="הטענת כסף"
-        Width="520" Height="700"
+        Width="540" Height="720"
         WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Topmost="True"
         FlowDirection="RightToLeft"
-        Background="White">
-    <DockPanel Margin="20">
+        FontFamily="{StaticResource KioskBodyFont}"
+        Foreground="{StaticResource KioskTextBrush}"
+        Background="{StaticResource KioskCardBrush}">
+    <DockPanel Margin="28,24">
         <StackPanel DockPanel.Dock="Top" x:Name="AmountPanel">
-            <TextBlock Text="הטענת כסף לחשבון" FontSize="20" FontWeight="Bold"
-                       Foreground="{StaticResource KioskPrimaryBrush}" Margin="0,0,0,15" />
-            <TextBlock Text="סכום להטענה (₪)" FontWeight="Bold" Margin="0,0,0,4" />
-            <TextBox x:Name="AmountBox" FontSize="16" Padding="8" Margin="0,0,0,15" />
-            <Button x:Name="ContinueButton" Content="המשך לתשלום" FontSize="15" FontWeight="Bold"
-                    Padding="10" Background="{StaticResource KioskAccentBrush}" Foreground="White"
-                    BorderThickness="0" Click="OnContinueClick" Cursor="Hand" />
-            <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}" FontWeight="Bold"
-                       TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
+            <TextBlock Text="הטענת כסף לחשבון" Style="{StaticResource KioskHeading}" FontSize="28" Margin="0,0,0,18" />
+            <TextBlock Text="סכום להטענה (₪)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <TextBox x:Name="AmountBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,18" />
+            <Button x:Name="ContinueButton" Content="המשך לתשלום" Style="{StaticResource KioskPrimaryButton}"
+                    MinHeight="50" FontSize="18" Click="OnContinueClick" />
+            <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}" FontWeight="SemiBold" FontSize="15"
+                       TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed" />
         </StackPanel>
 
         <!-- כפתור התשלום: לאייפרם של נדרים פלוס אין כפתור שליחה משלו - האתר/האפליקציה
              המארחת אמורה לשלוח FinishTransaction כשהמשתמש סיים להקליד את פרטי הכרטיס -->
-        <Button DockPanel.Dock="Bottom" x:Name="PayButton" Content="✔ בצע תשלום" FontSize="17" FontWeight="Bold"
-                Padding="12" Margin="0,10,0,0" Background="{StaticResource KioskAccentBrush}" Foreground="White"
-                BorderThickness="0" Click="OnPayClick" Cursor="Hand" Visibility="Collapsed" />
+        <Button DockPanel.Dock="Bottom" x:Name="PayButton" Content="בצע תשלום" Style="{StaticResource KioskPrimaryButton}"
+                MinHeight="52" FontSize="19" Margin="0,12,0,0" Click="OnPayClick" Visibility="Collapsed" />
 
-        <TextBlock DockPanel.Dock="Top" x:Name="StatusText" FontWeight="Bold" Margin="0,10,0,10"
-                   Foreground="{StaticResource KioskPrimaryBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+        <TextBlock DockPanel.Dock="Top" x:Name="StatusText" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,12"
+                   Foreground="{StaticResource KioskTextBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
 
         <wv2:WebView2 x:Name="WebView" Visibility="Collapsed" />
     </DockPanel>

@@ -17,6 +17,13 @@ namespace KioskApp.Views
             InitializeComponent();
             App.KeepFullScreen(this);
             Loaded += (_, _) => UsernameBox.Focus();
+
+            // שעה ותאריך עברי בפינת המסך
+            UpdateClock();
+            var clock = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+            clock.Tick += (_, _) => UpdateClock();
+            clock.Start();
+            Closed += (_, _) => clock.Stop();
             Loaded += async (_, _) => await LoadForgotPasswordButtonAsync();
         }
 
@@ -55,7 +62,7 @@ namespace KioskApp.Views
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             {
-                ShowError("יש להזין שם משתמש וסיסמה");
+                ShowError("יש להזין תעודת זהות וסיסמה");
                 return;
             }
 
@@ -84,6 +91,22 @@ namespace KioskApp.Views
             {
                 LoginButton.IsEnabled = true;
                 LoginButton.Content = "התחברות";
+            }
+        }
+
+        private void UpdateClock()
+        {
+            var now = DateTime.Now;
+            ClockText.Text = now.ToString("HH:mm");
+            try
+            {
+                var hebrew = new System.Globalization.CultureInfo("he-IL");
+                hebrew.DateTimeFormat.Calendar = new System.Globalization.HebrewCalendar();
+                DateText.Text = now.ToString("dddd · d MMMM", hebrew);
+            }
+            catch
+            {
+                DateText.Text = now.ToString("dd/MM/yyyy");
             }
         }
 
@@ -155,7 +178,7 @@ namespace KioskApp.Views
             var username = UsernameBox.Text.Trim();
             if (string.IsNullOrEmpty(username))
             {
-                ShowError("כדי לשחזר סיסמה, הקלידו קודם את תעודת הזהות בשדה \"שם משתמש\" ולחצו שוב על \"שכחתי סיסמה\"");
+                ShowError("כדי לשחזר סיסמה, הקלידו קודם את תעודת הזהות ולחצו שוב על \"שכחתי סיסמה\"");
                 UsernameBox.Focus();
                 return;
             }
