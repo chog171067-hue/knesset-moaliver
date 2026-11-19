@@ -38,6 +38,7 @@ namespace KioskApp.Views
                 var user = await App.ApiClient.LoginAsync(username, password);
                 var config = await App.ApiClient.GetConfigAsync();
                 App.Session.Start(user, config);
+                App.StartSessionServices(); // חיוב על הדפסה - לאורך כל ההתחברות
 
                 var appPicker = new Views.AppPickerWindow();
                 Application.Current.MainWindow = appPicker;
