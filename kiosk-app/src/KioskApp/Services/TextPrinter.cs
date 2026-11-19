@@ -71,8 +71,10 @@ namespace KioskApp.Services
                 var area = e.MarginBounds;
                 var remaining = content.Substring(offset);
 
+                int charsFitted;
+                int linesFilled;
                 g.MeasureString(remaining, font, new SizeF(area.Width, area.Height), format,
-                    out var charsFitted, out _);
+                    out charsFitted, out linesFilled);
                 if (charsFitted <= 0) charsFitted = Math.Min(remaining.Length, 1); // הגנה מלולאה אינסופית
 
                 g.DrawString(remaining.Substring(0, charsFitted), font, Brushes.Black, area, format);
