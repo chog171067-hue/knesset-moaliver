@@ -70,6 +70,25 @@ namespace KioskApp.Core
             return response.User;
         }
 
+        /// <summary>
+        /// למסך "שכחתי סיסמה": לאיזה מספר להתקשר, והטלפון הרשום בחשבון (מוסתר).
+        /// </summary>
+        public async Task<PasswordResetInfo> GetPasswordResetInfoAsync(string username, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<ResetInfoResponse>(
+                "/.netlify/functions/library-station-reset-info", new { username }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בטעינת פרטי שחזור הסיסמה", statusCode);
+            }
+            return new PasswordResetInfo
+            {
+                ResetPhone = response.ResetPhone ?? "",
+                Found = response.Found,
+                MaskedPhone = response.MaskedPhone ?? ""
+            };
+        }
+
         public async Task<KioskConfig> GetConfigAsync(CancellationToken ct = default)
         {
             var response = await GetAsync<ConfigResponse>("/.netlify/functions/library-config", ct);
@@ -202,6 +221,13 @@ namespace KioskApp.Core
         {
             public KioskUser? User { get; set; }
             public bool MustChangePassword { get; set; }
+        }
+
+        private class ResetInfoResponse : ApiEnvelope
+        {
+            public string? ResetPhone { get; set; }
+            public bool Found { get; set; }
+            public string? MaskedPhone { get; set; }
         }
 
         private class ConfigResponse : ApiEnvelope

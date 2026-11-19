@@ -17,12 +17,24 @@ namespace KioskApp.Views
             InitializeComponent();
             App.KeepFullScreen(this);
             Loaded += (_, _) => UsernameBox.Focus();
+            Loaded += async (_, _) => await LoadForgotPasswordButtonAsync();
+        }
 
-            var resetPhone = App.Config?.PasswordResetPhone?.Trim();
-            if (!string.IsNullOrEmpty(resetPhone))
+        // הכפתור "שכחתי סיסמה" מוצג רק אם בדף הניהול הוגדר מספר לשחזור. תקלה כאן
+        // (למשל אין אינטרנט) רק משאירה את הכפתור מוסתר - לא חוסמת את הכניסה.
+        private async System.Threading.Tasks.Task LoadForgotPasswordButtonAsync()
+        {
+            try
             {
-                ForgotPasswordHint.Text = $"שכחתם סיסמה? התקשרו מהטלפון הרשום בחשבון למספר {resetPhone} וקבלו סיסמה זמנית";
-                ForgotPasswordHint.Visibility = Visibility.Visible;
+                var config = await App.ApiClient.GetConfigAsync();
+                if (!string.IsNullOrWhiteSpace(config.PasswordResetPhone))
+                {
+                    ForgotPasswordButton.Visibility = Visibility.Visible;
+                }
+            }
+            catch (Exception ex)
+            {
+                App.LogError("כשל בטעינת הגדרת שחזור הסיסמה", ex);
             }
         }
 
@@ -138,6 +150,62 @@ namespace KioskApp.Views
             }
         }
 
+        private async void OnForgotPasswordClick(object sender, RoutedEventArgs e)
+        {
+            var username = UsernameBox.Text.Trim();
+            if (string.IsNullOrEmpty(username))
+            {
+                ShowError("כדי לשחזר סיסמה, הקלידו קודם את תעודת הזהות בשדה \"שם משתמש\" ולחצו שוב על \"שכחתי סיסמה\"");
+                UsernameBox.Focus();
+                return;
+            }
+
+            ForgotPasswordButton.IsEnabled = false;
+            HideError();
+            try
+            {
+                var info = await App.ApiClient.GetPasswordResetInfoAsync(username);
+                if (string.IsNullOrWhiteSpace(info.ResetPhone))
+                {
+                    ShowError("שחזור סיסמה בטלפון אינו זמין כרגע. יש לפנות לצוות הספרייה.");
+                    return;
+                }
+                if (!info.Found)
+                {
+                    ShowError("לא נמצא חשבון פעיל עם תעודת הזהות שהוקלדה. יש לבדוק את המספר, או לפנות לצוות הספרייה.");
+                    return;
+                }
+
+                ResetPhoneText.Text = info.ResetPhone;
+                MaskedPhoneText.Text = info.MaskedPhone;
+                ForgotInstructionsText.Text =
+                    "במערכת הטלפונית תתבקשו להקיש את תעודת הזהות, ותשמעו סיסמה זמנית. " +
+                    "היכנסו איתה כאן, ותתבקשו לבחור סיסמה חדשה. " +
+                    "אם המספר הזה כבר לא שלכם, יש לפנות לצוות הספרייה.";
+
+                LoginPanel.Visibility = Visibility.Collapsed;
+                ForgotPanel.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                App.LogError("כשל בטעינת פרטי שחזור הסיסמה", ex);
+                ShowError(ex.Message);
+            }
+            finally
+            {
+                ForgotPasswordButton.IsEnabled = true;
+            }
+        }
+
+        private void OnBackToLoginClick(object sender, RoutedEventArgs e)
+        {
+            ForgotPanel.Visibility = Visibility.Collapsed;
+            LoginPanel.Visibility = Visibility.Visible;
+            HideError();
+            PasswordBox.Clear();
+            PasswordBox.Focus();
+        }
+
         private void OnCancelChangeClick(object sender, RoutedEventArgs e)
         {
             ShowLoginPanel();
@@ -172,6 +240,7 @@ namespace KioskApp.Views
             ClearPending();
             HideError();
             ChangePasswordPanel.Visibility = Visibility.Collapsed;
+            ForgotPanel.Visibility = Visibility.Collapsed;
             LoginPanel.Visibility = Visibility.Visible;
             NewPasswordBox.Clear();
             ConfirmPasswordBox.Clear();

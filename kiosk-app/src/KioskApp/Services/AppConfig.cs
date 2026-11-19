@@ -10,8 +10,6 @@ namespace KioskApp.Services
         public string ApiBaseUrl { get; set; } = "";
         public string StationApiKey { get; set; } = "";
         public string StationId { get; set; } = "";
-        /// <summary>מספר הטלפון של שחזור הסיסמה בימות המשיח - מוצג במסך הכניסה (ריק = לא מוצג)</summary>
-        public string PasswordResetPhone { get; set; } = "";
 
         public static AppConfig Load()
         {

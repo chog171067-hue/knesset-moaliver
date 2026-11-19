@@ -106,6 +106,36 @@ namespace KioskApp.Core.Tests
         }
 
         [Fact]
+        public async Task GetPasswordResetInfoAsync_ParsesMaskedPhone()
+        {
+            var json = """{ "success": true, "resetPhone": "02-1234567", "found": true, "maskedPhone": "050-•••••67" }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var info = await client.GetPasswordResetInfoAsync("123456789");
+
+            Assert.True(info.Found);
+            Assert.Equal("02-1234567", info.ResetPhone);
+            Assert.Equal("050-•••••67", info.MaskedPhone);
+            Assert.Contains("/.netlify/functions/library-station-reset-info", handler.LastRequest!.RequestUri!.ToString());
+            using var body = JsonDocument.Parse(handler.LastRequestBody!);
+            Assert.Equal("123456789", body.RootElement.GetProperty("username").GetString());
+        }
+
+        [Fact]
+        public async Task GetPasswordResetInfoAsync_NotFound_ReturnsFoundFalse()
+        {
+            var json = """{ "success": true, "resetPhone": "02-1234567", "found": false }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var info = await client.GetPasswordResetInfoAsync("999");
+
+            Assert.False(info.Found);
+            Assert.Equal("", info.MaskedPhone);
+        }
+
+        [Fact]
         public async Task GetConfigAsync_ParsesPriceAndAllowedApps()
         {
             var json = """

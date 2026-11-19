@@ -576,6 +576,15 @@
                     <div class="form-error" id="libPriceError"></div>
                     <div class="success-box" id="libPriceSuccess"></div>
 
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">שחזור סיסמה בטלפון</h3>
+                    <p class="panel-desc">מספר הטלפון של שלוחת שחזור הסיסמה בימות המשיח. בעמדה, משתמש שמקליד תעודת זהות ולוחץ "שכחתי סיסמה" יראה את המספר הזה, ואת הטלפון הרשום בחשבונו בצורה מוסתרת (למשל 050-•••••67). כשהשדה ריק, הכפתור "שכחתי סיסמה" לא מוצג בעמדה.</p>
+                    <div class="form-grid">
+                        <div class="field"><label>מספר לשחזור סיסמה</label><input type="tel" id="libPasswordResetPhone" placeholder="לדוגמה: 02-1234567" dir="ltr"></div>
+                    </div>
+                    <button class="btn" id="libSaveResetPhoneBtn" onclick="saveLibraryResetPhone()" style="width:auto; padding:10px 22px;">שמירת מספר</button>
+                    <div class="form-error" id="libResetPhoneError"></div>
+                    <div class="success-box" id="libResetPhoneSuccess"></div>
+
                     <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">עורך טקסט מובנה</h3>
                     <p class="panel-desc">עורך פשוט בתוך הקיוסק: מעתיקים טקסט מתוכנה (למשל אוצריא) ושומרים אותו כקובץ Word ישירות לדיסק-און-קי. נפתח מהסרגל העליון בלי לסגור את התוכנה, או ממסך בחירת התוכנה. הטקסט נמחק בניתוק.</p>
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -2078,6 +2087,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             libraryConfigLoaded = true;
             document.getElementById('libPricePerPage').value = result.config.pricePerPage;
             document.getElementById('libTextEditorEnabled').checked = !!result.config.textEditorEnabled;
+            document.getElementById('libPasswordResetPhone').value = result.config.passwordResetPhone || '';
             libraryAppsDraft = (result.config.allowedApps || []).map(a => ({ ...a }));
             renderLibraryAppsTable();
         } catch (err) {
@@ -2103,6 +2113,32 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             errorDiv.style.display = 'block';
         } finally {
             checkbox.disabled = false;
+        }
+    }
+
+    async function saveLibraryResetPhone() {
+        const errorDiv = document.getElementById('libResetPhoneError');
+        const successDiv = document.getElementById('libResetPhoneSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        const phone = document.getElementById('libPasswordResetPhone').value.trim();
+        const btn = document.getElementById('libSaveResetPhoneBtn');
+        btn.disabled = true;
+        btn.innerText = 'שומר...';
+        try {
+            await authedFetch('/.netlify/functions/library-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ passwordResetPhone: phone })
+            });
+            successDiv.innerText = phone ? '✅ המספר נשמר. הוא יוצג בעמדה בכניסה הבאה למסך ההתחברות.' : '✅ המספר נמחק. "שכחתי סיסמה" לא יוצג בעמדה.';
+            successDiv.style.display = 'block';
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'שמירת מספר';
         }
     }
 

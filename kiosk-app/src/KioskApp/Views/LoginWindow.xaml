@@ -37,10 +37,40 @@
                                 Padding="10" Background="{StaticResource KioskAccentBrush}" Foreground="White"
                                 BorderThickness="0" Click="OnLoginClick" Cursor="Hand" />
 
-                        <!-- מוצג רק אם PasswordResetPhone מוגדר ב-appsettings.json -->
-                        <TextBlock x:Name="ForgotPasswordHint" FontSize="13" Foreground="Gray"
-                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,16,0,0"
-                                   Visibility="Collapsed" />
+                        <!-- מוצג רק כשמוגדר מספר לשחזור סיסמה (דף הניהול ← קיוסק ספרייה ← הגדרות) -->
+                        <Button x:Name="ForgotPasswordButton" Content="שכחתי סיסמה" FontSize="14"
+                                Padding="6" Margin="0,14,0,0" HorizontalAlignment="Center"
+                                Background="Transparent" BorderThickness="0"
+                                Foreground="{StaticResource KioskPrimaryBrush}" Cursor="Hand"
+                                Click="OnForgotPasswordClick" Visibility="Collapsed" />
+                    </StackPanel>
+
+                    <!-- שכחתי סיסמה: לאן להתקשר ומאיזה טלפון (מוסתר) -->
+                    <StackPanel x:Name="ForgotPanel" Visibility="Collapsed">
+                        <TextBlock Text="שחזור סיסמה בטלפון" FontSize="24" FontWeight="Bold"
+                                   Foreground="{StaticResource KioskPrimaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,0,0,20" />
+
+                        <TextBlock Text="לאיפוס הסיסמה יש להתקשר למספר" FontSize="15"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock x:Name="ResetPhoneText" FontSize="28" FontWeight="Bold"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource KioskPrimaryBrush}" Margin="0,4,0,16" />
+
+                        <StackPanel x:Name="RegisteredPhoneSection">
+                            <TextBlock Text="מהטלפון שנרשמת איתו למערכת:" FontSize="15"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock x:Name="MaskedPhoneText" FontSize="24" FontWeight="Bold"
+                                       FlowDirection="LeftToRight" HorizontalAlignment="Center"
+                                       Margin="0,4,0,16" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="ForgotInstructionsText" FontSize="13" Foreground="Gray"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,20" />
+
+                        <Button Content="חזרה למסך הכניסה" FontSize="16" FontWeight="Bold"
+                                Padding="10" Background="{StaticResource KioskAccentBrush}" Foreground="White"
+                                BorderThickness="0" Click="OnBackToLoginClick" Cursor="Hand" />
                     </StackPanel>
 
                     <!-- בחירת סיסמה חדשה - אחרי כניסה עם סיסמה זמנית מהטלפון -->

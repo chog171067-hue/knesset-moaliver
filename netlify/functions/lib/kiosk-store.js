@@ -24,7 +24,8 @@ const PASSWORD_RESETS_KEY = 'password-resets.json';
 const MAX_PASSWORD_RESET_LOG = 3000;
 const MAX_WRITE_ATTEMPTS = 8;
 
-const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false };
+// passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
+const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false, passwordResetPhone: '' };
 
 // ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
 // כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
@@ -280,6 +281,29 @@ async function listPasswordResetLog(event) {
   const store = getKioskStore(event);
   const log = await readPasswordResetLog(store);
   return log.slice().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+// טלפון מוסתר לתצוגה: הקידומת ו-2 הספרות האחרונות בלבד.
+// נייד (10 ספרות): 050-•••••67 | קווי (9 ספרות): 02-•••••67
+function maskPhone(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length < 9) return '';
+  const prefixLength = d.length === 10 ? 3 : 2;
+  return `${d.slice(0, prefixLength)}-${'•'.repeat(d.length - prefixLength - 2)}${d.slice(-2)}`;
+}
+
+// למסך "שכחתי סיסמה" בעמדה: לפי תעודת הזהות שהוקלדה, מחזיר את הטלפון הרשום
+// בצורה מוסתרת בלבד. הטלפון המלא לעולם לא נשלח לעמדה.
+async function getPasswordResetInfo(event, username) {
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  const needle = String(username || '').trim().toLowerCase();
+  const tz = normalizeTz(needle);
+  const user = Object.values(users).find(u =>
+    u.username.toLowerCase() === needle || (tz && normalizeTz(u.username) === tz));
+  if (!user || !user.isActive) return { found: false };
+  const maskedPhone = maskPhone(user.phone);
+  return maskedPhone ? { found: true, maskedPhone } : { found: false };
 }
 
 // בודק אם מותר למספר הטלפון הזה (ולחשבון, אם כבר זוהה) לבקש איפוס כרגע.
@@ -615,12 +639,19 @@ async function updateConfig(event, patch) {
   if (patch.allowedApps !== undefined && !Array.isArray(patch.allowedApps)) {
     throw new Error('רשימת התוכנות המאושרות חייבת להיות מערך');
   }
+  let resetPhone;
+  if (patch.passwordResetPhone !== undefined) {
+    resetPhone = String(patch.passwordResetPhone || '').trim();
+    // ספרות, מקפים ורווחים בלבד (ריק = שחזור בטלפון לא מוצג בעמדה)
+    if (resetPhone && !/^[\d\- ]{3,20}$/.test(resetPhone)) throw new Error('מספר הטלפון לשחזור סיסמה אינו תקין');
+  }
 
   const store = getKioskStore(event);
   return writeWithRetry(store, CONFIG_KEY, { ...DEFAULT_CONFIG }, (config) => {
     if (patch.pricePerPage !== undefined) config.pricePerPage = Number(patch.pricePerPage);
     if (patch.allowedApps !== undefined) config.allowedApps = patch.allowedApps;
     if (patch.textEditorEnabled !== undefined) config.textEditorEnabled = !!patch.textEditorEnabled;
+    if (resetPhone !== undefined) config.passwordResetPhone = resetPhone;
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };
   });
@@ -791,6 +822,8 @@ module.exports = {
   createUser,
   resetPassword,
   normalizeCallerPhone,
+  maskPhone,
+  getPasswordResetInfo,
   findUserForPhoneReset,
   checkPhoneResetLimits,
   issueTemporaryPassword,
