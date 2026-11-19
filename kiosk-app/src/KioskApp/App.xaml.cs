@@ -67,6 +67,65 @@ namespace KioskApp
             StartScreenWatchdog();
         }
 
+        // --- שירותים שפועלים לאורך כל ההתחברות (לא רק כשתוכנה פתוחה) ---
+        private static PrintMonitorService? _printMonitor;
+
+        /// <summary>
+        /// נקרא בהתחברות: חיוב על הדפסה פועל בכל מסך - גם מעורך הטקסט שנפתח ממסך הבחירה,
+        /// וגם במעבר בין תוכנות (קודם הוא היה חלק מהסרגל העליון ונעצר בכל החלפת תוכנה).
+        /// </summary>
+        public static void StartSessionServices()
+        {
+            StopSessionServices();
+            _printMonitor = new PrintMonitorService(ApiClient, () => Session.CurrentUser?.Id ?? "");
+            _printMonitor.PrintCharged += (_, e) => Session.UpdateBalance(e.NewBalance);
+            _printMonitor.PrintRefunded += (_, e) =>
+            {
+                Session.UpdateBalance(e.NewBalance);
+                ShowMessage("ההדפסה בוטלה והחיוב הוחזר ליתרה שלך.\n\nאם התקלה חוזרת - נא לפנות לצוות הספרייה.",
+                    "ההדפסה בוטלה", MessageBoxImage.Information);
+            };
+            _printMonitor.PrintBlocked += (_, e) => ShowMessage(
+                $"היתרה שלך ({e.Balance:0.00} ₪) אינה מספיקה לעלות ההדפסה ({e.Cost:0.00} ₪).\nההדפסה נחסמה. לחצו על \"הטענת כסף\" כדי להמשיך.",
+                "יתרה לא מספיקה", MessageBoxImage.Warning);
+            _printMonitor.AskCancelStuckPrint = reason =>
+            {
+                var dialog = new PrintProblemDialog(reason);
+                var owner = ActiveWindow();
+                if (owner != null && owner.IsVisible) dialog.Owner = owner;
+                dialog.ShowDialog();
+                return dialog.CancelRequested;
+            };
+            _printMonitor.MonitorError += (_, msg) => LogError("PrintMonitorService", new InvalidOperationException(msg));
+            _printMonitor.Start();
+        }
+
+        /// <summary>נקרא בניתוק: עבודות הדפסה תקועות מבוטלות ומוחזרות, והמעקב נעצר.</summary>
+        public static void StopSessionServices()
+        {
+            _printMonitor?.Dispose();
+            _printMonitor = null;
+        }
+
+        /// <summary>החלון הפעיל של הקיוסק (לבעלות על הודעות), או החלון הראשי</summary>
+        public static Window? ActiveWindow()
+        {
+            foreach (Window w in Current.Windows)
+            {
+                if (w.IsActive && w.IsVisible) return w;
+            }
+            return Current.MainWindow;
+        }
+
+        private static void ShowMessage(string text, string title, MessageBoxImage icon)
+        {
+            var owner = ActiveWindow();
+            if (owner != null && owner.IsVisible)
+                MessageBox.Show(owner, text, title, MessageBoxButton.OK, icon);
+            else
+                MessageBox.Show(text, title, MessageBoxButton.OK, icon);
+        }
+
         /// <summary>
         /// "יציאה למחשב" (למשתמש קיוסק מורשה בלבד): מבקש ממשימה מתוזמנת (בהרשאות מערכת,
         /// שמותקנת ע"י Setup-KioskUser.ps1) לכבות את ההתחברות האוטומטית לחצי דקה, ומתנתק
@@ -101,6 +160,7 @@ namespace KioskApp
 
             LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username} - מתנתק למסך הכניסה של Windows");
             TextEditorWindow.EndSession();
+            StopSessionServices();
             Session.End();
 
             // נותנים למשימה רגע לכבות את ההתחברות האוטומטית לפני ההתנתקות

@@ -125,6 +125,7 @@ namespace KioskApp.Views
         private void OnLogoutClick(object sender, RoutedEventArgs e)
         {
             TextEditorWindow.EndSession();
+            App.StopSessionServices();
             App.Session.End();
             var login = new LoginWindow();
             Application.Current.MainWindow = login;

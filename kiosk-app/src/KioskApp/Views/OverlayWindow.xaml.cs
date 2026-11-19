@@ -11,7 +11,6 @@ namespace KioskApp.Views
         private Process? _process;
         private AppPickerWindow? _ownerPicker;
         private DispatcherTimer? _clockTimer;
-        private PrintMonitorService? _printMonitor;
         private DispatcherTimer? _guardTimer;
         private DateTime _launchedAt = DateTime.Now;
         private bool _launchedProcessExited;
@@ -45,18 +44,6 @@ namespace KioskApp.Views
             _clockTimer.Tick += (_, _) => TimerText.Text = $"זמן חיבור: {App.Session.Elapsed:hh\\:mm\\:ss}";
             _clockTimer.Start();
 
-            _printMonitor = new PrintMonitorService(App.ApiClient, () => App.Session.CurrentUser?.Id ?? "");
-            _printMonitor.PrintCharged += OnPrintCharged;
-            _printMonitor.PrintBlocked += OnPrintBlocked;
-            _printMonitor.PrintRefunded += OnPrintRefunded;
-            _printMonitor.AskCancelStuckPrint = reason =>
-            {
-                var dialog = new PrintProblemDialog(reason) { Owner = this };
-                dialog.ShowDialog();
-                return dialog.CancelRequested;
-            };
-            _printMonitor.MonitorError += (_, msg) => App.LogError("PrintMonitorService", new InvalidOperationException(msg));
-            _printMonitor.Start();
 
             FileDialogAssistant.UserMessage += OnFileDialogMessage;
 
@@ -136,26 +123,6 @@ namespace KioskApp.Views
 
         private void UpdateBalanceText(decimal balance) => BalanceText.Text = $"יתרה: {balance:0.00} ₪";
 
-        private void OnPrintCharged(object? sender, PrintChargedEventArgs e)
-        {
-            App.Session.UpdateBalance(e.NewBalance);
-        }
-
-        private void OnPrintRefunded(object? sender, PrintRefundedEventArgs e)
-        {
-            App.Session.UpdateBalance(e.NewBalance);
-            MessageBox.Show(
-                "ההדפסה בוטלה והחיוב הוחזר ליתרה שלך.\n\nאם התקלה חוזרת - נא לפנות לצוות הספרייה.",
-                "ההדפסה בוטלה", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private void OnPrintBlocked(object? sender, PrintBlockedEventArgs e)
-        {
-            MessageBox.Show(
-                $"היתרה שלך ({e.Balance:0.00} ₪) אינה מספיקה לעלות ההדפסה ({e.Cost:0.00} ₪).\nההדפסה נחסמה. לחצו על \"הטענת כסף\" כדי להמשיך.",
-                "יתרה לא מספיקה", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-
         private void OnTextEditorClick(object sender, RoutedEventArgs e)
         {
             // נפתח מעל התוכנה בלי לסגור אותה - אפשר להעתיק ממנה ולהדביק בעורך הלוך ושוב
@@ -195,6 +162,7 @@ namespace KioskApp.Views
     WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו אוטומטית - לא יוצג למשתמש הבא
     WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
     TextEditorWindow.EndSession();          // הטקסט בעורך נמחק
+    App.StopSessionServices();              // הדפסות תקועות מבוטלות ומוחזרות
 
     App.Session.End();
 
@@ -227,7 +195,6 @@ namespace KioskApp.Views
             _clockTimer?.Stop();
             _guardTimer?.Stop();
             FileDialogAssistant.UserMessage -= OnFileDialogMessage;
-            _printMonitor?.Dispose();
         }
     }
 }

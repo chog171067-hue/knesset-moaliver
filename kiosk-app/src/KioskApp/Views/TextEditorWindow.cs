@@ -24,6 +24,7 @@ namespace KioskApp.Views
         private readonly TextBox _fileName;
         private readonly TextBlock _status;
         private readonly TextBlock _counter;
+        private readonly TextBlock _balance;
         private readonly Button _backButton;
         private bool _closingForSessionEnd;
 
@@ -43,6 +44,7 @@ namespace KioskApp.Views
         {
             if (_instance == null) return;
             _instance._closingForSessionEnd = true;
+            App.Session.BalanceChanged -= _instance.OnBalanceChanged;
             _instance._editor.Clear();
             _instance.Close();
             _instance = null;
@@ -90,7 +92,7 @@ namespace KioskApp.Views
             {
                 Text = "טקסט מהספרייה",
                 FontSize = 15,
-                Width = 220,
+                Width = 170,
                 Padding = new Thickness(6),
                 Margin = new Thickness(0, 0, 10, 0),
                 VerticalContentAlignment = VerticalAlignment.Center,
@@ -99,10 +101,20 @@ namespace KioskApp.Views
             DockPanel.SetDock(_fileName, Dock.Left);
             bar.Children.Add(_fileName);
 
-            var saveButton = MakeButton("💾 שמירה לדיסק-און-קי",
+            var saveButton = MakeButton("💾 Word לדיסק-און-קי",
                 (Brush)Application.Current.Resources["KioskAccentBrush"], OnSaveClick);
             DockPanel.SetDock(saveButton, Dock.Left);
             bar.Children.Add(saveButton);
+
+            var pdfButton = MakeButton("📄 PDF לדיסק-און-קי",
+                (Brush)Application.Current.Resources["KioskAccentBrush"], OnSavePdfClick);
+            DockPanel.SetDock(pdfButton, Dock.Left);
+            bar.Children.Add(pdfButton);
+
+            var printButton = MakeButton("🖨 הדפסה",
+                (Brush)Application.Current.Resources["KioskAccentBrush"], OnPrintClick);
+            DockPanel.SetDock(printButton, Dock.Left);
+            bar.Children.Add(printButton);
 
             var clearButton = MakeButton("🗑 ניקוי", Brushes.Transparent, OnClearClick);
             clearButton.BorderBrush = Brushes.White;
@@ -117,10 +129,22 @@ namespace KioskApp.Views
             DockPanel.SetDock(_backButton, Dock.Right);
             bar.Children.Add(_backButton);
 
+            _balance = new TextBlock
+            {
+                Foreground = Brushes.White,
+                FontSize = 15,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 20, 0)
+            };
+            DockPanel.SetDock(_balance, Dock.Right);
+            bar.Children.Add(_balance);
+            UpdateBalance(App.Session.CurrentUser?.Balance ?? 0);
+            App.Session.BalanceChanged += OnBalanceChanged;
+
             // --- שורת מצב ---
             _status = new TextBlock
             {
-                Text = "הדביקו כאן טקסט (Ctrl+V) או הקלידו. לשמירה: חברו דיסק-און-קי ולחצו \"שמירה לדיסק-און-קי\". הטקסט נמחק בניתוק.",
+                Text = "הקלידו או הדביקו כאן טקסט (Ctrl+V). אפשר להדפיס, או לשמור כ-Word / PDF לדיסק-און-קי. הטקסט נמחק בניתוק.",
                 Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE0)),
                 FontSize = 14,
                 Margin = new Thickness(20, 0, 20, 10),
@@ -210,6 +234,89 @@ namespace KioskApp.Views
             }
             var pages = Math.Max(1, (int)Math.Ceiling(words / (double)WordsPerPage));
             _counter.Text = $"{words:N0} מילים · בערך {pages} {(pages == 1 ? "עמוד" : "עמודים")}";
+        }
+
+        private void OnBalanceChanged(object? sender, decimal balance) => Dispatcher.Invoke(() => UpdateBalance(balance));
+
+        private void UpdateBalance(decimal balance) => _balance.Text = $"יתרה: {balance:0.00} ₪";
+
+        private void OnPrintClick(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_editor.Text))
+            {
+                ShowStatus("אין טקסט להדפסה.", isError: true);
+                return;
+            }
+
+            var printer = TextPrinter.DefaultPhysicalPrinter();
+            if (printer == null)
+            {
+                ShowStatus("לא מוגדרת מדפסת בעמדה. נא לפנות לצוות הספרייה.", isError: true);
+                return;
+            }
+
+            try
+            {
+                var pages = TextPrinter.CountPages(_editor.Text, printer);
+                var price = App.Session.Config?.PricePerPage ?? 0;
+                var cost = pages * price;
+                var balance = App.Session.CurrentUser?.Balance ?? 0;
+
+                if (cost > balance)
+                {
+                    ShowStatus($"ההדפסה ({pages} עמודים) עולה {cost:0.00} ₪, והיתרה {balance:0.00} ₪. יש להטעין כסף.", isError: true);
+                    return;
+                }
+
+                var answer = MessageBox.Show(this,
+                    $"להדפיס {pages} {(pages == 1 ? "עמוד" : "עמודים")}?\nעלות: {cost:0.00} ₪",
+                    "הדפסה", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (answer != MessageBoxResult.Yes) return;
+
+                // החיוב עצמו - דרך מעקב ההדפסות הרגיל (כולל החזר אם ההדפסה נכשלת)
+                TextPrinter.Print(_editor.Text, printer);
+                App.LogInfo($"עורך טקסט: נשלחו להדפסה {pages} עמודים ({printer})");
+                ShowStatus($"🖨 נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")}.", isError: false);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: הדפסה נכשלה", ex);
+                ShowStatus("ההדפסה נכשלה: " + ex.Message, isError: true);
+            }
+        }
+
+        private void OnSavePdfClick(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_editor.Text))
+            {
+                ShowStatus("אין טקסט לשמירה.", isError: true);
+                return;
+            }
+
+            var usb = FileDialogAssistant.FindUsbDrive();
+            if (usb == null)
+            {
+                ShowStatus("לא נמצא דיסק-און-קי. חברו דיסק-און-קי לעמדה ונסו שוב.", isError: true);
+                return;
+            }
+            if (!TextPrinter.PdfPrinterAvailable())
+            {
+                ShowStatus("שמירה כ-PDF לא זמינה בעמדה זו (חסר \"Microsoft Print to PDF\"). אפשר לשמור כ-Word.", isError: true);
+                return;
+            }
+
+            try
+            {
+                var path = FileDialogAssistant.UniquePath(usb, SafeFileName(_fileName.Text) + ".pdf");
+                TextPrinter.Print(_editor.Text, TextPrinter.PdfPrinterName, path);
+                App.LogInfo($"עורך טקסט: נשמר PDF בדיסק-און-קי ({path})");
+                ShowStatus($"✅ נשמר בדיסק-און-קי: {path}", isError: false);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: שמירת PDF נכשלה", ex);
+                ShowStatus("השמירה נכשלה: " + ex.Message, isError: true);
+            }
         }
 
         private void OnBackClick(object sender, RoutedEventArgs e) => Hide();

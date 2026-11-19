@@ -124,6 +124,9 @@ namespace KioskApp.Services
                 var pages = totalPagesRaw != null ? Convert.ToInt32(totalPagesRaw) : 0;
                 if (pages <= 0) pages = 1; // חלק מדרייברים לא מדווחים TotalPages - עדיף לחייב עמוד אחד מאשר לא לחייב כלל
 
+                // מדפסות וירטואליות (שמירה כ-PDF/XPS וכו') - לא מדפסת אמיתית, לא מחייבים כהדפסה
+                if (IsVirtualPrinter(printerName)) return;
+
                 var userId = _getCurrentUserId();
                 if (string.IsNullOrEmpty(userId)) return; // אין משתמש מחובר כרגע (לא אמור לקרות, שכבת הגנה בלבד)
 
@@ -358,6 +361,20 @@ namespace KioskApp.Services
                     "ההדפסה בוטלה, אך החזרת הכסף ליתרה נכשלה.\nנא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.",
                     "החזר לא בוצע", MessageBoxButton.OK, MessageBoxImage.Warning));
             }
+        }
+
+        private static readonly string[] VirtualPrinterNames =
+        {
+            "Microsoft Print to PDF", "Microsoft XPS Document Writer", "OneNote", "Fax", "Send To OneNote"
+        };
+
+        public static bool IsVirtualPrinter(string printerName)
+        {
+            foreach (var v in VirtualPrinterNames)
+            {
+                if (printerName.StartsWith(v, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
         }
 
         private static string ExtractPrinterName(string wmiJobName)
