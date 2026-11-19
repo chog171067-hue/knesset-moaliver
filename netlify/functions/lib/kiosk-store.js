@@ -20,7 +20,7 @@ const PENDING_TOPUPS_KEY = 'pending-topups.json';
 const ORPHAN_TOPUPS_KEY = 'orphan-topups.json';
 const MAX_WRITE_ATTEMPTS = 8;
 
-const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [] };
+const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false };
 
 // ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
 // כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
@@ -402,6 +402,7 @@ async function updateConfig(event, patch) {
   return writeWithRetry(store, CONFIG_KEY, { ...DEFAULT_CONFIG }, (config) => {
     if (patch.pricePerPage !== undefined) config.pricePerPage = Number(patch.pricePerPage);
     if (patch.allowedApps !== undefined) config.allowedApps = patch.allowedApps;
+    if (patch.textEditorEnabled !== undefined) config.textEditorEnabled = !!patch.textEditorEnabled;
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };
   });

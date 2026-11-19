@@ -24,7 +24,8 @@ namespace KioskApp.Views
             AppsPanel.Children.Clear();
 
             var apps = App.Session.Config?.AllowedApps ?? new System.Collections.Generic.List<AllowedApp>();
-            if (apps.Count == 0)
+            var editorEnabled = App.Session.Config?.TextEditorEnabled == true;
+            if (apps.Count == 0 && !editorEnabled)
             {
                 AppsPanel.Children.Add(new TextBlock
                 {
@@ -52,6 +53,24 @@ namespace KioskApp.Views
                 };
                 button.Click += OnAppButtonClick;
                 AppsPanel.Children.Add(button);
+            }
+
+            if (editorEnabled)
+            {
+                var editorButton = new Button
+                {
+                    Content = "📝 עורך טקסט",
+                    Width = 220,
+                    Height = 140,
+                    Margin = new Thickness(15),
+                    FontSize = 18,
+                    FontWeight = FontWeights.Bold,
+                    Background = System.Windows.Media.Brushes.White,
+                    Foreground = (System.Windows.Media.Brush)FindResource("KioskPrimaryBrush"),
+                    Cursor = System.Windows.Input.Cursors.Hand
+                };
+                editorButton.Click += (_, _) => TextEditorWindow.ShowEditor("⬅ חזרה לבחירת תוכנה");
+                AppsPanel.Children.Add(editorButton);
             }
         }
 
@@ -105,6 +124,7 @@ namespace KioskApp.Views
 
         private void OnLogoutClick(object sender, RoutedEventArgs e)
         {
+            TextEditorWindow.EndSession();
             App.Session.End();
             var login = new LoginWindow();
             Application.Current.MainWindow = login;
