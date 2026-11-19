@@ -37,6 +37,8 @@ namespace KioskApp.Views
 
             UsernameText.Text = App.Session.CurrentUser?.Username ?? "";
             UpdateBalanceText(App.Session.CurrentUser?.Balance ?? 0);
+            TextEditorButton.Visibility = App.Session.Config?.TextEditorEnabled == true
+                ? Visibility.Visible : Visibility.Collapsed;
             App.Session.BalanceChanged += OnSessionBalanceChanged;
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -154,6 +156,12 @@ namespace KioskApp.Views
                 "יתרה לא מספיקה", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
+        private void OnTextEditorClick(object sender, RoutedEventArgs e)
+        {
+            // נפתח מעל התוכנה בלי לסגור אותה - אפשר להעתיק ממנה ולהדביק בעורך הלוך ושוב
+            TextEditorWindow.ShowEditor("⬅ חזרה לתוכנה");
+        }
+
         private void OnTopupClick(object sender, RoutedEventArgs e)
         {
             var topupWindow = new TopupWindow { Owner = this };
@@ -186,6 +194,7 @@ namespace KioskApp.Views
     await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
     WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו אוטומטית - לא יוצג למשתמש הבא
     WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
+    TextEditorWindow.EndSession();          // הטקסט בעורך נמחק
 
     App.Session.End();
 

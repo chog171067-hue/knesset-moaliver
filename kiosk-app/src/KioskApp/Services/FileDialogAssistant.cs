@@ -127,7 +127,7 @@ namespace KioskApp.Services
         }
 
         /// <summary>הדיסק-און-קי הראשון שמחובר ומוכן (האות משתנה ממחשב למחשב - מזהים בזמן אמת)</summary>
-        private static string? FindUsbDrive()
+        public static string? FindUsbDrive()
         {
             return DriveInfo.GetDrives()
                 .Where(d => d.DriveType == DriveType.Removable && d.IsReady)
@@ -136,7 +136,7 @@ namespace KioskApp.Services
         }
 
         /// <summary>לא דורסים קובץ קיים בדיסק-און-קי: "שם (2).pdf", "שם (3).pdf"...</summary>
-        private static string UniquePath(string folder, string fileName)
+        public static string UniquePath(string folder, string fileName)
         {
             var path = Path.Combine(folder, fileName);
             if (!File.Exists(path)) return path;

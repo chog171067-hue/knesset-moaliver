@@ -31,6 +31,8 @@ namespace KioskApp.Core.Models
     {
         public decimal PricePerPage { get; set; }
         public List<AllowedApp> AllowedApps { get; set; } = new List<AllowedApp>();
+        /// <summary>להציג את עורך הטקסט המובנה (נקבע בדף הניהול)</summary>
+        public bool TextEditorEnabled { get; set; }
     }
 
     public class TransactionRecord

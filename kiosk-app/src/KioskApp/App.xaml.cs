@@ -100,6 +100,7 @@ namespace KioskApp
             }
 
             LogInfo($"יציאה למחשב: {Session.CurrentUser?.Username} - מתנתק למסך הכניסה של Windows");
+            TextEditorWindow.EndSession();
             Session.End();
 
             // נותנים למשימה רגע לכבות את ההתחברות האוטומטית לפני ההתנתקות
