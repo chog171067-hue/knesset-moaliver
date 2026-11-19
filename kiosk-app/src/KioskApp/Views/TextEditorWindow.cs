@@ -23,6 +23,7 @@ namespace KioskApp.Views
         private readonly TextBox _editor;
         private readonly TextBox _fileName;
         private readonly TextBlock _status;
+        private readonly TextBlock _counter;
         private readonly Button _backButton;
         private bool _closingForSessionEnd;
 
@@ -149,11 +150,23 @@ namespace KioskApp.Views
                 Child = _editor
             };
 
+            // --- מונה מילים בתחתית ---
+            _counter = new TextBlock
+            {
+                Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE0)),
+                FontSize = 14,
+                Margin = new Thickness(20, -12, 20, 10)
+            };
+            _editor.TextChanged += (_, _) => UpdateCounter();
+            UpdateCounter();
+
             var layout = new DockPanel();
             DockPanel.SetDock(bar, Dock.Top);
             DockPanel.SetDock(_status, Dock.Top);
+            DockPanel.SetDock(_counter, Dock.Bottom);
             layout.Children.Add(bar);
             layout.Children.Add(_status);
+            layout.Children.Add(_counter);
             layout.Children.Add(page);
             Content = layout;
 
@@ -182,6 +195,21 @@ namespace KioskApp.Views
             };
             b.Click += onClick;
             return b;
+        }
+
+        // הערכה: כ-400 מילים בעמוד Word (גופן David בגודל 14, כמו בקובץ שנשמר)
+        private const int WordsPerPage = 400;
+
+        private void UpdateCounter()
+        {
+            var words = _editor.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+            if (words == 0)
+            {
+                _counter.Text = "";
+                return;
+            }
+            var pages = Math.Max(1, (int)Math.Ceiling(words / (double)WordsPerPage));
+            _counter.Text = $"{words:N0} מילים · בערך {pages} {(pages == 1 ? "עמוד" : "עמודים")}";
         }
 
         private void OnBackClick(object sender, RoutedEventArgs e) => Hide();
