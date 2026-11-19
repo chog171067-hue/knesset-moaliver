@@ -537,6 +537,7 @@
                 <div class="sub-nav">
                     <button class="sub-nav-btn active" data-subtab="lib-sub-users" onclick="switchLibrarySubTab('lib-sub-users')">משתמשים</button>
                     <button class="sub-nav-btn" data-subtab="lib-sub-settings" onclick="switchLibrarySubTab('lib-sub-settings')">הגדרות</button>
+                    <button class="sub-nav-btn" data-subtab="lib-sub-resets" onclick="switchLibrarySubTab('lib-sub-resets')">שחזור סיסמה בטלפון</button>
                 </div>
 
                 <div class="sub-panel active" id="lib-sub-users">
@@ -595,6 +596,19 @@
                     <button class="btn" id="libSaveAppsBtn" onclick="saveLibraryApps()" style="width:auto; padding:10px 22px; margin-top:10px;">שמירת רשימת תוכנות</button>
                     <div class="form-error" id="libAppsError"></div>
                     <div class="success-box" id="libAppsSuccess"></div>
+                </div>
+                <div class="sub-panel" id="lib-sub-resets">
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:0;">יומן שחזור סיסמה בטלפון (ימות המשיח)</h3>
+                    <p class="panel-desc">כל שיחה לשלוחת שחזור הסיסמה נרשמת כאן: סיסמאות זמניות שהונפקו, ניסיונות שלא התאימו, חסימות, ביטולים, והחלפת הסיסמה בעמדה. מוצגות 500 הרשומות האחרונות.</p>
+                    <button class="history-btn" onclick="fetchLibraryPasswordResets()">🔄 רענון</button>
+                    <div id="libResetsLoading" class="loading" style="display:none;">טוען נתונים...</div>
+                    <div id="libResetsError" class="form-error"></div>
+                    <div id="libResetsTableWrap" class="table-scroll" style="display:none;">
+                        <table class="history-table">
+                            <thead><tr><th>תאריך</th><th>תוצאה</th><th>שם משתמש</th><th>טלפון מתקשר</th><th>פרטים</th></tr></thead>
+                            <tbody id="libResetsTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -1720,6 +1734,47 @@
         document.getElementById(subId).classList.add('active');
         document.querySelector(`#tab-library .sub-nav-btn[data-subtab="${subId}"]`).classList.add('active');
         if (subId === 'lib-sub-settings' && !libraryConfigLoaded) fetchLibraryConfig();
+        if (subId === 'lib-sub-resets') fetchLibraryPasswordResets();
+    }
+
+    const LIB_RESET_OUTCOMES = {
+        'issued':      '<span class="badge-success">סיסמה זמנית הונפקה</span>',
+        'completed':   '<span class="badge-success">סיסמה הוחלפה בעמדה</span>',
+        'mismatch':    '<span class="badge-danger">פרטים לא תואמים</span>',
+        'blocked':     '<span class="badge-danger">נחסם - יותר מדי ניסיונות</span>',
+        'temp-burned': '<span class="badge-danger">סיסמה זמנית בוטלה</span>',
+        'cancelled':   'בוטל ע"י המתקשר',
+        'error':       '<span class="badge-danger">תקלה</span>'
+    };
+
+    async function fetchLibraryPasswordResets() {
+        const loadingDiv = document.getElementById('libResetsLoading');
+        const errorDiv = document.getElementById('libResetsError');
+        const tableWrap = document.getElementById('libResetsTableWrap');
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        tableWrap.style.display = 'none';
+        try {
+            const result = await authedFetch('/.netlify/functions/library-admin-password-resets', { method: 'GET' });
+            const entries = result.entries || [];
+            const tbody = document.getElementById('libResetsTableBody');
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">אין עדיין רשומות.</td></tr>';
+            } else {
+                tbody.innerHTML = entries.map(e => {
+                    const time = e.timestamp ? new Date(e.timestamp).toLocaleString('he-IL') : '-';
+                    const outcome = LIB_RESET_OUTCOMES[e.outcome] || escapeHtml(e.outcome || '-');
+                    const details = [e.note, e.tzEntered ? `ת"ז שהוקשה: ${e.tzEntered}` : ''].filter(Boolean).join(' | ');
+                    return `<tr><td>${time}</td><td>${outcome}</td><td>${escapeHtml(e.username || '-')}</td><td>${escapeHtml(e.phone || '-')}</td><td>${escapeHtml(details || '-')}</td></tr>`;
+                }).join('');
+            }
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
     }
 
     async function fetchLibraryUsers() {

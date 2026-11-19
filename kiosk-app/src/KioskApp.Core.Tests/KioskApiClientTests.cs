@@ -57,6 +57,55 @@ namespace KioskApp.Core.Tests
         }
 
         [Fact]
+        public async Task LoginAsync_TemporaryPassword_ThrowsPasswordChangeRequired()
+        {
+            var json = """{ "success": true, "mustChangePassword": true }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            await Assert.ThrowsAsync<PasswordChangeRequiredException>(() => client.LoginAsync("dani", "123456"));
+        }
+
+        [Fact]
+        public async Task ChangePasswordAsync_Success_SendsBodyAndReturnsUser()
+        {
+            var json = """{ "success": true, "user": { "id": "u1", "username": "dani", "balance": 3, "isActive": true } }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.OK, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var user = await client.ChangePasswordAsync("dani", "123456", "newpass");
+
+            Assert.Equal("u1", user.Id);
+            Assert.Contains("/.netlify/functions/library-station-change-password", handler.LastRequest!.RequestUri!.ToString());
+            using var body = JsonDocument.Parse(handler.LastRequestBody!);
+            Assert.Equal("dani", body.RootElement.GetProperty("username").GetString());
+            Assert.Equal("123456", body.RootElement.GetProperty("currentPassword").GetString());
+            Assert.Equal("newpass", body.RootElement.GetProperty("newPassword").GetString());
+        }
+
+        [Fact]
+        public async Task ChangePasswordAsync_ExpiredTemp_ThrowsKioskAuthException()
+        {
+            var json = """{ "success": false, "error": "פג תוקף" }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.Unauthorized, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var ex = await Assert.ThrowsAsync<KioskAuthException>(() => client.ChangePasswordAsync("dani", "123456", "newpass"));
+            Assert.Equal("פג תוקף", ex.Message);
+        }
+
+        [Fact]
+        public async Task ChangePasswordAsync_TooShort_ThrowsApiExceptionNotAuth()
+        {
+            var json = """{ "success": false, "error": "קצרה מדי" }""";
+            using var handler = FakeHttpMessageHandler.ReturningJson(HttpStatusCode.BadRequest, json);
+            using var client = new KioskApiClient(BaseUrl, StationKey, handler);
+
+            var ex = await Assert.ThrowsAsync<KioskApiException>(() => client.ChangePasswordAsync("dani", "123456", "ab"));
+            Assert.IsNotType<KioskAuthException>(ex);
+        }
+
+        [Fact]
         public async Task GetConfigAsync_ParsesPriceAndAllowedApps()
         {
             var json = """
