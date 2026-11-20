@@ -47,6 +47,7 @@ namespace KioskApp.Views
             _doneButton = new Button
             {
                 Content = "סיימתי - חזרה לפתיחת החשבון",
+                Padding = new Thickness(20, 6, 20, 6),
                 Style = Res<Style>("KioskPrimaryButton"),
                 MinHeight = 44,
                 FontSize = 17,
@@ -62,7 +63,7 @@ namespace KioskApp.Views
                 VerticalAlignment = VerticalAlignment.Center,
                 Children =
                 {
-                    new TextBlock { Text = "הצטרפות לחבר קהילה", FontSize = 22, FontWeight = FontWeights.Bold, FontFamily = Res<FontFamily>("KioskHeadingFont") },
+                    new TextBlock { Text = "הצטרפות לחבר קהילה", FontSize = 26, FontWeight = FontWeights.Bold, FontFamily = Res<FontFamily>("KioskHeadingFont") },
                     new TextBlock
                     {
                         Text = "ממלאים את הטופס של נדרים פלוס להקמת הוראת קבע, ובסיום לוחצים \"סיימתי\".",
@@ -73,22 +74,48 @@ namespace KioskApp.Views
                 }
             });
 
-            var headerBar = new Border
+            // כרטיס שמנת במרכז המסך, כמו שאר החלונות של הקיוסק. (חלון שקוף עם רקע מוחשך לא
+            // אפשרי כאן: הדפדפן הפנימי לא מוצג בחלון שקוף - לכן רקע המסך הוא צבע הרקע של הקיוסק)
+            header.Margin = new Thickness(4, 0, 4, 16);
+
+            // מסגרת דקה סביב הדף של נדרים פלוס
+            var pageFrame = new Border
+            {
+                BorderBrush = Res<Brush>("KioskBorderBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(2),
+                Background = Brushes.White,
+                Child = _webView
+            };
+
+            var cardContent = new DockPanel();
+            DockPanel.SetDock(header, Dock.Top);
+            cardContent.Children.Add(header);
+            cardContent.Children.Add(pageFrame);
+
+            var card = new Border
             {
                 Background = Res<Brush>("KioskCardBrush"),
                 BorderBrush = Res<Brush>("KioskBorderBrush"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(24, 12, 24, 12),
-                Child = header
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(20),
+                Padding = new Thickness(26, 22, 26, 26),
+                Margin = new Thickness(40, 30, 40, 30),
+                MaxWidth = 1000,
+                Child = cardContent,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    BlurRadius = 40,
+                    ShadowDepth = 8,
+                    Opacity = 0.14,
+                    Color = Color.FromRgb(0x5B, 0x46, 0x36)
+                }
             };
 
-            var root = new DockPanel();
-            DockPanel.SetDock(headerBar, Dock.Top);
-            root.Children.Add(headerBar);
             // דף האינטרנט עצמו - בכיוון רגיל (הדף מנהל את הכיוון שלו)
             _webView.FlowDirection = FlowDirection.LeftToRight;
-            root.Children.Add(_webView);
-            Content = root;
+            Content = card;
 
             Loaded += async (_, _) => await InitAsync();
         }
