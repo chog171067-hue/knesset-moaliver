@@ -97,6 +97,8 @@ namespace KioskApp.Core.Models
         public bool IsCommunityMember { get; set; }
         /// <summary>סכום ההטענה הראשונה לפתיחת החשבון</summary>
         public decimal SignupAmount { get; set; }
+        /// <summary>דף נדרים פלוס להצטרפות כחבר קהילה (הוראת קבע). ריק = בלי כפתור הצטרפות</summary>
+        public string CommunityJoinUrl { get; set; } = "";
     }
 
     public class SignupInitResult

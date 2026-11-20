@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -101,7 +102,40 @@ namespace KioskApp.Core
             {
                 throw new KioskApiException(response.Error ?? "בדיקת הפרטים נכשלה", statusCode);
             }
-            return new SignupCheckResult { IsCommunityMember = response.IsCommunityMember, SignupAmount = response.SignupAmount };
+            return new SignupCheckResult
+            {
+                IsCommunityMember = response.IsCommunityMember,
+                SignupAmount = response.SignupAmount,
+                CommunityJoinUrl = response.CommunityJoinUrl ?? ""
+            };
+        }
+
+        /// <summary>
+        /// לפני פתיחת דף ההצטרפות: מזהי הוראות הקבע שכבר קיימות לת"ז (רק הוראה חדשה תיחשב).
+        /// </summary>
+        public async Task<List<string>> GetExistingKevaIdsAsync(string tz, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<KevaSnapshotResponse>(
+                "/.netlify/functions/library-station-member-check", new { tz, action = "snapshot" }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בבדיקת הוראות הקבע", statusCode);
+            }
+            return response.KevaIds ?? new List<string>();
+        }
+
+        /// <summary>
+        /// אחרי דף ההצטרפות: האם נוספה הוראת קבע "דמי חבר" (ואז השרת רושם חברות זמנית).
+        /// </summary>
+        public async Task<bool> CheckCommunityMembershipAsync(string tz, IEnumerable<string> knownKevaIds, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<MemberCheckResponse>(
+                "/.netlify/functions/library-station-member-check", new { tz, knownKevaIds }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בבדיקת החברות", statusCode);
+            }
+            return response.IsCommunityMember;
         }
 
         /// <summary>
@@ -292,6 +326,17 @@ namespace KioskApp.Core
         {
             public bool IsCommunityMember { get; set; }
             public decimal SignupAmount { get; set; }
+            public string? CommunityJoinUrl { get; set; }
+        }
+
+        private class KevaSnapshotResponse : ApiEnvelope
+        {
+            public List<string>? KevaIds { get; set; }
+        }
+
+        private class MemberCheckResponse : ApiEnvelope
+        {
+            public bool IsCommunityMember { get; set; }
         }
 
         private class SignupInitResponse : ApiEnvelope

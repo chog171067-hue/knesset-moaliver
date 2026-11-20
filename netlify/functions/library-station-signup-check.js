@@ -2,12 +2,14 @@
 // ספרת ביקורת, שם מלא, טלפון, סיסמה של 4-8 ספרות), שאין כבר חשבון עם אותה ת"ז,
 // ושהת"ז לא חסומה. מחזיר האם זה חבר קהילה (לתגית "חבר קהילה" בחלון התשלום) ואת
 // סכום ההטענה הראשונה. לא יוצר כלום - החשבון נוצר רק אחרי התשלום.
+// חבר קהילה = בקובץ התורמים / ברשימה הידנית, או מי שהקים הוראת קבע "דמי חבר"
+// דרך הקיוסק אחרי העלאת הקובץ האחרון (ראו getKioskMembership ב-lib/community.js).
 //
 // גוף הבקשה: { tz, displayName, phone, password }
-// תשובה: { success, isCommunityMember, signupAmount }
+// תשובה: { success, isCommunityMember, signupAmount, communityJoinUrl }
 const { requireStation } = require('./lib/station-auth');
 const { validateSignupDetails, assertTzAvailable, getConfig } = require('./lib/kiosk-store');
-const { getCommunityRecord, isTzBlocked } = require('./lib/community');
+const { getKioskMembership, isTzBlocked } = require('./lib/community');
 
 exports.handler = async function (event) {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
@@ -34,11 +36,23 @@ exports.handler = async function (event) {
 
   try {
     const config = await getConfig(event);
-    const member = await getCommunityRecord(details.username, event);
+    let isCommunityMember = false;
+    try {
+      const membership = await getKioskMembership(event, details.username);
+      isCommunityMember = membership.member;
+    } catch (e) {
+      // תקלה בבדיקת החברות לא חוסמת פתיחת חשבון - רק לא מציגה תגית
+      console.error('[signup-check] כשל בבדיקת חברות קהילה:', e.message);
+    }
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, isCommunityMember: !!member, signupAmount: config.signupAmount })
+      body: JSON.stringify({
+        success: true,
+        isCommunityMember,
+        signupAmount: config.signupAmount,
+        communityJoinUrl: config.communityJoinUrl || ''
+      })
     };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ success: false, error: 'שגיאת שרת: ' + error.message }) };

@@ -128,6 +128,65 @@ async function requireActiveMember(event, context) {
   return { ok: true, user, tz, phone: String(user.app_metadata.verified_phone || '').trim() };
 }
 
+// ===================== חברות זמנית מהקיוסק (הוראת קבע חדשה) =====================
+//
+// מי שמקים הוראת קבע "דמי חבר" דרך הקיוסק נחשב חבר קהילה מיד - עד העלאת קובץ
+// התורמים הבא. מאותו רגע הקובץ קובע: אם הוא שם - נשאר חבר, ואם לא - כבר לא.
+// הרשימה נפרדת מהרשימה הידנית (extra), ומשמשת רק את הקיוסק (לא את הרשמת האזור האישי).
+const KEVA_JOINED_KEY = 'kiosk-keva-members.json';
+
+async function getKevaJoinedList(event) {
+  return readJson(event, KEVA_JOINED_KEY, []);
+}
+
+async function addKevaJoinedMember(event, { tz, kevaId, amount, groupe, mosadId }) {
+  const key = tzKey(tz);
+  const list = (await getKevaJoinedList(event)).filter(e => tzKey(e.tz) !== key);
+  list.push({ tz: String(tz), kevaId: String(kevaId || ''), amount: Number(amount) || 0, groupe: groupe || '', mosadId: String(mosadId || ''), addedAt: new Date().toISOString() });
+  await getAdminStore(event).setJSON(KEVA_JOINED_KEY, list);
+}
+
+// מזהי כל הוראות הקבע של ת"ז (לפני ההצטרפות) - כדי שרק הוראה חדשה תיחשב
+function kevaIdsForTz(kevot, tz) {
+  const key = tzKey(tz);
+  return kevot.filter(k => tzKey(k.Zeout) === key).map(k => String(k.KevaId));
+}
+
+// הוראת קבע פעילה שעומדת בתנאי החברות (קטגוריה + סכום מינימלי), לפי ת"ז.
+// excludeKevaIds: הוראות שהיו קיימות כבר לפני ההצטרפות - לא נחשבות (הקובץ קובע לגביהן)
+function findMembershipKeva(kevot, tz, { groupe, minAmount, excludeKevaIds = [] }) {
+  const key = tzKey(tz);
+  const wantedGroupe = String(groupe || '').trim();
+  const excluded = new Set(excludeKevaIds.map(String));
+  return kevot.find(k =>
+    tzKey(k.Zeout) === key &&
+    !excluded.has(String(k.KevaId)) &&
+    String(k.Enabled) === '1' &&
+    (!wantedGroupe || String(k.Groupe || '').trim().includes(wantedGroupe)) &&
+    Number(k.Amount) >= Number(minAmount || 0)
+  ) || null;
+}
+
+// חבר קהילה לעניין הקיוסק: בקובץ / ברשימה הידנית, או הקים הוראת קבע דרך הקיוסק אחרי
+// העלאת הקובץ האחרונה. fetchKevot (אופציונלי, רק אחרי "הצטרפות"): פונקציה שמחזירה את כל
+// הוראות הקבע - אם נשלחה ואין חברות, מחפשים הוראה חדשה (שאינה ב-excludeKevaIds) ושומרים
+// חברות זמנית. מחזיר { member, source, joinedNow }.
+async function getKioskMembership(event, tz, { fetchKevot, groupe, minAmount, excludeKevaIds } = {}) {
+  if (await getCommunityRecord(tz, event)) return { member: true, source: 'list' };
+
+  const key = tzKey(tz);
+  const roster = await getRoster(event);
+  const rosterTime = roster.uploadedAt ? Date.parse(roster.uploadedAt) : 0;
+  const joined = (await getKevaJoinedList(event)).find(e => tzKey(e.tz) === key);
+  if (joined && Date.parse(joined.addedAt) > rosterTime) return { member: true, source: 'keva' };
+
+  if (!fetchKevot) return { member: false, source: null };
+  const keva = findMembershipKeva(await fetchKevot(), tz, { groupe, minAmount, excludeKevaIds });
+  if (!keva) return { member: false, source: null };
+  await addKevaJoinedMember(event, { tz, kevaId: keva.KevaId, amount: keva.Amount, groupe: keva.Groupe, mosadId: keva.mosadId });
+  return { member: true, source: 'keva', joinedNow: true };
+}
+
 module.exports = {
   tzKey,
   cleanPhone,
@@ -140,5 +199,9 @@ module.exports = {
   saveBlockedList,
   isTzBlocked,
   getCommunityRecord,
-  requireActiveMember
+  requireActiveMember,
+  getKevaJoinedList,
+  findMembershipKeva,
+  kevaIdsForTz,
+  getKioskMembership
 };

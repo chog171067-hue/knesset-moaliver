@@ -26,7 +26,18 @@ const MAX_WRITE_ATTEMPTS = 8;
 
 // passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
 // signupAmount: ההטענה הראשונה שנדרשת כדי לפתוח חשבון בעמדה (נכנסת כולה ליתרה)
-const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false, passwordResetPhone: '', signupAmount: 10 };
+// communityJoinUrl: דף נדרים פלוס להקמת הוראת קבע "דמי חבר" (ריק = בלי כפתור הצטרפות)
+// memberKevaGroupe / memberKevaMinAmount: איזו הוראת קבע מזכה בחברות מיידית (עד עדכון הקובץ)
+const DEFAULT_CONFIG = {
+  pricePerPage: 0.2,
+  allowedApps: [],
+  textEditorEnabled: false,
+  passwordResetPhone: '',
+  signupAmount: 10,
+  communityJoinUrl: 'https://nedar.im/icYF',
+  memberKevaGroupe: 'דמי חבר',
+  memberKevaMinAmount: 100
+};
 
 // ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
 // כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
@@ -648,6 +659,15 @@ async function updateConfig(event, patch) {
     const amount = Number(patch.signupAmount);
     if (!Number.isFinite(amount) || amount < 1) throw new Error('סכום פתיחת החשבון חייב להיות לפחות 1 ₪');
   }
+  let joinUrl;
+  if (patch.communityJoinUrl !== undefined) {
+    joinUrl = String(patch.communityJoinUrl || '').trim();
+    if (joinUrl && !/^https:\/\/[^\s]+$/i.test(joinUrl)) throw new Error('הקישור לדף ההצטרפות חייב להתחיל ב-https://');
+  }
+  if (patch.memberKevaMinAmount !== undefined) {
+    const min = Number(patch.memberKevaMinAmount);
+    if (!Number.isFinite(min) || min < 0) throw new Error('הסכום המינימלי להוראת הקבע חייב להיות מספר לא שלילי');
+  }
   let resetPhone;
   if (patch.passwordResetPhone !== undefined) {
     resetPhone = String(patch.passwordResetPhone || '').trim();
@@ -662,6 +682,9 @@ async function updateConfig(event, patch) {
     if (patch.textEditorEnabled !== undefined) config.textEditorEnabled = !!patch.textEditorEnabled;
     if (resetPhone !== undefined) config.passwordResetPhone = resetPhone;
     if (patch.signupAmount !== undefined) config.signupAmount = Number(patch.signupAmount);
+    if (joinUrl !== undefined) config.communityJoinUrl = joinUrl;
+    if (patch.memberKevaGroupe !== undefined) config.memberKevaGroupe = String(patch.memberKevaGroupe || '').trim();
+    if (patch.memberKevaMinAmount !== undefined) config.memberKevaMinAmount = Number(patch.memberKevaMinAmount);
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };
   });
