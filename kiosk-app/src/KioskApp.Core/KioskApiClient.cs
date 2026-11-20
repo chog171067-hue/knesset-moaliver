@@ -89,6 +89,39 @@ namespace KioskApp.Core
             };
         }
 
+        /// <summary>
+        /// פתיחת חשבון, כפתור "המשך": בדיקת הפרטים בשרת (ת"ז, כפילות, חסימה) והאם זה חבר קהילה.
+        /// לא יוצר חשבון.
+        /// </summary>
+        public async Task<SignupCheckResult> CheckSignupAsync(SignupDetails details, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<SignupCheckResponse>(
+                "/.netlify/functions/library-station-signup-check", ToPayload(details), ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "בדיקת הפרטים נכשלה", statusCode);
+            }
+            return new SignupCheckResult { IsCommunityMember = response.IsCommunityMember, SignupAmount = response.SignupAmount };
+        }
+
+        /// <summary>
+        /// פתיחת חשבון, כפתור "להטענה": מקים עסקה בנדרים פלוס על סכום פתיחת החשבון.
+        /// החשבון נוצר בשרת רק כשהתשלום מאושר - בודקים עם GetTopupStatusAsync(Token).
+        /// </summary>
+        public async Task<SignupInitResult> InitSignupAsync(SignupDetails details, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<SignupInitResponse>(
+                "/.netlify/functions/library-station-signup-init", ToPayload(details), ct);
+            if (!response.Success || string.IsNullOrEmpty(response.Token) || string.IsNullOrEmpty(response.TransactionId))
+            {
+                throw new KioskApiException(response.Error ?? "פתיחת עסקת התשלום נכשלה", statusCode);
+            }
+            return new SignupInitResult { Token = response.Token!, TransactionId = response.TransactionId!, Amount = response.Amount };
+        }
+
+        private static object ToPayload(SignupDetails d) =>
+            new { tz = d.Tz, displayName = d.DisplayName, phone = d.Phone, password = d.Password };
+
         public async Task<KioskConfig> GetConfigAsync(CancellationToken ct = default)
         {
             var response = await GetAsync<ConfigResponse>("/.netlify/functions/library-config", ct);
@@ -253,6 +286,19 @@ namespace KioskApp.Core
         {
             public string? Token { get; set; }
             public string? TransactionId { get; set; }
+        }
+
+        private class SignupCheckResponse : ApiEnvelope
+        {
+            public bool IsCommunityMember { get; set; }
+            public decimal SignupAmount { get; set; }
+        }
+
+        private class SignupInitResponse : ApiEnvelope
+        {
+            public string? Token { get; set; }
+            public string? TransactionId { get; set; }
+            public decimal Amount { get; set; }
         }
 
         private class TopupStatusResponse : ApiEnvelope

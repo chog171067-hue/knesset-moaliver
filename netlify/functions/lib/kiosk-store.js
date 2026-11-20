@@ -25,7 +25,8 @@ const MAX_PASSWORD_RESET_LOG = 3000;
 const MAX_WRITE_ATTEMPTS = 8;
 
 // passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
-const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false, passwordResetPhone: '' };
+// signupAmount: ההטענה הראשונה שנדרשת כדי לפתוח חשבון בעמדה (נכנסת כולה ליתרה)
+const DEFAULT_CONFIG = { pricePerPage: 0.2, allowedApps: [], textEditorEnabled: false, passwordResetPhone: '', signupAmount: 10 };
 
 // ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
 // כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
@@ -148,7 +149,11 @@ async function findUserByUsername(event, username) {
   const store = getKioskStore(event);
   const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
   const needle = String(username || '').trim().toLowerCase();
-  return Object.values(users).find(u => u.username.toLowerCase() === needle) || null;
+  const exact = Object.values(users).find(u => u.username.toLowerCase() === needle);
+  if (exact) return exact;
+  // ת"ז עם/בלי אפס מוביל (012345678 / 12345678) - אותו חשבון
+  const tz = normalizeTz(needle);
+  return tz ? (Object.values(users).find(u => normalizeTz(u.username) === tz) || null) : null;
 }
 
 async function createUser(event, { username, password, displayName, phone }) {
@@ -639,6 +644,10 @@ async function updateConfig(event, patch) {
   if (patch.allowedApps !== undefined && !Array.isArray(patch.allowedApps)) {
     throw new Error('רשימת התוכנות המאושרות חייבת להיות מערך');
   }
+  if (patch.signupAmount !== undefined) {
+    const amount = Number(patch.signupAmount);
+    if (!Number.isFinite(amount) || amount < 1) throw new Error('סכום פתיחת החשבון חייב להיות לפחות 1 ₪');
+  }
   let resetPhone;
   if (patch.passwordResetPhone !== undefined) {
     resetPhone = String(patch.passwordResetPhone || '').trim();
@@ -652,8 +661,95 @@ async function updateConfig(event, patch) {
     if (patch.allowedApps !== undefined) config.allowedApps = patch.allowedApps;
     if (patch.textEditorEnabled !== undefined) config.textEditorEnabled = !!patch.textEditorEnabled;
     if (resetPhone !== undefined) config.passwordResetPhone = resetPhone;
+    if (patch.signupAmount !== undefined) config.signupAmount = Number(patch.signupAmount);
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };
+  });
+}
+
+// ===================== פתיחת חשבון עצמית בעמדה =====================
+//
+// המשתמש ממלא שם, ת"ז, טלפון וסיסמה, ומשלם הטענה ראשונה (signupAmount). החשבון
+// נוצר רק כשנדרים פלוס מאשרים את התשלום (ב-CallBack, ראו confirmPendingTopup) -
+// עד אז הפרטים שמורים כ"פתיחת חשבון ממתינה" ב-pending-topups.json, עם הסיסמה
+// כבר מגובבת (hash). כך אין חשבונות "ריקים" שנפתחו בלי תשלום.
+
+// ספרת ביקורת של תעודת זהות ישראלית
+function isValidIsraeliId(value) {
+  const digits = String(value || '').trim();
+  if (!/^\d{5,9}$/.test(digits)) return false;
+  const padded = digits.padStart(9, '0');
+  if (/^0+$/.test(padded)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    let n = Number(padded[i]) * ((i % 2) + 1);
+    if (n > 9) n -= 9;
+    sum += n;
+  }
+  return sum % 10 === 0;
+}
+
+const SIGNUP_PASSWORD_PATTERN = /^\d{4,8}$/;
+
+// בדיקת הפרטים שהוקלדו בעמדה. מחזיר אותם מנוקים, או זורק שגיאה בעברית.
+function validateSignupDetails({ tz, displayName, phone, password }) {
+  const name = String(displayName || '').trim().replace(/\s+/g, ' ');
+  if (name.length < 2) throw new Error('יש להזין שם מלא');
+  if (name.split(' ').length < 2) throw new Error('יש להזין שם פרטי ושם משפחה');
+
+  const cleanTz = String(tz || '').replace(/\D/g, '');
+  if (!isValidIsraeliId(cleanTz)) throw new Error('מספר תעודת הזהות אינו תקין. יש לבדוק את המספר (כולל ספרת הביקורת)');
+
+  const cleanPhone = normalizePhone(phone);
+  if (!cleanPhone) throw new Error('יש להזין מספר טלפון תקין (למשל 0501234567)');
+
+  const pwd = String(password || '');
+  if (!SIGNUP_PASSWORD_PATTERN.test(pwd)) throw new Error('הסיסמה צריכה להיות בין 4 ל-8 ספרות (ספרות בלבד)');
+
+  return { username: cleanTz, displayName: name, phone: cleanPhone, password: pwd };
+}
+
+function isTzTaken(users, username) {
+  const tz = normalizeTz(username);
+  return Object.values(users).some(u => u.username.toLowerCase() === username.toLowerCase()
+    || (tz && normalizeTz(u.username) === tz));
+}
+
+const TZ_TAKEN_MESSAGE = 'כבר קיים חשבון עם תעודת הזהות הזאת. אפשר להיכנס דרך "כניסה לחשבון" (ואם הסיסמה נשכחה - "שכחתי סיסמה").';
+
+async function assertTzAvailable(event, username) {
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  if (isTzTaken(users, username)) throw new Error(TZ_TAKEN_MESSAGE);
+}
+
+// יוצר "פתיחת חשבון ממתינה" ומחזיר את האסימון לנדרים פלוס (Param1)
+async function createPendingSignup(event, details, amount) {
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new Error('סכום פתיחת החשבון אינו מוגדר כראוי');
+
+  await assertTzAvailable(event, details.username);
+
+  const { salt, hash } = hashPassword(details.password);
+  const token = crypto.randomUUID();
+  const store = getKioskStore(event);
+  return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+    pending[token] = {
+      token,
+      type: 'signup',
+      userId: null,
+      amount: numericAmount,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      signup: {
+        username: details.username,
+        displayName: details.displayName,
+        phone: details.phone,
+        passwordSalt: salt,
+        passwordHash: hash
+      }
+    };
+    return { token, amount: numericAmount };
   });
 }
 
@@ -757,10 +853,33 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
   }
 
   const creditAmount = Number(nedarimAmount) > 0 ? Number(nedarimAmount) : claim.entry.amount;
+  const isSignup = claim.entry.type === 'signup';
 
   try {
     const store = getKioskStore(event);
     const updatedUser = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+      if (isSignup) {
+        // פתיחת חשבון: החשבון נוצר עכשיו, עם התשלום כיתרה התחלתית
+        const s = claim.entry.signup;
+        if (!s) throw new Error('פרטי פתיחת החשבון חסרים');
+        if (isTzTaken(users, s.username)) throw new Error('התשלום התקבל, אך כבר קיים חשבון עם תעודת הזהות הזאת');
+        const id = crypto.randomUUID();
+        const now = new Date().toISOString();
+        users[id] = {
+          id,
+          username: s.username,
+          displayName: s.displayName,
+          phone: s.phone,
+          passwordSalt: s.passwordSalt,
+          passwordHash: s.passwordHash,
+          balance: Number(creditAmount.toFixed(2)),
+          isActive: true,
+          createdVia: 'kiosk-signup',
+          createdAt: now,
+          updatedAt: now
+        };
+        return toPublicUser(users[id]);
+      }
       const user = users[claim.entry.userId];
       if (!user) throw new Error('משתמש לא נמצא (נמחק בזמן התשלום)');
       user.balance = Number((user.balance + creditAmount).toFixed(2));
@@ -769,11 +888,11 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
     });
 
     const transaction = await appendTransaction(event, {
-      userId: claim.entry.userId,
+      userId: updatedUser.id,
       type: 'topup',
       source: 'nedarim',
       amount: creditAmount,
-      description: 'הטענת כסף באשראי דרך נדרים פלוס',
+      description: isSignup ? 'פתיחת חשבון בעמדה - הטענה ראשונה באשראי דרך נדרים פלוס' : 'הטענת כסף באשראי דרך נדרים פלוס',
       nedarimTransactionId: nedarimTransactionId || null,
       confirmation: confirmation || null,
       nedarimRaw: raw || null
@@ -781,6 +900,9 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
 
     await markPendingTopupOutcome(event, token, {
       status: 'confirmed',
+      userId: updatedUser.id,
+      // הסיסמה המגובבת כבר בחשבון עצמו - לא משאירים עותק ברשומת התשלום
+      ...(isSignup ? { signup: { username: claim.entry.signup.username, displayName: claim.entry.signup.displayName } } : {}),
       confirmedAt: new Date().toISOString(),
       nedarimTransactionId: nedarimTransactionId || null,
       confirmation: confirmation || null,
@@ -789,7 +911,12 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
 
     return { duplicate: false, user: updatedUser, transaction };
   } catch (err) {
-    await markPendingTopupOutcome(event, token, { status: 'failed', failReason: err.message }).catch(() => {});
+    const failPatch = { status: 'failed', failReason: err.message };
+    if (isSignup && claim.entry.signup) {
+      // נשמרים הפרטים לטיפול ידני, בלי הסיסמה המגובבת
+      failPatch.signup = { username: claim.entry.signup.username, displayName: claim.entry.signup.displayName, phone: claim.entry.signup.phone };
+    }
+    await markPendingTopupOutcome(event, token, failPatch).catch(() => {});
     throw err;
   }
 }
@@ -843,6 +970,9 @@ module.exports = {
   chargeForPrint,
   refundPrintCharge,
   createPendingTopup,
+  validateSignupDetails,
+  assertTzAvailable,
+  createPendingSignup,
   confirmPendingTopup,
   recordOrphanTopup,
   getPendingTopupStatus
