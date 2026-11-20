@@ -13,9 +13,12 @@
         Background="{StaticResource KioskCardBrush}">
     <DockPanel Margin="28,24">
         <StackPanel DockPanel.Dock="Top" x:Name="AmountPanel">
-            <TextBlock Text="הטענת כסף לחשבון" Style="{StaticResource KioskHeading}" FontSize="28" Margin="0,0,0,18" />
-            <TextBlock Text="סכום להטענה (₪)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <TextBlock x:Name="TitleText" Text="הטענת כסף לחשבון" Style="{StaticResource KioskHeading}" FontSize="28" Margin="0,0,0,18" />
+            <TextBlock x:Name="AmountLabel" Text="סכום להטענה (₪)" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
             <TextBox x:Name="AmountBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,18" />
+            <!-- פתיחת חשבון: הסכום קבוע (נקבע בדף הניהול), מוצג ולא נערך -->
+            <TextBlock x:Name="FixedAmountText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+                       Margin="0,0,0,18" Visibility="Collapsed" />
             <Button x:Name="ContinueButton" Content="המשך לתשלום" Style="{StaticResource KioskPrimaryButton}"
                     MinHeight="50" FontSize="18" Click="OnContinueClick" />
             <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}" FontWeight="SemiBold" FontSize="15"

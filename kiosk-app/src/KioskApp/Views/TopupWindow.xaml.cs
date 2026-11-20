@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using KioskApp.Core.Models;
 using KioskApp.Services;
 
 namespace KioskApp.Views
@@ -19,51 +20,81 @@ namespace KioskApp.Views
         private bool _completed;
         private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
+        // מצב "פתיחת חשבון": אין עדיין משתמש מחובר. התשלום יוצר את החשבון בשרת,
+        // והחלון רק מדווח שהצליח (SignupCompleted) - מסך הכניסה מתחבר אחר כך.
+        private readonly SignupDetails? _signup;
+
+        /// <summary>true אחרי שהשרת אישר את התשלום ופתח את החשבון (מצב פתיחת חשבון)</summary>
+        public bool SignupCompleted { get; private set; }
+
         public TopupWindow()
         {
             InitializeComponent();
+        }
+
+        /// <summary>תשלום פתיחת חשבון - סכום קבוע, נפתח ישר לטופס האשראי</summary>
+        public TopupWindow(SignupDetails signup, decimal amount) : this()
+        {
+            _signup = signup;
+            Title = "תשלום לפתיחת חשבון";
+            TitleText.Text = "תשלום לפתיחת החשבון";
+            AmountLabel.Visibility = Visibility.Collapsed;
+            AmountBox.Visibility = Visibility.Collapsed;
+            FixedAmountText.Text = $"סכום: {amount:0.##} ₪ (נכנס כולו ליתרה בחשבון שלך)";
+            FixedAmountText.Visibility = Visibility.Visible;
+            Loaded += (_, _) => OnContinueClick(this, new RoutedEventArgs());
         }
 
         private async void OnContinueClick(object sender, RoutedEventArgs e)
         {
             HideError();
 
-            if (!decimal.TryParse(AmountBox.Text, out var amount) || amount <= 0)
-            {
-                ShowError("יש להזין סכום תקין");
-                return;
-            }
-
-            var userId = App.Session.CurrentUser?.Id;
-            if (string.IsNullOrEmpty(userId))
-            {
-                ShowError("אין משתמש מחובר");
-                return;
-            }
-
             ContinueButton.IsEnabled = false;
             ContinueButton.Content = "פותח טופס תשלום...";
 
             try
             {
-                var initResult = await App.ApiClient.InitTopupAsync(userId, amount);
-                _pendingToken = initResult.Token;
-                _transactionId = initResult.TransactionId;
+                if (_signup != null)
+                {
+                    var signupInit = await App.ApiClient.InitSignupAsync(_signup);
+                    _pendingToken = signupInit.Token;
+                    _transactionId = signupInit.TransactionId;
+                }
+                else
+                {
+                    if (!decimal.TryParse(AmountBox.Text, out var amount) || amount <= 0)
+                    {
+                        throw new InvalidOperationException("יש להזין סכום תקין");
+                    }
+                    var userId = App.Session.CurrentUser?.Id;
+                    if (string.IsNullOrEmpty(userId))
+                    {
+                        throw new InvalidOperationException("אין משתמש מחובר");
+                    }
+                    var initResult = await App.ApiClient.InitTopupAsync(userId, amount);
+                    _pendingToken = initResult.Token;
+                    _transactionId = initResult.TransactionId;
+                }
+                _completed = false;
 
                 // נתוני הדפדפן הפנימי - בתיקייה האישית של המשתמש, ולא ליד קובץ ה-exe (ברירת המחדל):
                 // תיקיית הקיוסק היא "קריאה בלבד" למשתמש הקיוסק (ראו Setup-KioskUser.ps1)
-                var webViewData = System.IO.Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KioskApp", "WebView2");
-                var webViewEnv = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(null, webViewData);
-                await WebView.EnsureCoreWebView2Async(webViewEnv);
-                WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+                // (רק בפעם הראשונה - אחרי תשלום שנדחה ו"המשך לתשלום" מחדש, הדפדפן כבר מוכן)
+                if (WebView.CoreWebView2 == null)
+                {
+                    var webViewData = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KioskApp", "WebView2");
+                    var webViewEnv = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(null, webViewData);
+                    await WebView.EnsureCoreWebView2Async(webViewEnv);
+                    WebView.CoreWebView2!.WebMessageReceived += OnWebMessageReceived;
+                }
                 // לא שולחים את פקודת התשלום אוטומטית: היא הייתה נשלחת לפני שהמשתמש הספיק
                 // להקליד את פרטי הכרטיס, ונדרים פלוס מתעלם ממנה. המשתמש לוחץ "בצע תשלום"
                 // בעצמו אחרי שמילא את הפרטים (כמו ב-personal.html, submitLibraryPayment).
                 // הדף המתווך מאוחסן באתר (kiosk-topup-wrapper.html) ולא נוצר כאן בקוד: לדף בלי
                 // כתובת אמיתית נדרים פלוס לא שולחים את התשובה (אושר/נדחה), והחלון היה ממתין
                 // עד תום הזמן גם כשהעסקה נדחתה.
-                WebView.CoreWebView2.Navigate($"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-topup-wrapper.html");
+                WebView.CoreWebView2!.Navigate($"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-topup-wrapper.html");
 
                 AmountPanel.Visibility = Visibility.Collapsed;
                 WebView.Visibility = Visibility.Visible;
@@ -159,15 +190,17 @@ namespace KioskApp.Views
 
         private async Task PollTopupStatusAsync(int maxAttempts)
         {
-            if (_pendingToken == null) return;
+            var token = _pendingToken;
+            if (token == null) return;
 
             // 2 שניות בין ניסיונות. מתחיל מיד עם הלחיצה על "בצע תשלום", ולכן מספר
             // הניסיונות גבוה (90 = 3 דקות) - כולל הזמן שנדרים פלוס מעבד את הכרטיס.
-            for (var attempt = 0; attempt < maxAttempts && !_completed; attempt++)
+            // אחרי תשלום שנדחה ו"המשך לתשלום" מחדש יש אסימון חדש - הבדיקה הישנה נעצרת
+            for (var attempt = 0; attempt < maxAttempts && !_completed && token == _pendingToken; attempt++)
             {
                 try
                 {
-                    var status = await App.ApiClient.GetTopupStatusAsync(_pendingToken);
+                    var status = await App.ApiClient.GetTopupStatusAsync(token);
                     if (status.Status == "failed" && !_completed)
                     {
                         // נדרים פלוס דיווח על התשלום, אבל זיכוי היתרה בשרת נכשל - צריך טיפול ידני
@@ -175,7 +208,9 @@ namespace KioskApp.Views
                         PayButton.Visibility = Visibility.Collapsed;
                         WebView.Visibility = Visibility.Collapsed;
                         App.LogError("הטענה: התשלום התקבל אך זיכוי היתרה נכשל בשרת", new InvalidOperationException(_pendingToken));
-                        ShowStatus("התשלום התקבל, אך עדכון היתרה נכשל. נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.");
+                        ShowStatus(_signup != null
+                            ? "התשלום התקבל, אך פתיחת החשבון נכשלה (ייתכן שכבר קיים חשבון עם תעודת הזהות הזאת). נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת."
+                            : "התשלום התקבל, אך עדכון היתרה נכשל. נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.");
                         return;
                     }
                     if (status.Status == "confirmed" && !_completed)
@@ -183,6 +218,14 @@ namespace KioskApp.Views
                         _completed = true;
                         PayButton.Visibility = Visibility.Collapsed;
                         WebView.Visibility = Visibility.Collapsed;
+                        if (_signup != null)
+                        {
+                            SignupCompleted = true;
+                            ShowStatus("✅ התשלום אושר והחשבון נפתח!");
+                            await Task.Delay(1500);
+                            Close();
+                            return;
+                        }
                         // status.Amount הוא הסכום שבאמת זוכה בשרת (ראו confirmPendingTopup) -
                         // ולכן זה חישוב מדויק, לא ניחוש, גם אם הוא שונה מהסכום שהוזן במסך
                         var newBalance = App.Session.CurrentUser!.Balance + status.Amount;
@@ -201,10 +244,15 @@ namespace KioskApp.Views
                 await Task.Delay(2000);
             }
 
-            if (_completed) return;
+            if (_completed || token != _pendingToken) return;
             _completed = true;
             PayButton.Visibility = Visibility.Collapsed;
             WebView.Visibility = Visibility.Collapsed;
+            if (_signup != null)
+            {
+                ShowStatus("לא התקבל אישור תשלום. אם חויבתם - החשבון ייפתח אוטומטית תוך מספר דקות, ואז אפשר להיכנס דרך \"כניסה לחשבון\" עם תעודת הזהות והסיסמה שבחרתם. אחרת - סגרו חלון זה ונסו שוב.");
+                return;
+            }
             ShowStatus("לא התקבל אישור תשלום. אם חויבתם - היתרה תתעדכן אוטומטית תוך מספר דקות (אפשר להתנתק ולהתחבר מחדש כדי לראות). אחרת - סגרו חלון זה ונסו שוב.");
         }
 

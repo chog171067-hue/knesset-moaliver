@@ -576,6 +576,21 @@
                     <div class="form-error" id="libPriceError"></div>
                     <div class="success-box" id="libPriceSuccess"></div>
 
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">פתיחת חשבון בעמדה</h3>
+                    <p class="panel-desc">משתמש חדש פותח חשבון בעמדה בעצמו (שם, ת"ז, טלפון, סיסמה) ומשלם באשראי הטענה ראשונה. החשבון נוצר רק אחרי שהתשלום מאושר, והסכום כולו נכנס ליתרה שלו.</p>
+                    <div class="form-grid">
+                        <div class="field"><label>סכום ההטענה הראשונה (₪)</label><input type="number" step="1" min="1" id="libSignupAmount"></div>
+                    </div>
+                    <p class="panel-desc" style="margin-top:14px;">חבר קהילה (תגית בעמדה וזכאות להנחות) נקבע לפי קובץ התורמים. מי שלא ברשימה רואה כפתור "להצטרפות ל'חבר קהילה'" שפותח את דף נדרים פלוס שלמטה. אם הוא מקים שם הוראת קבע חדשה שעומדת בתנאים - הוא נחשב חבר קהילה מיד, עד העלאת הקובץ הבא (ואז הקובץ קובע). כשהקישור ריק, הכפתור לא מוצג.</p>
+                    <div class="form-grid">
+                        <div class="field"><label>קישור לדף ההצטרפות בנדרים פלוס</label><input type="url" id="libCommunityJoinUrl" placeholder="https://nedar.im/..." dir="ltr"></div>
+                        <div class="field"><label>קטגוריית הוראת הקבע</label><input type="text" id="libMemberKevaGroupe" placeholder="דמי חבר"></div>
+                        <div class="field"><label>סכום מינימלי להוראת הקבע (₪)</label><input type="number" step="1" min="0" id="libMemberKevaMinAmount"></div>
+                    </div>
+                    <button class="btn" id="libSaveSignupBtn" onclick="saveLibrarySignupAmount()" style="width:auto; padding:10px 22px;">שמירת הגדרות פתיחת חשבון</button>
+                    <div class="form-error" id="libSignupError"></div>
+                    <div class="success-box" id="libSignupSuccess"></div>
+
                     <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">שחזור סיסמה בטלפון</h3>
                     <p class="panel-desc">מספר הטלפון של שלוחת שחזור הסיסמה בימות המשיח. בעמדה, משתמש שמקליד תעודת זהות ולוחץ "שכחתי סיסמה" יראה את המספר הזה, ואת הטלפון הרשום בחשבונו בצורה מוסתרת (למשל 050-•••••67). כשהשדה ריק, הכפתור "שכחתי סיסמה" לא מוצג בעמדה.</p>
                     <div class="form-grid">
@@ -2088,6 +2103,10 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             document.getElementById('libPricePerPage').value = result.config.pricePerPage;
             document.getElementById('libTextEditorEnabled').checked = !!result.config.textEditorEnabled;
             document.getElementById('libPasswordResetPhone').value = result.config.passwordResetPhone || '';
+            document.getElementById('libSignupAmount').value = result.config.signupAmount != null ? result.config.signupAmount : 10;
+            document.getElementById('libCommunityJoinUrl').value = result.config.communityJoinUrl || '';
+            document.getElementById('libMemberKevaGroupe').value = result.config.memberKevaGroupe || '';
+            document.getElementById('libMemberKevaMinAmount').value = result.config.memberKevaMinAmount != null ? result.config.memberKevaMinAmount : 100;
             libraryAppsDraft = (result.config.allowedApps || []).map(a => ({ ...a }));
             renderLibraryAppsTable();
         } catch (err) {
@@ -2113,6 +2132,37 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             errorDiv.style.display = 'block';
         } finally {
             checkbox.disabled = false;
+        }
+    }
+
+    async function saveLibrarySignupAmount() {
+        const errorDiv = document.getElementById('libSignupError');
+        const successDiv = document.getElementById('libSignupSuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        const amount = Number(document.getElementById('libSignupAmount').value);
+        const btn = document.getElementById('libSaveSignupBtn');
+        btn.disabled = true;
+        btn.innerText = 'שומר...';
+        try {
+            await authedFetch('/.netlify/functions/library-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    signupAmount: amount,
+                    communityJoinUrl: document.getElementById('libCommunityJoinUrl').value.trim(),
+                    memberKevaGroupe: document.getElementById('libMemberKevaGroupe').value.trim(),
+                    memberKevaMinAmount: Number(document.getElementById('libMemberKevaMinAmount').value)
+                })
+            });
+            successDiv.innerText = '✅ ההגדרות נשמרו.';
+            successDiv.style.display = 'block';
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'שמירת הגדרות פתיחת חשבון';
         }
     }
 

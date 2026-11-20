@@ -81,4 +81,30 @@ namespace KioskApp.Core.Models
         public decimal Amount { get; set; }
         public DateTimeOffset? ConfirmedAt { get; set; }
     }
+
+    /// <summary>הפרטים שהמשתמש מילא במסך "פתיחת חשבון"</summary>
+    public class SignupDetails
+    {
+        public string Tz { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    public class SignupCheckResult
+    {
+        /// <summary>מופיע ברשימת חברי הקהילה (לתגית "חבר קהילה")</summary>
+        public bool IsCommunityMember { get; set; }
+        /// <summary>סכום ההטענה הראשונה לפתיחת החשבון</summary>
+        public decimal SignupAmount { get; set; }
+        /// <summary>דף נדרים פלוס להצטרפות כחבר קהילה (הוראת קבע). ריק = בלי כפתור הצטרפות</summary>
+        public string CommunityJoinUrl { get; set; } = "";
+    }
+
+    public class SignupInitResult
+    {
+        public string Token { get; set; } = "";
+        public string TransactionId { get; set; } = "";
+        public decimal Amount { get; set; }
+    }
 }
