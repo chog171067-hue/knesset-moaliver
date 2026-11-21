@@ -264,6 +264,9 @@ if ($LASTEXITCODE -eq 0) {
 # Windows מאפשר להסתיר אותה רק לכל המחשב; למנהל זה לא מפריע.
 if (-not (Test-Path $oldSys)) { New-Item -Path $oldSys -Force | Out-Null }
 Set-ItemProperty -Path $oldSys -Name "HideFastUserSwitching" -Value 1 -Type DWord
+# בלי כפתור כיבוי במסך הכניסה של Windows (מופיע אחרי "יציאה למחשב"): משתמש בספרייה לא
+# יכבה משם את העמדה. כפתור ההדלקה הפיזי ממשיך לכבות כרגיל.
+Set-ItemProperty -Path $oldSys -Name "shutdownwithoutlogon" -Value 0 -Type DWord
 Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
 Write-Host "Auto-logon to $KioskUsername enabled." -ForegroundColor Green
