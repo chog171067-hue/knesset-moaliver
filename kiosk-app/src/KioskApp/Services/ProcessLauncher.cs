@@ -32,6 +32,10 @@ namespace KioskApp.Services
             var process = Process.Start(new ProcessStartInfo
             {
                 FileName = exePath,
+                // מפעילים מתוך התיקייה של התוכנה - כמו קיצור דרך של Windows. בלי זה התוכנה
+                // רצה מהתיקייה של הקיוסק, ותוכנות שמחפשות קבצים לידן נכשלות (אוצר החכמה:
+                // "תקלה כללית, קוד שגיאה 16")
+                WorkingDirectory = Path.GetDirectoryName(exePath) ?? "",
                 UseShellExecute = true
             });
 
