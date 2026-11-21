@@ -12,16 +12,18 @@ using Microsoft.Web.WebView2.Wpf;
 namespace KioskApp.Views
 {
     /// <summary>
-    /// "להצטרפות ל'חבר קהילה'": דף נדרים פלוס להקמת הוראת קבע, בכרטיס בעיצוב הקיוסק.
-    /// זה לא דפדפן חופשי - מותר לגלוש רק לכתובות של נדרים פלוס (ושל הקישור עצמו);
-    /// כל כתובת אחרת נחסמת ונרשמת ביומן. ביציאה נמחקים נתוני הגלישה (עוגיות וכו'),
-    /// כדי שהמשתמש הבא לא ימצא את הפרטים של הקודם.
+    /// דף של נדרים פלוס בכרטיס בעיצוב הקיוסק - משמש ל"הצטרפות לחבר קהילה" (הוראת קבע)
+    /// ול"תשלום בכרטיס שמור" (האזור האישי בנדרים). זה לא דפדפן חופשי - מותר לגלוש רק
+    /// לכתובות של נדרים פלוס (ושל הקישור עצמו); כל כתובת אחרת נחסמת ונרשמת ביומן.
+    /// ביציאה נמחקים נתוני הגלישה (עוגיות, התחברות לאזור האישי), כדי שהמשתמש הבא לא
+    /// ימצא את עצמו מחובר לאזור האישי של הקודם.
     ///
-    /// סגירה אוטומטית: בזמן שהחלון פתוח בודקים מול השרת (checkJoined) אם הוקמה הוראת קבע
-    /// חדשה - כל כמה שניות, ומיד כשבדף מופיעה הודעת הצלחה. ברגע שנמצאה - הודעת הצלחה
-    /// קופצת והחלון נסגר לבד (Joined = true). X בפינה סוגר בלי להצטרף.
+    /// סגירה אוטומטית: בזמן שהחלון פתוח בודקים מול השרת (isDone) אם הפעולה הסתיימה -
+    /// כל כמה שניות, מיד כשבדף מופיעה הודעת הצלחה, ומיד כשנדרים פלוס מעבירים לדף החזרה
+    /// שלנו (returnUrlPrefix). ברגע שהסתיימה - החלון נסגר לבד (Completed = true),
+    /// אופציונלית עם הודעת הצלחה. X בפינה סוגר בלי לסיים.
     /// </summary>
-    public class JoinCommunityWindow : Window
+    public class NedarimPageWindow : Window
     {
         private static readonly string[] AllowedHostSuffixes = { "nedar.im", "matara.pro", "nedarimplus.co.il", "nedarim.org.il" };
         // מילים שמופיעות בדף אחרי שהוראת הקבע נקלטה - רק מקדימות בדיקה מול השרת, לא קובעות לבד
@@ -29,26 +31,43 @@ namespace KioskApp.Views
 
         private readonly string _startUrl;
         private readonly string _startHost;
-        private readonly Func<Task<bool>> _checkJoined;
+        private readonly Func<Task<bool>> _isDone;
+        private readonly string? _returnUrlPrefix;
+        private readonly string? _successTitle;
+        private readonly string? _successMessage;
+        private readonly TimeSpan _firstCheckAfter;
         private readonly WebView2 _webView = new();
-        private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(12) };
+        private readonly DispatcherTimer _pollTimer;
         private readonly DispatcherTimer _pageTextTimer = new() { Interval = TimeSpan.FromSeconds(3) };
         private readonly DateTime _openedAt = DateTime.Now;
         private bool _checking;
+        private DateTime _lastCheck = DateTime.MinValue;
         private bool _closing;
 
-        /// <summary>true אם נמצאה הוראת קבע חדשה והחלון נסגר בגללה</summary>
-        public bool Joined { get; private set; }
+        /// <summary>true אם הפעולה הסתיימה (לפי השרת) והחלון נסגר בגלל זה</summary>
+        public bool Completed { get; private set; }
 
         private static T Res<T>(string key) => (T)Application.Current.Resources[key];
 
-        public JoinCommunityWindow(string url, Func<Task<bool>> checkJoined)
+        /// <param name="isDone">בדיקה מול השרת: האם הפעולה הסתיימה</param>
+        /// <param name="pollSeconds">כל כמה שניות לבדוק</param>
+        /// <param name="firstCheckAfterSeconds">לא בודקים לפני שהמשתמש הספיק למלא את הטופס</param>
+        /// <param name="returnUrlPrefix">דף החזרה (Redirect) של נדרים פלוס - מעבר אליו = בדיקה מיידית</param>
+        /// <param name="successTitle">הודעת הצלחה קופצת לפני הסגירה (null = בלי)</param>
+        public NedarimPageWindow(string title, string subtitle, string url, Func<Task<bool>> isDone,
+            int pollSeconds, int firstCheckAfterSeconds, string? returnUrlPrefix = null,
+            string? successTitle = null, string? successMessage = null)
         {
             _startUrl = url;
             _startHost = Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host.ToLowerInvariant() : "";
-            _checkJoined = checkJoined;
+            _isDone = isDone;
+            _returnUrlPrefix = returnUrlPrefix;
+            _successTitle = successTitle;
+            _successMessage = successMessage;
+            _firstCheckAfter = TimeSpan.FromSeconds(firstCheckAfterSeconds);
+            _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(pollSeconds) };
 
-            Title = "הצטרפות לחבר קהילה";
+            Title = title;
             FlowDirection = FlowDirection.RightToLeft;
             WindowStyle = WindowStyle.None;
             WindowState = WindowState.Maximized;
@@ -67,7 +86,7 @@ namespace KioskApp.Views
             var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
             titles.Children.Add(new TextBlock
             {
-                Text = "הצטרפות לחבר קהילה",
+                Text = title,
                 FontSize = 28,
                 FontWeight = FontWeights.Bold,
                 FontFamily = Res<FontFamily>("KioskHeadingFont"),
@@ -75,7 +94,7 @@ namespace KioskApp.Views
             });
             titles.Children.Add(new TextBlock
             {
-                Text = "ממלאים את הטופס להקמת הוראת קבע. בסיום ההצטרפות החלון ייסגר לבד ותחזרו לפתיחת החשבון.",
+                Text = subtitle,
                 FontSize = 15,
                 Foreground = Res<Brush>("KioskMutedBrush"),
                 TextWrapping = TextWrapping.Wrap,
@@ -126,7 +145,7 @@ namespace KioskApp.Views
                 }
             };
 
-            _pollTimer.Tick += async (_, _) => await CheckJoinedAsync();
+            _pollTimer.Tick += async (_, _) => await CheckDoneAsync();
             _pageTextTimer.Tick += async (_, _) => await CheckPageTextAsync();
             Loaded += async (_, _) => await InitAsync();
             Closed += (_, _) => { _pollTimer.Stop(); _pageTextTimer.Stop(); };
@@ -161,7 +180,7 @@ namespace KioskApp.Views
                 Content = x,
                 Template = template,
                 Cursor = System.Windows.Input.Cursors.Hand,
-                ToolTip = "סגירה בלי להצטרף",
+                ToolTip = "סגירה",
                 VerticalAlignment = VerticalAlignment.Top
             };
             button.Click += async (_, _) => await CloseAndClearAsync();
@@ -185,15 +204,15 @@ namespace KioskApp.Views
                 core.NavigationStarting += OnNavigationStarting;
                 core.NewWindowRequested += OnNewWindowRequested;
                 core.Navigate(_startUrl);
-                App.LogInfo("הצטרפות לחבר קהילה: נפתח דף נדרים פלוס");
+                App.LogInfo($"{Title}: נפתח דף נדרים פלוס");
                 _pollTimer.Start();
                 _pageTextTimer.Start();
             }
             catch (Exception ex)
             {
-                App.LogError("הצטרפות לחבר קהילה: כשל בפתיחת הדף", ex);
-                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן לפתוח את דף ההצטרפות",
-                    "אפשר להמשיך בפתיחת החשבון ולהצטרף בהמשך.");
+                App.LogError($"{Title}: כשל בפתיחת הדף", ex);
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן לפתוח את הדף של נדרים פלוס",
+                    "אפשר לנסות שוב בעוד רגע.");
                 Close();
             }
         }
@@ -209,7 +228,11 @@ namespace KioskApp.Views
                     "for(var i=0;i<window.frames.length;i++){try{t+=' '+window.frames[i].document.body.innerText}catch(e){}}" +
                     "return t;})()");
                 var text = JsonSerializer.Deserialize<string>(json) ?? "";
-                if (SuccessHints.Any(h => text.Contains(h))) await CheckJoinedAsync();
+                // מילים כמו "תודה" עשויות להופיע בדף גם לפני התשלום - לכן לכל היותר בדיקה אחת ל-10 שניות
+                if (SuccessHints.Any(h => text.Contains(h)) && DateTime.Now - _lastCheck > TimeSpan.FromSeconds(10))
+                {
+                    await CheckDoneAsync(force: true);
+                }
             }
             catch
             {
@@ -217,29 +240,31 @@ namespace KioskApp.Views
             }
         }
 
-        private async Task CheckJoinedAsync()
+        private async Task CheckDoneAsync(bool force = false)
         {
             if (_checking || _closing) return;
-            // ההוראה לא תופיע לפני שהמשתמש הספיק למלא את הטופס - חוסכים בדיקות מיותרות
-            if (DateTime.Now - _openedAt < TimeSpan.FromSeconds(15)) return;
+            if (!force && DateTime.Now - _openedAt < _firstCheckAfter) return;
             // אחרי חצי שעה (החלון נשכח פתוח) - מפסיקים לבדוק
             if (DateTime.Now - _openedAt > TimeSpan.FromMinutes(30)) { _pollTimer.Stop(); _pageTextTimer.Stop(); return; }
 
             _checking = true;
+            _lastCheck = DateTime.Now;
             try
             {
-                if (!await _checkJoined()) return;
-                Joined = true;
+                if (!await _isDone()) return;
+                Completed = true;
                 _pollTimer.Stop();
                 _pageTextTimer.Stop();
-                App.LogInfo("הצטרפות לחבר קהילה: הוראת הקבע נמצאה - סוגר את הדף");
-                await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success,
-                    "ההצטרפות נקלטה!", "החשבון יוגדר כחבר קהילה. חוזרים לפתיחת החשבון...", 2.5);
+                App.LogInfo($"{Title}: הפעולה הסתיימה - סוגר את הדף");
+                if (_successTitle != null)
+                {
+                    await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success, _successTitle, _successMessage ?? "", 2.5);
+                }
                 await CloseAndClearAsync();
             }
             catch (Exception ex)
             {
-                App.LogError("הצטרפות לחבר קהילה: כשל בבדיקה מול השרת", ex);
+                App.LogError($"{Title}: כשל בבדיקה מול השרת", ex);
             }
             finally
             {
@@ -257,11 +282,18 @@ namespace KioskApp.Views
             return AllowedHostSuffixes.Any(s => host == s || host.EndsWith("." + s));
         }
 
-        private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+        private async void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
         {
+            // נדרים פלוס מעבירים לדף החזרה שלנו בסוף תשלום מוצלח - לא מציגים אותו, רק בודקים מיד
+            if (_returnUrlPrefix != null && e.Uri.StartsWith(_returnUrlPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                e.Cancel = true;
+                await CheckDoneAsync(force: true);
+                return;
+            }
             if (IsAllowed(e.Uri)) return;
             e.Cancel = true;
-            App.LogInfo($"הצטרפות לחבר קהילה: נחסמה גלישה לכתובת שאינה של נדרים פלוס: {e.Uri}");
+            App.LogInfo($"{Title}: נחסמה גלישה לכתובת שאינה של נדרים פלוס: {e.Uri}");
         }
 
         // קישורים שנפתחים בחלון חדש - נפתחים באותו חלון (אם מותרים), לא בחלון דפדפן נפרד
@@ -269,7 +301,7 @@ namespace KioskApp.Views
         {
             e.Handled = true;
             if (IsAllowed(e.Uri)) _webView.CoreWebView2?.Navigate(e.Uri);
-            else App.LogInfo($"הצטרפות לחבר קהילה: נחסם חלון חדש לכתובת: {e.Uri}");
+            else App.LogInfo($"{Title}: נחסם חלון חדש לכתובת: {e.Uri}");
         }
 
         private async Task CloseAndClearAsync()
@@ -287,7 +319,7 @@ namespace KioskApp.Views
             }
             catch (Exception ex)
             {
-                App.LogError("הצטרפות לחבר קהילה: כשל במחיקת נתוני הגלישה", ex);
+                App.LogError($"{Title}: כשל במחיקת נתוני הגלישה", ex);
             }
             Close();
         }

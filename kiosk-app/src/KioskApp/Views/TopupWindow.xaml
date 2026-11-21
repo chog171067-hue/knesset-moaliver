@@ -58,8 +58,17 @@
                     <TextBlock x:Name="FixedAmountText" FontSize="18" FontWeight="SemiBold"
                                TextAlignment="Center" TextWrapping="Wrap" />
                 </Border>
-                <Button x:Name="ContinueButton" Content="המשך לתשלום" Style="{StaticResource KioskPrimaryButton}"
-                        MinHeight="50" FontSize="18" Click="OnContinueClick" />
+                <Button x:Name="ContinueButton" Content="תשלום בכרטיס אשראי" Style="{StaticResource KioskPrimaryButton}"
+                        MinHeight="52" FontSize="18" Click="OnContinueClick" />
+                <!-- הדף הרגיל של נדרים פלוס: כניסה לאזור האישי שלהם ותשלום בכרטיס שנשמר שם -->
+                <Button x:Name="OnlinePayButton" Style="{StaticResource KioskSecondaryButton}"
+                        MinHeight="52" FontSize="17" Margin="0,10,0,0" Click="OnOnlinePayClick">
+                    <StackPanel>
+                        <TextBlock Text="תשלום בכרטיס שמור" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="דרך האזור האישי בנדרים פלוס" FontSize="13" FontWeight="Normal"
+                                   Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Button>
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}" FontWeight="SemiBold" FontSize="15"
                            TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0" Visibility="Collapsed" />
             </StackPanel>

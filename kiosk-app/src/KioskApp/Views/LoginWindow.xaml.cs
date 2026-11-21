@@ -490,14 +490,20 @@ namespace KioskApp.Views
             }
 
             var known = _kevaIdsBeforeJoin;
-            var join = new JoinCommunityWindow(_communityJoinUrl,
-                () => App.ApiClient.CheckCommunityMembershipAsync(tz, known)) { Owner = this };
+            var join = new NedarimPageWindow(
+                "הצטרפות לחבר קהילה",
+                "ממלאים את הטופס להקמת הוראת קבע. בסיום ההצטרפות החלון ייסגר לבד ותחזרו לפתיחת החשבון.",
+                _communityJoinUrl,
+                () => App.ApiClient.CheckCommunityMembershipAsync(tz, known),
+                pollSeconds: 12, firstCheckAfterSeconds: 15,
+                successTitle: "ההצטרפות נקלטה!",
+                successMessage: "החשבון יוגדר כחבר קהילה. חוזרים לפתיחת החשבון...") { Owner = this };
             _paymentOpen = true;
             try { join.ShowDialog(); }
             finally { _paymentOpen = false; _lastActivity = DateTime.Now; }
 
             JoinCommunityButton.IsEnabled = true;
-            if (join.Joined)
+            if (join.Completed)
             {
                 JoinStatusText.Visibility = Visibility.Collapsed;
                 SetMemberView(true);

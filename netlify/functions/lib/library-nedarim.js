@@ -1,6 +1,11 @@
 // אינטגרציית נדרים פלוס ייעודית להטענת כסף בקיוסק הספרייה - מוסד/מפתח נפרדים
 // מ-lib/nedarim.js (ששייך לתרומות בית הכנסת), כי ה-ApiValid כאן הוא "טקסט
 // אימות" לביצוע עסקאות (מסך מפתחות API), לא ApiPassword למשיכת דוחות.
+// הקטגוריה בנדרים פלוס של כל תשלום שנכנס ליתרה בקיוסק: הטענות מהעמדה, מהאזור האישי
+// באתר, מהאזור האישי בנדרים פלוס, ותרומות בעמדות נדרים פלוס / הוראות קבע בקטגוריה הזו
+// (את האחרונות מזהה ה-Webhook לפי הקטגוריה - ראו nedarim-webhook.js)
+const KIOSK_NEDARIM_GROUPE = 'עמדת מחשב';
+
 function getLibraryNedarimCredentials() {
   const mosad = process.env.LIBRARY_NEDARIM_MOSAD;
   const apiValid = process.env.LIBRARY_NEDARIM_API_VALID;
@@ -40,7 +45,7 @@ async function createServerTransaction({ amount, param1, callbackUrl, fullName, 
     Amount: String(amount),
     Currency: '1',
     Tashlumim: '1',
-    Groupe: 'קיוסק ספריה',
+    Groupe: KIOSK_NEDARIM_GROUPE,
     Param1: param1,
     CallBack: callbackUrl,
     AjaxId: `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -72,4 +77,29 @@ async function createServerTransaction({ amount, param1, callbackUrl, fullName, 
   return { transactionId: data.ID };
 }
 
-module.exports = { getLibraryNedarimCredentials, createServerTransaction };
+// קישור לדף התשלום הרגיל של נדרים פלוס (לא אייפרם - רק שם עובד האזור האישי עם הכרטיסים
+// השמורים). הסכום, הקטגוריה ופרטי המשלם ננעלים; Analytic (האסימון שלנו) נרשם בתחילת
+// ההערות של העסקה, ולפיו ה-Webhook יודע לאיזה חשבון להטעין. Redirect - כדי שהעמדה
+// תדע מיד שהתשלום הסתיים (היא לא באמת טוענת את הדף הזה, רק מזהה את המעבר אליו).
+function buildOnlinePaymentUrl({ amount, token, fullName, tz, phone, redirectUrl }) {
+  const mosad = process.env.LIBRARY_NEDARIM_MOSAD;
+  if (!mosad) throw new Error('שגיאת שרת: מספר המוסד בנדרים פלוס עבור הקיוסק אינו מוגדר');
+  const params = new URLSearchParams({
+    mosad,
+    Amount: String(amount),
+    AmountLock: '1',
+    Groupe: KIOSK_NEDARIM_GROUPE,
+    GroupeLock: '1',
+    OnlyNormal: '1',
+    OnlyShekel: '1',
+    Analytic: token,
+    HideParameters: '1'
+  });
+  if (fullName) params.set('ClientName', String(fullName));
+  if (phone) params.set('Phone', String(phone).replace(/[-\s]/g, ''));
+  if (tz && /^\d{5,9}$/.test(String(tz))) params.set('Zeout', String(tz));
+  if (redirectUrl) params.set('Redirect', redirectUrl);
+  return `https://www.matara.pro/nedarimplus/online/?${params.toString()}`;
+}
+
+module.exports = { KIOSK_NEDARIM_GROUPE, getLibraryNedarimCredentials, createServerTransaction, buildOnlinePaymentUrl };

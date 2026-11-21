@@ -43,7 +43,6 @@ namespace KioskApp.Views
             AmountBox.Visibility = Visibility.Collapsed;
             FixedAmountText.Text = $"סכום: {amount:0.##} ₪ - נכנס כולו ליתרה בחשבון שלך";
             FixedAmountBox.Visibility = Visibility.Visible;
-            Loaded += (_, _) => OnContinueClick(this, new RoutedEventArgs());
         }
 
         private bool _paymentSubmitted;
@@ -53,20 +52,7 @@ namespace KioskApp.Views
         {
             HideError();
 
-            decimal amount = 0;
-            if (_signup == null)
-            {
-                if (!decimal.TryParse(AmountBox.Text, out amount) || amount <= 0)
-                {
-                    ShowError("יש להזין סכום תקין");
-                    return;
-                }
-                if (string.IsNullOrEmpty(App.Session.CurrentUser?.Id))
-                {
-                    ShowError("אין משתמש מחובר");
-                    return;
-                }
-            }
+            if (!TryGetAmount(out var amount)) return;
 
             ContinueButton.IsEnabled = false;
             ContinueButton.Content = "פותח טופס תשלום...";
@@ -124,13 +110,11 @@ namespace KioskApp.Views
             {
                 App.LogError("כשל בפתיחת עסקת הטענה", ex);
                 KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן לפתוח את טופס התשלום", ex.Message);
-                // בפתיחת חשבון החלון נפתח ישר לטופס - אם נכשל, אין מה להציג; חוזרים לחלון הקודם
-                if (_signup != null && !_paymentSubmitted) { Close(); return; }
             }
             finally
             {
                 ContinueButton.IsEnabled = true;
-                ContinueButton.Content = "המשך לתשלום";
+                ContinueButton.Content = "תשלום בכרטיס אשראי";
             }
         }
 
@@ -249,36 +233,16 @@ namespace KioskApp.Views
                     var status = await App.ApiClient.GetTopupStatusAsync(token);
                     if (status.Status == "failed" && !_completed)
                     {
-                        // נדרים פלוס דיווח על התשלום, אבל זיכוי היתרה בשרת נכשל - צריך טיפול ידני
                         _completed = true;
                         CloseProgress();
-                        App.LogError("הטענה: התשלום התקבל אך זיכוי היתרה נכשל בשרת", new InvalidOperationException(token));
-                        KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "נדרש טיפול של הצוות",
-                            _signup != null
-                                ? "התשלום התקבל, אך פתיחת החשבון נכשלה (ייתכן שכבר קיים חשבון עם תעודת הזהות הזאת). נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת."
-                                : "התשלום התקבל, אך עדכון היתרה נכשל. נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.");
-                        Close();
+                        ShowServerFailed(token);
                         return;
                     }
                     if (status.Status == "confirmed" && !_completed)
                     {
                         _completed = true;
                         CloseProgress();
-                        if (_signup != null)
-                        {
-                            SignupCompleted = true;
-                            await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success,
-                                "החשבון נפתח בהצלחה!", $"{status.Amount:0.##} ₪ נטענו ליתרה שלך. נכנסים לחשבון...", 2.5);
-                            Close();
-                            return;
-                        }
-                        // status.Amount הוא הסכום שבאמת זוכה בשרת (ראו confirmPendingTopup) -
-                        // ולכן זה חישוב מדויק, לא ניחוש, גם אם הוא שונה מהסכום שהוזן במסך
-                        var newBalance = App.Session.CurrentUser!.Balance + status.Amount;
-                        App.Session.UpdateBalance(newBalance);
-                        await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success,
-                            "הטענת הכסף אושרה!", $"{status.Amount:0.##} ₪ נוספו ליתרה. היתרה עכשיו: {newBalance:0.##} ₪", 2.5);
-                        Close();
+                        await ShowConfirmedAndCloseAsync(status.Amount);
                         return;
                     }
                 }
@@ -298,6 +262,113 @@ namespace KioskApp.Views
                     ? "אם חויבתם - החשבון ייפתח אוטומטית תוך מספר דקות, ואז אפשר להיכנס דרך \"כניסה לחשבון\" עם תעודת הזהות והסיסמה שבחרתם. אחרת - אפשר לנסות שוב."
                     : "אם חויבתם - היתרה תתעדכן אוטומטית תוך מספר דקות (אפשר להתנתק ולהתחבר מחדש כדי לראות). אחרת - אפשר לנסות שוב.");
             Close();
+        }
+
+        /// <summary>סכום מהשדה (בהטענה רגילה) - בפתיחת חשבון הסכום נקבע בשרת</summary>
+        private bool TryGetAmount(out decimal amount)
+        {
+            amount = 0;
+            if (_signup != null) return true;
+            if (!decimal.TryParse(AmountBox.Text, out amount) || amount <= 0)
+            {
+                ShowError("יש להזין סכום תקין");
+                return false;
+            }
+            if (string.IsNullOrEmpty(App.Session.CurrentUser?.Id))
+            {
+                ShowError("אין משתמש מחובר");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>התשלום אושר בשרת: הודעת הצלחה, עדכון יתרה (בהטענה רגילה), וסגירה</summary>
+        private async Task ShowConfirmedAndCloseAsync(decimal creditedAmount)
+        {
+            if (_signup != null)
+            {
+                SignupCompleted = true;
+                await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success,
+                    "החשבון נפתח בהצלחה!", $"{creditedAmount:0.##} ₪ נטענו ליתרה שלך. נכנסים לחשבון...", 2.5);
+                Close();
+                return;
+            }
+            // creditedAmount הוא הסכום שבאמת זוכה בשרת (ראו confirmPendingTopup) -
+            // ולכן זה חישוב מדויק, לא ניחוש, גם אם הוא שונה מהסכום שהוזן במסך
+            var newBalance = App.Session.CurrentUser!.Balance + creditedAmount;
+            App.Session.UpdateBalance(newBalance);
+            await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success,
+                "הטענת הכסף אושרה!", $"{creditedAmount:0.##} ₪ נוספו ליתרה. היתרה עכשיו: {newBalance:0.##} ₪", 2.5);
+            Close();
+        }
+
+        /// <summary>נדרים פלוס דיווח על התשלום, אבל הטעינה בשרת נכשלה - צריך טיפול ידני</summary>
+        private void ShowServerFailed(string token)
+        {
+            App.LogError("הטענה: התשלום התקבל אך זיכוי היתרה נכשל בשרת", new InvalidOperationException(token));
+            KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "נדרש טיפול של הצוות",
+                _signup != null
+                    ? "התשלום התקבל, אך פתיחת החשבון נכשלה (ייתכן שכבר קיים חשבון עם תעודת הזהות הזאת). נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת."
+                    : "התשלום התקבל, אך עדכון היתרה נכשל. נא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.");
+            Close();
+        }
+
+        /// <summary>
+        /// "תשלום בכרטיס שמור": הדף הרגיל של נדרים פלוס, שבו המשתמש נכנס לאזור האישי שלו
+        /// ומשלם בכרטיס שנשמר שם. הסכום נטען לפי הודעת ה-Webhook מנדרים פלוס (לא לפי מה
+        /// שהדף מציג), והחלון בודק את המצב מול השרת שלנו עד שהתשלום מאושר.
+        /// </summary>
+        private async void OnOnlinePayClick(object sender, RoutedEventArgs e)
+        {
+            HideError();
+            if (!TryGetAmount(out var amount)) return;
+
+            OnlinePayButton.IsEnabled = false;
+            ContinueButton.IsEnabled = false;
+            OnlinePaymentResult payment;
+            try
+            {
+                payment = await App.ApiClient.InitOnlinePaymentAsync(
+                    _signup == null ? App.Session.CurrentUser!.Id : null, amount, _signup);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("הטענה בכרטיס שמור: כשל בהכנת התשלום", ex);
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן לפתוח את נדרים פלוס", ex.Message);
+                return;
+            }
+            finally
+            {
+                OnlinePayButton.IsEnabled = true;
+                ContinueButton.IsEnabled = true;
+            }
+
+            string? finalStatus = null;
+            decimal finalAmount = 0;
+            async Task<bool> CheckAsync()
+            {
+                var st = await App.ApiClient.GetTopupStatusAsync(payment.Token);
+                finalStatus = st.Status;
+                finalAmount = st.Amount;
+                return st.Status is "confirmed" or "failed";
+            }
+
+            var page = new NedarimPageWindow(
+                "תשלום בכרטיס שמור",
+                "נכנסים לאזור האישי בנדרים פלוס, בוחרים כרטיס שמור ומשלמים. בסיום החלון ייסגר לבד.",
+                payment.Url, CheckAsync,
+                pollSeconds: 4, firstCheckAfterSeconds: 10,
+                returnUrlPrefix: $"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-payment-done.html") { Owner = this };
+            page.ShowDialog();
+
+            if (!page.Completed)
+            {
+                // נסגר ב-X: בדיקה אחת (אולי התשלום אושר רגע לפני הסגירה)
+                try { await CheckAsync(); } catch (Exception ex) { App.LogError("הטענה בכרטיס שמור: בדיקה אחרי סגירה", ex); }
+            }
+
+            if (finalStatus == "confirmed") await ShowConfirmedAndCloseAsync(finalAmount);
+            else if (finalStatus == "failed") ShowServerFailed(payment.Token);
         }
 
         private void ShowError(string message)

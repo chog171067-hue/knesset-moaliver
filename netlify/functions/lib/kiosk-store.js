@@ -22,6 +22,10 @@ const ORPHAN_TOPUPS_KEY = 'orphan-topups.json';
 // יומן מחושבות גם מגבלות הניסיונות (ראו PHONE_RESET_LIMITS), כך שאין מקור אמת נוסף.
 const PASSWORD_RESETS_KEY = 'password-resets.json';
 const MAX_PASSWORD_RESET_LOG = 3000;
+// עסקאות שכבר טופלו מה-Webhook של נדרים פלוס (מזהה עסקה ← תוצאה) - כדי שעסקה לא תיטען פעמיים
+const WEBHOOK_PROCESSED_KEY = 'nedarim-webhook-processed.json';
+// תשלומים בקטגוריית הקיוסק שלא נמצא להם חשבון - ממתינים לפתיחת חשבון עם אותה ת"ז או לשיוך ידני
+const WAITING_CREDITS_KEY = 'waiting-credits.json';
 const MAX_WRITE_ATTEMPTS = 8;
 
 // passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
@@ -747,7 +751,7 @@ async function assertTzAvailable(event, username) {
 }
 
 // יוצר "פתיחת חשבון ממתינה" ומחזיר את האסימון לנדרים פלוס (Param1)
-async function createPendingSignup(event, details, amount) {
+async function createPendingSignup(event, details, amount, channel = 'iframe') {
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new Error('סכום פתיחת החשבון אינו מוגדר כראוי');
 
@@ -760,6 +764,7 @@ async function createPendingSignup(event, details, amount) {
     pending[token] = {
       token,
       type: 'signup',
+      channel,
       userId: null,
       amount: numericAmount,
       status: 'pending',
@@ -791,7 +796,8 @@ async function createPendingSignup(event, details, amount) {
 // 2) זיכוי היתרה בפועל, ואז סימון האסימון כ-confirmed. אם שלב 2 נכשל
 //    (למשל המשתמש נמחק בינתיים), מסמנים failed במקום להשאיר תקוע ב-processing
 //    לצמיתות - מקרה קצה נדיר שדורש בדיקה ידנית, לא זיכוי אוטומטי כפול.
-async function createPendingTopup(event, { userId, amount }) {
+// channel: 'iframe' (טופס האשראי בעמדה/באתר) או 'online' (הדף הרגיל של נדרים - האזור האישי)
+async function createPendingTopup(event, { userId, amount, channel = 'iframe' }) {
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     throw new Error('סכום ההטענה חייב להיות מספר חיובי');
@@ -803,7 +809,7 @@ async function createPendingTopup(event, { userId, amount }) {
 
   const token = crypto.randomUUID();
   return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
-    pending[token] = { token, userId, amount: numericAmount, status: 'pending', createdAt: new Date().toISOString() };
+    pending[token] = { token, userId, amount: numericAmount, channel, status: 'pending', createdAt: new Date().toISOString() };
     return { token, amount: numericAmount };
   });
 }
@@ -915,7 +921,8 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
       type: 'topup',
       source: 'nedarim',
       amount: creditAmount,
-      description: isSignup ? 'פתיחת חשבון בעמדה - הטענה ראשונה באשראי דרך נדרים פלוס' : 'הטענת כסף באשראי דרך נדרים פלוס',
+      description: (isSignup ? 'פתיחת חשבון בעמדה - הטענה ראשונה' : 'הטענת כסף') +
+        (claim.entry.channel === 'online' ? ' מהאזור האישי בנדרים פלוס' : ' באשראי דרך נדרים פלוס'),
       nedarimTransactionId: nedarimTransactionId || null,
       confirmation: confirmation || null,
       nedarimRaw: raw || null
@@ -931,6 +938,11 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
       confirmation: confirmation || null,
       lastNum: lastNum || null
     });
+
+    if (isSignup) {
+      // תשלומים שחיכו לת"ז הזו (למשל תרומה בעמדת נדרים פלוס לפני פתיחת החשבון)
+      await applyWaitingCredits(event, updatedUser).catch(e => console.error('[signup] טעינת תשלומים ממתינים נכשלה:', e.message));
+    }
 
     return { duplicate: false, user: updatedUser, transaction };
   } catch (err) {
@@ -959,6 +971,221 @@ async function listUserTransactions(event, userId) {
   return transactions
     .filter(t => t.userId === userId)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+// ===================== Webhook של נדרים פלוס: תשלומים שנכנסים ליתרה =====================
+//
+// נדרים פלוס שולחים הודעה על כל עסקה מוצלחת במוסד. כאן מטפלים רק בעסקאות בקטגוריית
+// הקיוסק (KIOSK_NEDARIM_GROUPE), שלא נוצרו באייפרם שלנו (אלה כבר נטענות דרך ה-CallBack
+// שלהן - ראו confirmPendingTopup). סוגי העסקאות:
+// - תשלום בדף הרגיל של נדרים (האזור האישי, כרטיס שמור) שנפתח מהעמדה: בהערות יש את
+//   האסימון שלנו (Analytic) ← בדיוק החשבון/פתיחת החשבון שביקשו אותו.
+// - תרומה בעמדת נדרים פלוס / חיוב חודשי של הוראת קבע בקטגוריה: לפי ת"ז, ואם חסרה - לפי
+//   טלפון (רק כשיש חשבון אחד בדיוק עם הטלפון הזה).
+// - אין חשבון מתאים ← "ממתין": נטען לבד כשנפתח חשבון עם אותה ת"ז, או בשיוך ידני בדף הניהול.
+
+const TOKEN_IN_TEXT = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+function describeNedarimPayment(data) {
+  if (data.KevaId) return 'חיוב חודשי של הוראת קבע בנדרים פלוס';
+  const masof = String(data.MasofId || '').trim();
+  if (masof && masof.toLowerCase() !== 'online') return 'תשלום בעמדת נדרים פלוס';
+  return 'תשלום בנדרים פלוס';
+}
+
+// "תופס" מזהה עסקה באופן אטומי. false = כבר טופלה (הודעה כפולה)
+async function claimWebhookTransaction(event, txId) {
+  const store = getKioskStore(event);
+  return writeWithRetry(store, WEBHOOK_PROCESSED_KEY, {}, (processed) => {
+    if (processed[txId]) return false;
+    processed[txId] = { at: new Date().toISOString(), outcome: 'processing' };
+    return true;
+  });
+}
+
+async function markWebhookOutcome(event, txId, outcome) {
+  const store = getKioskStore(event);
+  await writeWithRetry(store, WEBHOOK_PROCESSED_KEY, {}, (processed) => {
+    processed[txId] = { ...(processed[txId] || {}), outcome, doneAt: new Date().toISOString() };
+    return null;
+  });
+}
+
+async function creditUserFromNedarim(event, { userId, amount, description, nedarimTransactionId, confirmation, raw }) {
+  const store = getKioskStore(event);
+  const user = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[userId];
+    if (!u) throw new Error('משתמש לא נמצא');
+    u.balance = Number((u.balance + amount).toFixed(2));
+    u.updatedAt = new Date().toISOString();
+    return toPublicUser(u);
+  });
+  await appendTransaction(event, {
+    userId,
+    type: 'topup',
+    source: 'nedarim',
+    amount,
+    description,
+    nedarimTransactionId: nedarimTransactionId || null,
+    confirmation: confirmation || null,
+    nedarimRaw: raw || null
+  });
+  return user;
+}
+
+async function findUserForNedarimPayment(event, { tz, phone }) {
+  const store = getKioskStore(event);
+  const users = Object.values((await store.get(USERS_KEY, { type: 'json' })) || {});
+  const cleanTz = normalizeTz(String(tz || '').replace(/\D/g, ''));
+  if (cleanTz) {
+    const byTz = users.find(u => normalizeTz(u.username) === cleanTz);
+    if (byTz) return { user: byTz, matchedBy: 'tz' };
+    return null; // יש ת"ז ואין לה חשבון - לא מנחשים לפי טלפון (אולי בן משפחה)
+  }
+  const cleanPhone = normalizeCallerPhone(phone);
+  if (cleanPhone) {
+    const byPhone = users.filter(u => u.phone === cleanPhone);
+    if (byPhone.length === 1) return { user: byPhone[0], matchedBy: 'phone' };
+  }
+  return null;
+}
+
+async function addWaitingCredit(event, entry) {
+  const store = getKioskStore(event);
+  await writeWithRetry(store, WAITING_CREDITS_KEY, [], (list) => {
+    list.push({ ...entry, status: 'waiting', receivedAt: new Date().toISOString() });
+    return null;
+  });
+}
+
+// עסקה אחת מה-Webhook (אחרי אימות החתימה). מחזיר { outcome } לרישום ביומן.
+async function processNedarimWebhookTransaction(event, data, { groupe }) {
+  if (String(data.Groupe || '').trim() !== groupe) return { outcome: 'ignored-category' };
+  if (String(data.DebitIframe || '') === '1') return { outcome: 'ignored-iframe' };
+  const txId = String(data.TransactionId || '').trim();
+  if (!txId) return { outcome: 'ignored-no-transaction-id' };
+
+  if (!(await claimWebhookTransaction(event, txId))) return { outcome: 'duplicate' };
+
+  const amount = Number(data.Amount);
+  const confirmation = String(data.Confirmation || '').trim();
+  const tz = String(data.Zeout || '').replace(/\D/g, '');
+  const base = {
+    transactionId: txId,
+    amount: Number.isFinite(amount) ? amount : 0,
+    tz,
+    phone: String(data.Phone || '').trim(),
+    name: String(data.ClientName || '').trim(),
+    confirmation,
+    description: describeNedarimPayment(data),
+    comments: String(data.Comments || '').slice(0, 300)
+  };
+
+  try {
+    // עסקה בלי מספר אישור = עסקה זמנית; מטבע זר / סכום לא תקין - לטיפול ידני, בלי טעינה
+    if (!confirmation || String(data.Currency || '1') !== '1' || !(amount > 0)) {
+      const reason = !confirmation ? 'עסקה ללא מספר אישור' : String(data.Currency || '1') !== '1' ? 'מטבע שאינו שקל' : 'סכום לא תקין';
+      await addWaitingCredit(event, { ...base, reason, manualOnly: true });
+      await markWebhookOutcome(event, txId, 'manual');
+      return { outcome: 'manual', reason };
+    }
+
+    // תשלום שנפתח מהעמדה (האזור האישי בנדרים) - לפי האסימון שבהערות
+    const tokenMatch = String(data.Comments || '').match(TOKEN_IN_TEXT);
+    if (tokenMatch) {
+      const store = getKioskStore(event);
+      const pending = (await store.get(PENDING_TOPUPS_KEY, { type: 'json' })) || {};
+      if (pending[tokenMatch[0].toLowerCase()] || pending[tokenMatch[0]]) {
+        const token = pending[tokenMatch[0]] ? tokenMatch[0] : tokenMatch[0].toLowerCase();
+        const result = await confirmPendingTopup(event, {
+          token, nedarimAmount: data.Amount, nedarimTransactionId: txId,
+          confirmation, lastNum: data.LastNum, raw: data
+        });
+        await markWebhookOutcome(event, txId, result.duplicate ? 'token-duplicate' : 'token');
+        return { outcome: 'token' };
+      }
+    }
+
+    const match = await findUserForNedarimPayment(event, { tz, phone: data.Phone });
+    if (match) {
+      await creditUserFromNedarim(event, {
+        userId: match.user.id, amount, description: base.description,
+        nedarimTransactionId: txId, confirmation, raw: data
+      });
+      await markWebhookOutcome(event, txId, `credited-${match.matchedBy}`);
+      return { outcome: `credited-${match.matchedBy}` };
+    }
+
+    await addWaitingCredit(event, base);
+    await markWebhookOutcome(event, txId, 'waiting');
+    return { outcome: 'waiting' };
+  } catch (err) {
+    await markWebhookOutcome(event, txId, 'failed: ' + err.message).catch(() => {});
+    throw err;
+  }
+}
+
+// נקרא כשנפתח חשבון (בעמדה או בדף הניהול): טוען לו תשלומים שחיכו לת"ז שלו
+async function applyWaitingCredits(event, user) {
+  const tz = normalizeTz(user && user.username);
+  if (!tz) return [];
+  const store = getKioskStore(event);
+  const claimed = await writeWithRetry(store, WAITING_CREDITS_KEY, [], (list) => {
+    const mine = list.filter(c => c.status === 'waiting' && !c.manualOnly && normalizeTz(c.tz) === tz);
+    mine.forEach(c => { c.status = 'applying'; });
+    return mine.map(c => ({ ...c }));
+  });
+  for (const c of claimed) {
+    await creditUserFromNedarim(event, {
+      userId: user.id, amount: c.amount, description: c.description + ' (נטען בפתיחת החשבון)',
+      nedarimTransactionId: c.transactionId, confirmation: c.confirmation
+    });
+    await writeWithRetry(store, WAITING_CREDITS_KEY, [], (list) => {
+      const e = list.find(x => x.transactionId === c.transactionId);
+      if (e) { e.status = 'applied'; e.userId = user.id; e.appliedAt = new Date().toISOString(); }
+      return null;
+    });
+  }
+  return claimed;
+}
+
+async function listWaitingCredits(event) {
+  const store = getKioskStore(event);
+  const list = (await store.get(WAITING_CREDITS_KEY, { type: 'json' })) || [];
+  return list.slice().reverse();
+}
+
+// שיוך ידני מדף הניהול של תשלום ממתין לחשבון (לפי ת"ז / שם משתמש)
+async function assignWaitingCredit(event, { transactionId, username, performedBy }) {
+  const user = await findUserByUsername(event, username);
+  if (!user) throw new Error('לא נמצא חשבון עם תעודת הזהות / שם המשתמש הזה');
+  const store = getKioskStore(event);
+  const entry = await writeWithRetry(store, WAITING_CREDITS_KEY, [], (list) => {
+    const e = list.find(x => x.transactionId === String(transactionId));
+    if (!e) throw new Error('התשלום לא נמצא');
+    if (e.status !== 'waiting') throw new Error('התשלום כבר שויך');
+    e.status = 'applying';
+    return { ...e };
+  });
+  try {
+    const updated = await creditUserFromNedarim(event, {
+      userId: user.id, amount: entry.amount, description: entry.description + ' (שיוך ידני)',
+      nedarimTransactionId: entry.transactionId, confirmation: entry.confirmation
+    });
+    await writeWithRetry(store, WAITING_CREDITS_KEY, [], (list) => {
+      const e = list.find(x => x.transactionId === entry.transactionId);
+      if (e) { e.status = 'applied'; e.userId = user.id; e.appliedAt = new Date().toISOString(); e.assignedBy = performedBy || ''; }
+      return null;
+    });
+    return updated;
+  } catch (err) {
+    await writeWithRetry(store, WAITING_CREDITS_KEY, [], (list) => {
+      const e = list.find(x => x.transactionId === entry.transactionId);
+      if (e && e.status === 'applying') e.status = 'waiting';
+      return null;
+    }).catch(() => {});
+    throw err;
+  }
 }
 
 module.exports = {
@@ -998,5 +1225,9 @@ module.exports = {
   createPendingSignup,
   confirmPendingTopup,
   recordOrphanTopup,
-  getPendingTopupStatus
+  getPendingTopupStatus,
+  processNedarimWebhookTransaction,
+  applyWaitingCredits,
+  listWaitingCredits,
+  assignWaitingCredit
 };

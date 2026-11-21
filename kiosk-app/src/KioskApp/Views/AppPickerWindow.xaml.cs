@@ -172,6 +172,7 @@ namespace KioskApp.Views
 
         private void OnLogoutClick(object sender, RoutedEventArgs e)
         {
+            WindowGuard.ClearKioskBrowserData(); // התחברות לאזור האישי בנדרים פלוס - לא עוברת למשתמש הבא
             TextEditorWindow.EndSession();
             App.StopSessionServices();
             App.Session.End();
