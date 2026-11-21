@@ -153,6 +153,22 @@ namespace KioskApp.Core
             return new SignupInitResult { Token = response.Token!, TransactionId = response.TransactionId!, Amount = response.Amount };
         }
 
+        /// <summary>
+        /// "תשלום בכרטיס שמור": מכין תשלום בדף הרגיל של נדרים פלוס (האזור האישי) ומחזיר את
+        /// הקישור. signup = פתיחת חשבון (אחרת הטענה ל-userId). המצב נבדק ב-GetTopupStatusAsync(Token).
+        /// </summary>
+        public async Task<OnlinePaymentResult> InitOnlinePaymentAsync(string? userId, decimal amount, SignupDetails? signup, CancellationToken ct = default)
+        {
+            object payload = signup != null ? new { signup = ToPayload(signup) } : new { userId, amount };
+            var (statusCode, response) = await PostRawAsync<OnlinePaymentResponse>(
+                "/.netlify/functions/library-station-online-topup-init", payload, ct);
+            if (!response.Success || string.IsNullOrEmpty(response.Token) || string.IsNullOrEmpty(response.Url))
+            {
+                throw new KioskApiException(response.Error ?? "הכנת התשלום בנדרים פלוס נכשלה", statusCode);
+            }
+            return new OnlinePaymentResult { Token = response.Token!, Url = response.Url!, Amount = response.Amount };
+        }
+
         private static object ToPayload(SignupDetails d) =>
             new { tz = d.Tz, displayName = d.DisplayName, phone = d.Phone, password = d.Password };
 
@@ -327,6 +343,13 @@ namespace KioskApp.Core
             public bool IsCommunityMember { get; set; }
             public decimal SignupAmount { get; set; }
             public string? CommunityJoinUrl { get; set; }
+        }
+
+        private class OnlinePaymentResponse : ApiEnvelope
+        {
+            public string? Token { get; set; }
+            public string? Url { get; set; }
+            public decimal Amount { get; set; }
         }
 
         private class KevaSnapshotResponse : ApiEnvelope

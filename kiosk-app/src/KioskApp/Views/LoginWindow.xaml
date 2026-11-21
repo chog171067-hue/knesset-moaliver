@@ -285,8 +285,6 @@
                                     Click="OnJoinCommunityClick" />
                             <TextBlock x:Name="JoinStatusText" FontSize="14" Foreground="{StaticResource KioskSecondaryTextBrush}"
                                        TextAlignment="Center" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
-                            <Button x:Name="JoinRecheckButton" Content="בדיקה חוזרת" Style="{StaticResource LinkButton}"
-                                    Margin="0,4,0,0" Click="OnJoinRecheckClick" Visibility="Collapsed" />
                         </StackPanel>
                     </Border>
 

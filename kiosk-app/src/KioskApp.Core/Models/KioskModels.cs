@@ -107,4 +107,12 @@ namespace KioskApp.Core.Models
         public string TransactionId { get; set; } = "";
         public decimal Amount { get; set; }
     }
+
+    /// <summary>תשלום בדף הרגיל של נדרים פלוס (האזור האישי, כרטיס שמור)</summary>
+    public class OnlinePaymentResult
+    {
+        public string Token { get; set; } = "";
+        public string Url { get; set; } = "";
+        public decimal Amount { get; set; }
+    }
 }

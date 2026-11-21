@@ -21,7 +21,6 @@ namespace KioskApp.Views
         private string _communityJoinUrl = "";
         // הוראות הקבע שהיו לת"ז לפני דף ההצטרפות - רק הוראה חדשה מזכה בחברות מיידית
         private System.Collections.Generic.List<string>? _kevaIdsBeforeJoin;
-        private int _joinCheckGeneration;
 
         // אחרי כמה דקות בלי שימוש - חזרה למסך הפתיחה, כדי שפרטים שהוקלדו לא יישארו על המסך
         private static readonly TimeSpan IdleReset = TimeSpan.FromMinutes(3);
@@ -342,7 +341,6 @@ namespace KioskApp.Views
             _signupAmount = 0;
             _communityJoinUrl = "";
             _kevaIdsBeforeJoin = null;
-            _joinCheckGeneration++; // עוצר בדיקת הצטרפות שרצה ברקע
         }
 
         private void OnDigitsOnlyInput(object sender, TextCompositionEventArgs e)
@@ -439,8 +437,7 @@ namespace KioskApp.Views
                 _kevaIdsBeforeJoin = null;
                 SetMemberView(check.IsCommunityMember);
                 JoinStatusText.Visibility = Visibility.Collapsed;
-                JoinRecheckButton.Visibility = Visibility.Collapsed;
-                SignupAmountText.Text = $"כדי ליצור את החשבון יש להטעין {check.SignupAmount:0.##} ₪";
+                    SignupAmountText.Text = $"כדי ליצור את החשבון יש להטעין {check.SignupAmount:0.##} ₪";
                 SignupOfferOverlay.Visibility = Visibility.Visible;
                 App.LogInfo($"פתיחת חשבון: פרטים אושרו (חבר קהילה: {check.IsCommunityMember})");
             }
@@ -458,7 +455,6 @@ namespace KioskApp.Views
 
         private void OnSignupOfferBackClick(object sender, RoutedEventArgs e)
         {
-            _joinCheckGeneration++;
             SignupOfferOverlay.Visibility = Visibility.Collapsed;
         }
 
@@ -476,7 +472,6 @@ namespace KioskApp.Views
             var tz = _signupDetails.Tz;
 
             JoinCommunityButton.IsEnabled = false;
-            JoinRecheckButton.Visibility = Visibility.Collapsed;
             ShowJoinStatus("פותח את דף ההצטרפות...");
             try
             {
@@ -494,53 +489,36 @@ namespace KioskApp.Views
                 return;
             }
 
-            var join = new JoinCommunityWindow(_communityJoinUrl) { Owner = this };
+            var known = _kevaIdsBeforeJoin;
+            var join = new NedarimPageWindow(
+                "הצטרפות לחבר קהילה",
+                "ממלאים את הטופס להקמת הוראת קבע. בסיום ההצטרפות החלון ייסגר לבד ותחזרו לפתיחת החשבון.",
+                _communityJoinUrl,
+                () => App.ApiClient.CheckCommunityMembershipAsync(tz, known),
+                pollSeconds: 12, firstCheckAfterSeconds: 15,
+                successTitle: "ההצטרפות נקלטה!",
+                successMessage: "החשבון יוגדר כחבר קהילה. חוזרים לפתיחת החשבון...") { Owner = this };
             _paymentOpen = true;
             try { join.ShowDialog(); }
             finally { _paymentOpen = false; _lastActivity = DateTime.Now; }
 
             JoinCommunityButton.IsEnabled = true;
-            await CheckJoinedAsync(tz);
-        }
-
-        private async void OnJoinRecheckClick(object sender, RoutedEventArgs e)
-        {
-            if (_signupDetails != null) await CheckJoinedAsync(_signupDetails.Tz);
-        }
-
-        // הוראת קבע חדשה מופיעה ברשימת המוסד לפעמים אחרי כמה שניות - בודקים כמה פעמים
-        private async Task CheckJoinedAsync(string tz)
-        {
-            var generation = ++_joinCheckGeneration;
-            JoinRecheckButton.Visibility = Visibility.Collapsed;
-            ShowJoinStatus("בודקים את ההצטרפות מול נדרים פלוס...");
-
-            for (var attempt = 0; attempt < 8; attempt++)
+            if (join.Completed)
             {
-                if (generation != _joinCheckGeneration) return; // חזרו אחורה / התחילו מחדש
-                try
-                {
-                    var known = (System.Collections.Generic.IEnumerable<string>?)_kevaIdsBeforeJoin ?? Array.Empty<string>();
-                    if (await App.ApiClient.CheckCommunityMembershipAsync(tz, known))
-                    {
-                        if (generation != _joinCheckGeneration) return;
-                        App.LogInfo("הצטרפות לחבר קהילה: נמצאה הוראת קבע חדשה - חבר קהילה");
-                        JoinStatusText.Visibility = Visibility.Collapsed;
-                        SetMemberView(true);
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    App.LogError("הצטרפות לחבר קהילה: כשל בבדיקת החברות", ex);
-                }
-                await Task.Delay(attempt == 0 ? 2000 : 8000);
+                JoinStatusText.Visibility = Visibility.Collapsed;
+                SetMemberView(true);
+                return;
             }
-
-            if (generation != _joinCheckGeneration) return;
-            ShowJoinStatus("לא נמצאה עדיין הוראת קבע \"דמי חבר\" חדשה. אם ההצטרפות הושלמה, אפשר לבדוק שוב בעוד רגע. " +
-                           "אפשר גם להמשיך בפתיחת החשבון - החברות תתעדכן בהמשך.");
-            JoinRecheckButton.Visibility = Visibility.Visible;
+            // נסגר ב-X: בדיקה שקטה אחת (אולי ההוראה הוקמה רגע לפני הסגירה)
+            JoinStatusText.Visibility = Visibility.Collapsed;
+            try
+            {
+                if (await App.ApiClient.CheckCommunityMembershipAsync(tz, known)) SetMemberView(true);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("הצטרפות לחבר קהילה: בדיקה אחרי סגירה", ex);
+            }
         }
 
         private void ShowJoinStatus(string text)

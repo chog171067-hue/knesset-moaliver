@@ -195,6 +195,35 @@ namespace KioskApp.Services
                     App.LogError($"ניקוי מצב תוכנות: {folder}", ex);
                 }
             }
+
+            ClearKioskBrowserData();
+        }
+
+        /// <summary>
+        /// מוחק את נתוני הדפדפן הפנימי של הקיוסק (עוגיות, התחברויות, מטמון) - בעיקר ההתחברות
+        /// לאזור האישי בנדרים פלוס: בלי זה, המשתמש הבא היה מוצא את עצמו מחובר לאזור האישי של
+        /// הקודם ויכול לשלם בכרטיס השמור שלו. רשת ביטחון - חלון נדרים פלוס מוחק גם בעצמו בסגירה.
+        /// זו תיקייה של הקיוסק בלבד, ולכן בטוח למחוק גם במחשב שלא ננעל.
+        /// </summary>
+        public static void ClearKioskBrowserData()
+        {
+            var folder = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KioskApp", "WebView2");
+            if (!System.IO.Directory.Exists(folder)) return;
+            // תהליכי הדפדפן נסגרים שניות ספורות אחרי החלון - כמה ניסיונות
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    System.IO.Directory.Delete(folder, recursive: true);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == 4) App.LogError("ניקוי נתוני הדפדפן הפנימי", ex);
+                    else System.Threading.Thread.Sleep(600);
+                }
+            }
         }
 
         /// <summary>

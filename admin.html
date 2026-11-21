@@ -538,6 +538,7 @@
                     <button class="sub-nav-btn active" data-subtab="lib-sub-users" onclick="switchLibrarySubTab('lib-sub-users')">משתמשים</button>
                     <button class="sub-nav-btn" data-subtab="lib-sub-settings" onclick="switchLibrarySubTab('lib-sub-settings')">הגדרות</button>
                     <button class="sub-nav-btn" data-subtab="lib-sub-resets" onclick="switchLibrarySubTab('lib-sub-resets')">שחזור סיסמה בטלפון</button>
+                    <button class="sub-nav-btn" data-subtab="lib-sub-waiting" onclick="switchLibrarySubTab('lib-sub-waiting')">תשלומים ממתינים</button>
                 </div>
 
                 <div class="sub-panel active" id="lib-sub-users">
@@ -631,6 +632,19 @@
                         <table class="history-table">
                             <thead><tr><th>תאריך</th><th>תוצאה</th><th>שם משתמש</th><th>טלפון מתקשר</th><th>פרטים</th></tr></thead>
                             <tbody id="libResetsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="sub-panel" id="lib-sub-waiting">
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:0;">תשלומים מנדרים פלוס שממתינים לשיוך</h3>
+                    <p class="panel-desc">תשלומים בקטגוריה "עמדת מחשב" (תרומה בעמדת נדרים פלוס, חיוב הוראת קבע וכו') שלא נמצא להם חשבון קיוסק - למשל ת"ז שעדיין אין לה חשבון, או עסקה בלי ת"ז. כשנפתח חשבון עם אותה ת"ז, התשלום נטען אליו לבד. אפשר גם לשייך ידנית: מקלידים את תעודת הזהות של החשבון ולוחצים "שיוך".</p>
+                    <button class="history-btn" onclick="fetchLibraryWaitingCredits()">🔄 רענון</button>
+                    <div id="libWaitingLoading" class="loading" style="display:none;">טוען נתונים...</div>
+                    <div id="libWaitingError" class="form-error"></div>
+                    <div id="libWaitingTableWrap" class="table-scroll" style="display:none;">
+                        <table class="history-table">
+                            <thead><tr><th>תאריך</th><th>מצב</th><th>סכום</th><th>שם</th><th>ת"ז</th><th>טלפון</th><th>פרטים</th><th>שיוך לחשבון</th></tr></thead>
+                            <tbody id="libWaitingTableBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -1759,6 +1773,64 @@
         document.querySelector(`#tab-library .sub-nav-btn[data-subtab="${subId}"]`).classList.add('active');
         if (subId === 'lib-sub-settings' && !libraryConfigLoaded) fetchLibraryConfig();
         if (subId === 'lib-sub-resets') fetchLibraryPasswordResets();
+        if (subId === 'lib-sub-waiting') fetchLibraryWaitingCredits();
+    }
+
+    const LIB_WAITING_STATUS = {
+        'waiting':  '<span class="badge-danger">ממתין</span>',
+        'applying': 'בטעינה...',
+        'applied':  '<span class="badge-success">נטען לחשבון</span>'
+    };
+
+    async function fetchLibraryWaitingCredits() {
+        const loadingDiv = document.getElementById('libWaitingLoading');
+        const errorDiv = document.getElementById('libWaitingError');
+        const tableWrap = document.getElementById('libWaitingTableWrap');
+        loadingDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        tableWrap.style.display = 'none';
+        try {
+            const result = await authedFetch('/.netlify/functions/library-admin-waiting-credits', { method: 'GET' });
+            const credits = result.credits || [];
+            const tbody = document.getElementById('libWaitingTableBody');
+            if (credits.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="color:#718096;">אין תשלומים ממתינים.</td></tr>';
+            } else {
+                tbody.innerHTML = credits.map(c => {
+                    const time = c.receivedAt ? new Date(c.receivedAt).toLocaleString('he-IL') : '-';
+                    const status = LIB_WAITING_STATUS[c.status] || escapeHtml(c.status || '-');
+                    const details = [c.description, c.reason, c.comments].filter(Boolean).join(' | ');
+                    const assign = c.status === 'waiting'
+                        ? `<input type="text" id="assign-${escapeHtml(c.transactionId)}" placeholder="ת&quot;ז החשבון" style="width:110px; padding:4px 6px;" dir="ltr">
+                           <button class="history-btn" style="padding:4px 10px;" onclick="assignLibraryWaitingCredit('${escapeHtml(c.transactionId)}')">שיוך</button>`
+                        : '-';
+                    return `<tr><td>${time}</td><td>${status}</td><td>₪${Number(c.amount || 0).toFixed(2)}</td><td>${escapeHtml(c.name || '-')}</td><td>${escapeHtml(c.tz || '-')}</td><td>${escapeHtml(c.phone || '-')}</td><td>${escapeHtml(details || '-')}</td><td>${assign}</td></tr>`;
+                }).join('');
+            }
+            tableWrap.style.display = 'block';
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
+    }
+
+    async function assignLibraryWaitingCredit(transactionId) {
+        const input = document.getElementById('assign-' + transactionId);
+        const username = input ? input.value.trim() : '';
+        if (!username) { alert('יש להקליד את תעודת הזהות של החשבון'); return; }
+        if (!confirm(`לטעון את התשלום לחשבון ${username}?`)) return;
+        try {
+            await authedFetch('/.netlify/functions/library-admin-waiting-credits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transactionId, username })
+            });
+            fetchLibraryWaitingCredits();
+        } catch (err) {
+            alert('השיוך נכשל: ' + err.message);
+        }
     }
 
     const LIB_RESET_OUTCOMES = {
