@@ -359,8 +359,21 @@ namespace KioskApp.Views
                 payment.Url, CheckAsync,
                 pollSeconds: 4, firstCheckAfterSeconds: 10,
                 returnUrlPrefix: $"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-payment-done.html",
-                autoOpenDonorLogin: true) { Owner = this };
+                donorLoginOnly: true) { Owner = this };
             page.ShowDialog();
+
+            if (page.NoDonorArea)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Info, "אין לתעודת הזהות הזו אזור אישי בנדרים פלוס",
+                    "אפשר לשלם בכפתור \"תשלום בכרטיס אשראי\".");
+                return;
+            }
+            if (page.PageLoadFailed)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן להתחבר לנדרים פלוס",
+                    "כדאי לנסות שוב בעוד רגע, או לשלם בכפתור \"תשלום בכרטיס אשראי\".");
+                return;
+            }
 
             if (!page.Completed)
             {
