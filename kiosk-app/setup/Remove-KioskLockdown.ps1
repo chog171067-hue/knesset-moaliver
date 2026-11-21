@@ -39,6 +39,8 @@ foreach ($n in @("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassw
     Remove-ItemProperty -Path $oldSys -Name $n -ErrorAction SilentlyContinue
 }
 Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -ErrorAction SilentlyContinue
+# כפתור הכיבוי במסך הכניסה - חוזר (ברירת המחדל של Windows)
+Set-ItemProperty -Path $oldSys -Name "shutdownwithoutlogon" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout" -Name "Scancode Map" -ErrorAction SilentlyContinue
 
 # --- הגדרות של משתמש הקיוסק ---
