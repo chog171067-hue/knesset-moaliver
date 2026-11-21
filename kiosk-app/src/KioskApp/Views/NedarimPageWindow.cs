@@ -39,6 +39,10 @@ namespace KioskApp.Views
         private readonly WebView2 _webView = new();
         private readonly DispatcherTimer _pollTimer;
         private readonly DispatcherTimer _pageTextTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+        // פתיחה אוטומטית של חלון הסיסמה לאזור האישי בנדרים (ראו TryOpenDonorLoginAsync)
+        private readonly bool _autoOpenDonorLogin;
+        private readonly DispatcherTimer _loginClickTimer = new() { Interval = TimeSpan.FromMilliseconds(800) };
+        private int _loginClickAttempts;
         private readonly DateTime _openedAt = DateTime.Now;
         private bool _checking;
         private DateTime _lastCheck = DateTime.MinValue;
@@ -56,8 +60,9 @@ namespace KioskApp.Views
         /// <param name="successTitle">הודעת הצלחה קופצת לפני הסגירה (null = בלי)</param>
         public NedarimPageWindow(string title, string subtitle, string url, Func<Task<bool>> isDone,
             int pollSeconds, int firstCheckAfterSeconds, string? returnUrlPrefix = null,
-            string? successTitle = null, string? successMessage = null)
+            string? successTitle = null, string? successMessage = null, bool autoOpenDonorLogin = false)
         {
+            _autoOpenDonorLogin = autoOpenDonorLogin;
             _startUrl = url;
             _startHost = Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host.ToLowerInvariant() : "";
             _isDone = isDone;
@@ -148,7 +153,7 @@ namespace KioskApp.Views
             _pollTimer.Tick += async (_, _) => await CheckDoneAsync();
             _pageTextTimer.Tick += async (_, _) => await CheckPageTextAsync();
             Loaded += async (_, _) => await InitAsync();
-            Closed += (_, _) => { _pollTimer.Stop(); _pageTextTimer.Stop(); };
+            Closed += (_, _) => { _pollTimer.Stop(); _pageTextTimer.Stop(); _loginClickTimer.Stop(); };
         }
 
         private Button MakeCloseButton()
@@ -207,6 +212,11 @@ namespace KioskApp.Views
                 App.LogInfo($"{Title}: נפתח דף נדרים פלוס");
                 _pollTimer.Start();
                 _pageTextTimer.Start();
+                if (_autoOpenDonorLogin)
+                {
+                    _loginClickTimer.Tick += async (_, _) => await TryOpenDonorLoginAsync();
+                    _loginClickTimer.Start();
+                }
             }
             catch (Exception ex)
             {
@@ -214,6 +224,45 @@ namespace KioskApp.Views
                 KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן לפתוח את הדף של נדרים פלוס",
                     "אפשר לנסות שוב בעוד רגע.");
                 Close();
+            }
+        }
+
+        /// <summary>
+        /// הדף של נדרים פלוס מזהה לפי הת"ז שמילאנו מראש מי שיש לו אזור אישי, ומציג קישור
+        /// "אתה מוכר: לחץ כאן" שפותח את חלון הסיסמה. לוחצים עליו בשביל המשתמש, פעם אחת,
+        /// כדי שייפתח ישר חלון הסיסמה. מי שאין לו אזור אישי - הקישור לא מופיע, ונשאר הטופס
+        /// הרגיל. אם נדרים פלוס ישנו את הנוסח - פשוט לא תהיה לחיצה אוטומטית (לא נשבר כלום).
+        /// </summary>
+        private async Task TryOpenDonorLoginAsync()
+        {
+            if (_closing || _webView.CoreWebView2 == null) return;
+            // עד כ-20 שניות מפתיחת הדף - אחר כך מפסיקים לחפש
+            if (++_loginClickAttempts > 25) { _loginClickTimer.Stop(); return; }
+            try
+            {
+                const string script =
+                    "(function(){" +
+                    "if(window.__kioskLoginClicked)return 'done';" +
+                    "var best=null;" +
+                    "document.querySelectorAll('a,span,div,label,p,button').forEach(function(e){" +
+                    " var t=(e.innerText||'').replace(/\\s+/g,' ').trim();" +
+                    " if(t.indexOf('אתה מוכר')<0||t.indexOf('לחץ כאן')<0||t.length>40||e.offsetParent===null)return;" +
+                    " if(!best||t.length<(best.innerText||'').length)best=e;});" +
+                    "if(!best)return 'wait';" +
+                    "var link=null;best.querySelectorAll('a,span,button').forEach(function(x){" +
+                    " if(!link&&(x.innerText||'').indexOf('לחץ כאן')>=0)link=x;});" +
+                    "(link||best).click();window.__kioskLoginClicked=true;return 'clicked';" +
+                    "})()";
+                var result = JsonSerializer.Deserialize<string>(await _webView.CoreWebView2.ExecuteScriptAsync(script));
+                if (result == "clicked" || result == "done")
+                {
+                    _loginClickTimer.Stop();
+                    if (result == "clicked") App.LogInfo($"{Title}: נפתח אוטומטית חלון הכניסה לאזור האישי בנדרים");
+                }
+            }
+            catch
+            {
+                // הדף עדיין נטען - ננסה שוב
             }
         }
 

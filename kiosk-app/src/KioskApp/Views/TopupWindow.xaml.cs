@@ -355,10 +355,11 @@ namespace KioskApp.Views
 
             var page = new NedarimPageWindow(
                 "תשלום בכרטיס שמור",
-                "נכנסים לאזור האישי בנדרים פלוס, בוחרים כרטיס שמור ומשלמים. בסיום החלון ייסגר לבד.",
+                "מקלידים את הסיסמה של האזור האישי בנדרים פלוס, בוחרים כרטיס שמור ומשלמים. בסיום החלון ייסגר לבד.",
                 payment.Url, CheckAsync,
                 pollSeconds: 4, firstCheckAfterSeconds: 10,
-                returnUrlPrefix: $"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-payment-done.html") { Owner = this };
+                returnUrlPrefix: $"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-payment-done.html",
+                autoOpenDonorLogin: true) { Owner = this };
             page.ShowDialog();
 
             if (!page.Completed)
