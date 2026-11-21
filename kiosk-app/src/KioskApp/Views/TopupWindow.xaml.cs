@@ -355,11 +355,25 @@ namespace KioskApp.Views
 
             var page = new NedarimPageWindow(
                 "תשלום בכרטיס שמור",
-                "נכנסים לאזור האישי בנדרים פלוס, בוחרים כרטיס שמור ומשלמים. בסיום החלון ייסגר לבד.",
+                "מקלידים את הסיסמה של האזור האישי בנדרים פלוס, בוחרים כרטיס שמור ומשלמים. בסיום החלון ייסגר לבד.",
                 payment.Url, CheckAsync,
                 pollSeconds: 4, firstCheckAfterSeconds: 10,
-                returnUrlPrefix: $"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-payment-done.html") { Owner = this };
+                returnUrlPrefix: $"{App.Config.ApiBaseUrl.TrimEnd('/')}/kiosk-payment-done.html",
+                donorLoginOnly: true) { Owner = this };
             page.ShowDialog();
+
+            if (page.NoDonorArea)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Info, "אין לתעודת הזהות הזו אזור אישי בנדרים פלוס",
+                    "אפשר לשלם בכפתור \"תשלום בכרטיס אשראי\".");
+                return;
+            }
+            if (page.PageLoadFailed)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן להתחבר לנדרים פלוס",
+                    "כדאי לנסות שוב בעוד רגע, או לשלם בכפתור \"תשלום בכרטיס אשראי\".");
+                return;
+            }
 
             if (!page.Completed)
             {

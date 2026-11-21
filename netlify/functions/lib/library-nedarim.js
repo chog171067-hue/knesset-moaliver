@@ -99,7 +99,9 @@ function buildOnlinePaymentUrl({ amount, token, fullName, tz, phone, redirectUrl
   if (phone) params.set('Phone', String(phone).replace(/[-\s]/g, ''));
   if (tz && /^\d{5,9}$/.test(String(tz))) params.set('Zeout', String(tz));
   if (redirectUrl) params.set('Redirect', redirectUrl);
-  return `https://www.matara.pro/nedarimplus/online/?${params.toString()}`;
+  // URLSearchParams מקודד רווח כ-"+", אבל הדף של נדרים פלוס מציג את ה-"+" כמו שהוא
+  // ("ישראל+ישראלי") - לכן רווח נשלח כ-%20. ("+" אמיתי בערך מקודד ממילא כ-%2B.)
+  return `https://www.matara.pro/nedarimplus/online/?${params.toString().replace(/\+/g, '%20')}`;
 }
 
 module.exports = { KIOSK_NEDARIM_GROUPE, getLibraryNedarimCredentials, createServerTransaction, buildOnlinePaymentUrl };
