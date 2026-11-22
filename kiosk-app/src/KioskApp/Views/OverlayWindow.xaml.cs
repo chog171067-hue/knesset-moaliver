@@ -24,6 +24,13 @@ namespace KioskApp.Views
         // זמן חסד אחרי הפעלה: תוכנות עם "Launcher" סוגרות את התהליך שהפעלנו ופותחות
         // את החלון האמיתי רק אחרי כמה שניות - לא חוזרים למסך הבחירה לפני שזה קרה.
         private static readonly TimeSpan LaunchGracePeriod = TimeSpan.FromSeconds(8);
+        // תוכנה שעדיין "טוענת" (יש תהליך שרץ מהתיקייה שלה, אבל עוד אין חלון רגיל - למשל
+        // אוצר החכמה, שמציג קודם מסך פתיחה ורק אחר כך את התוכנה): מחכים לה עד הזמן הזה
+        private static readonly TimeSpan MaxWaitForAppWindow = TimeSpan.FromMinutes(5);
+        private string? _appFolder;
+        private DateTime? _noWindowSince;
+        private DateTime _lastProcessCheck = DateTime.MinValue;
+        private bool _appStillRunning;
 
         public OverlayWindow()
         {
@@ -167,7 +174,25 @@ namespace KioskApp.Views
                     && DateTime.Now - _launchedAt > LaunchGracePeriod
                     && WindowGuard.FindUserWindows().Count == 0)
                 {
-                    ReturnToPicker();
+                    _noWindowSince ??= DateTime.Now;
+                    // פעם ב-2 שניות: האם עדיין רץ תהליך מהתיקייה של התוכנה (= היא עוד נטענת)
+                    if (DateTime.Now - _lastProcessCheck > TimeSpan.FromSeconds(2))
+                    {
+                        _lastProcessCheck = DateTime.Now;
+                        _appStillRunning = WindowGuard.AnyProcessRunningFrom(_appFolder);
+                    }
+                    var waited = DateTime.Now - _noWindowSince.Value;
+                    if (!_appStillRunning || waited > MaxWaitForAppWindow)
+                    {
+                        App.LogInfo(_appStillRunning
+                            ? $"התוכנה לא הציגה חלון תוך {MaxWaitForAppWindow.TotalMinutes:0} דקות ({_appFolder})"
+                            : $"התוכנה נסגרה - אין חלון ואין תהליך פעיל ({_appFolder})");
+                        ReturnToPicker();
+                    }
+                }
+                else
+                {
+                    _noWindowSince = null;
                 }
             }
             catch (Exception ex)
@@ -239,6 +264,8 @@ namespace KioskApp.Views
             _process = process;
             _ownerPicker = ownerPicker;
             _launchedAt = DateTime.Now;
+            try { _appFolder = WindowGuard.AppFolderRoot(process.StartInfo.FileName); } catch { _appFolder = null; }
+            App.LogInfo($"הופעלה תוכנה: {process.StartInfo.FileName}");
             process.EnableRaisingEvents = true;
             process.Exited += OnLaunchedProcessExited;
             // מיקום החלון ונעילתו מתבצעים ע"י OnGuardTick (WindowGuard)

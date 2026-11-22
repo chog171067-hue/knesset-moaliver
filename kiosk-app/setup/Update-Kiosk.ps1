@@ -24,6 +24,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# בלי "הפעל כמנהל" אין הרשאת כתיבה לתיקיית הקוד ולתיקיית ההתקנה (הן מוגנות בכוונה)
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host ""
+    Write-Host "PowerShell is NOT running as administrator." -ForegroundColor Red
+    Write-Host "Close this window, then: Start -> type PowerShell -> 'Run as administrator' -> Yes." -ForegroundColor Yellow
+    Write-Host "The window title must start with 'Administrator'." -ForegroundColor Yellow
+    exit 1
+}
 # ההודעות למסך באנגלית: חלון PowerShell 5.1 הרגיל לא מציג עברית כראוי
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $publishDir = Join-Path $env:TEMP "kiosk-publish"

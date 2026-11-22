@@ -295,6 +295,47 @@ namespace KioskApp.Services
         }
 
         /// <summary>תהליך של תוכנת משתמש: לא הקיוסק, לא תהליך שרץ לפני הקיוסק, ולא רכיב מערכת</summary>
+        /// <summary>
+        /// התיקייה "של התוכנה" לפי קובץ ההרצה: התיקייה הראשונה מתחת לכונן (C:\OtzarApp),
+        /// או מתחת ל-Program Files / ProgramData (C:\Program Files\Otzaria). תוכנות עם
+        /// "Launcher" מריצות את התוכנה עצמה מקובץ אחר באותה תיקייה.
+        /// </summary>
+        public static string? AppFolderRoot(string? exePath)
+        {
+            exePath = (exePath ?? "").Trim().Trim('"');
+            if (exePath.Length == 0) return null;
+            var full = System.IO.Path.GetFullPath(exePath);
+            var parts = full.Split(System.IO.Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 3) return System.IO.Path.GetDirectoryName(full);
+            var depth = parts[1].StartsWith("Program", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
+            if (parts.Length <= depth) return System.IO.Path.GetDirectoryName(full);
+            return string.Join(System.IO.Path.DirectorySeparatorChar.ToString(), parts.Take(depth))
+                + System.IO.Path.DirectorySeparatorChar;
+        }
+
+        /// <summary>האם רץ כרגע תהליך כלשהו מתוך התיקייה הזו (התוכנה עוד נטענת / פתוחה בלי חלון)</summary>
+        public static bool AnyProcessRunningFrom(string? folder)
+        {
+            if (string.IsNullOrEmpty(folder)) return false;
+            foreach (var p in Process.GetProcesses())
+            {
+                using (p)
+                {
+                    if (p.Id == OwnPid) continue;
+                    try
+                    {
+                        var path = p.MainModule?.FileName;
+                        if (path != null && path.StartsWith(folder, StringComparison.OrdinalIgnoreCase)) return true;
+                    }
+                    catch
+                    {
+                        // תהליך של המערכת / של משתמש אחר - אין גישה לנתיב שלו, ולא רלוונטי
+                    }
+                }
+            }
+            return false;
+        }
+
         public static bool IsUserProcess(int pid)
         {
             if (pid == 0 || pid == OwnPid || _baselinePids.Contains(pid)) return false;
