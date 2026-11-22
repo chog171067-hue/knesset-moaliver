@@ -393,6 +393,35 @@ namespace KioskApp.Services
             return result;
         }
 
+        // חלונות של הדרייבר של המדפסת שנסגרו כבר (שלא נרשום ליומן שוב ושוב)
+        private static readonly HashSet<IntPtr> ClosedDriverPopups = new();
+
+        /// <summary>
+        /// סוגר חלונות "מצב הדפסה" של הדרייבר של המדפסת (Samsung): הם מציגים "שגיאה" כל עוד
+        /// העבודה עצורה לאישור בחלון של הקיוסק, ומבלבלים. תקלה אמיתית בהדפסה מטופלת בחלון של
+        /// הקיוסק (ביטול + החזר כסף).
+        /// </summary>
+        public static void CloseDriverPopups()
+        {
+            EnumWindows((hWnd, _) =>
+            {
+                if (!IsWindowVisible(hWnd) || IsStandardDialog(hWnd)) return true;
+                var title = new StringBuilder(256);
+                GetWindowText(hWnd, title, title.Capacity);
+                var t = title.ToString();
+                if (t.IndexOf("Samsung", StringComparison.OrdinalIgnoreCase) < 0
+                    && t.IndexOf("Printing Status", StringComparison.OrdinalIgnoreCase) < 0
+                    && t.IndexOf("מצב הדפסה", StringComparison.Ordinal) < 0
+                    && t.IndexOf("מצב ההדפסה", StringComparison.Ordinal) < 0) return true;
+                GetWindowThreadProcessId(hWnd, out var pid);
+                if (!IsUserProcess((int)pid)) return true;
+                PostMessage(hWnd, WmClose, IntPtr.Zero, IntPtr.Zero);
+                if (ClosedDriverPopups.Add(hWnd)) App.LogInfo($"נסגר חלון של דרייבר המדפסת: \"{t}\"");
+                return true;
+            }, IntPtr.Zero);
+            if (ClosedDriverPopups.Count > 200) ClosedDriverPopups.Clear();
+        }
+
         private static bool IsStandardDialog(IntPtr hWnd)
         {
             var cls = new StringBuilder(64);
@@ -521,6 +550,8 @@ namespace KioskApp.Services
 
         [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
         [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        private const uint WmClose = 0x0010;
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
         [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
