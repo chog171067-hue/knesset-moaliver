@@ -63,10 +63,11 @@
                 <!-- הדף הרגיל של נדרים פלוס: כניסה לאזור האישי שלהם ותשלום בכרטיס שנשמר שם -->
                 <Button x:Name="OnlinePayButton" Style="{StaticResource KioskSecondaryButton}"
                         MinHeight="52" FontSize="17" Margin="0,10,0,0" Click="OnOnlinePayClick">
-                    <StackPanel>
-                        <TextBlock Text="תשלום בכרטיס שמור" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                        <TextBlock Text="דרך האזור האישי בנדרים פלוס" FontSize="13" FontWeight="Normal"
-                                   Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Center" />
+                    <StackPanel Margin="0,6">
+                        <TextBlock Text="תשלום בכרטיס שמור בנדרים פלוס" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="רק למי שיש כבר אזור אישי בנדרים פלוס עם כרטיס אשראי שמור"
+                                   FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource KioskAccentBrush}"
+                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}" FontWeight="SemiBold" FontSize="15"

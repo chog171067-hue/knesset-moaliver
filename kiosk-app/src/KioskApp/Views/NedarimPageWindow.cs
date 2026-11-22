@@ -279,7 +279,7 @@ namespace KioskApp.Views
 
         /// <summary>
         /// הדף של נדרים פלוס מזהה לפי הת"ז שמילאנו מראש מי שיש לו אזור אישי, ומציג קישור
-        /// "אתה מוכר: לחץ כאן" שפותח את חלון הסיסמה. כשהקישור מופיע (בדף או במסגרת פנימית) - לוחצים
+        /// "אתה מוכר: לחץ כאן" / "משתמש רשום? לחץ כאן" שפותח את חלון הסיסמה. כשהקישור מופיע (בדף או במסגרת פנימית) - לוחצים
         /// עליו בשביל המשתמש. אם הדף נטען והקישור
         /// לא הופיע תוך 15 שניות - הדף נשאר פתוח לתשלום רגיל בכרטיס, ושורת ההודעה מסבירה.
         /// </summary>
@@ -293,7 +293,8 @@ namespace KioskApp.Views
                 "var best=null;" +
                 "document.querySelectorAll('a,span,div,label,p,button,b,strong').forEach(function(e){" +
                 " var t=(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim();" +
-                " if(t.indexOf('מוכר')<0||t.indexOf('לחץ')<0||t.length>60)return;" +
+                // "אתה מוכר: לחץ כאן" או "משתמש רשום? לחץ כאן" (הנוסח בדף של נדרים השתנה)
+                " if((t.indexOf('מוכר')<0&&t.indexOf('משתמש רשום')<0)||t.indexOf('לחץ')<0||t.length>60)return;" +
                 // רק משהו שמוצג בפועל (לא תבנית מוסתרת בדף)
                 " var r=e.getBoundingClientRect();if(r.width===0&&r.height===0)return;" +
                 " if(!best||t.length<(best.innerText||'').length)best=e;});" +
@@ -326,7 +327,8 @@ namespace KioskApp.Views
                 App.LogInfo($"{Title}: נמצא אזור אישי - נפתח חלון הכניסה של נדרים");
                 if (_checkingText != null)
                 {
-                    _checkingText.Text = "זוהה אזור אישי - מקלידים את הסיסמה של נדרים פלוס, בוחרים כרטיס שמור ומשלמים";
+                    _checkingText.Text = "נפתחה הכניסה לאזור האישי בנדרים פלוס: מקלידים את הסיסמה, בוחרים כרטיס שמור ומשלמים. " +
+                        "אין לכם אזור אישי? אפשר לסגור את חלון הכניסה ולשלם כאן בכרטיס אשראי.";
                 }
                 return;
             }

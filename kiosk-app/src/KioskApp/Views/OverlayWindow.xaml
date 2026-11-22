@@ -140,7 +140,7 @@
                     </StackPanel>
                 </Button>
 
-                <!-- רק במסך בחירת התוכנה, ורק לחשבון שסומן בדף הניהול כ"מורשה יציאה" -->
+                <!-- רק לחשבון שסומן בדף הניהול כ"מורשה יציאה" -->
                 <Button x:Name="ExitToDesktopButton" Style="{StaticResource TabMenuButton}" Click="OnExitToDesktopClick"
                         Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
