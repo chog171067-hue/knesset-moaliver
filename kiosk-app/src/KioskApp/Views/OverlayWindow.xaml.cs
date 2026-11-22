@@ -244,7 +244,7 @@ namespace KioskApp.Views
             SetGabaiUnread(false); // החלון מסמן את התשובות כנקראו
         }
 
-        private void OnExitToDesktopClick(object sender, RoutedEventArgs e)
+        private async void OnExitToDesktopClick(object sender, RoutedEventArgs e)
         {
             if (App.Session.CurrentUser?.CanExitKiosk != true) return;
             var go = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "יציאה למחשב",
@@ -253,6 +253,7 @@ namespace KioskApp.Views
                 "יציאה", "ביטול");
             if (!go) return;
             _guardTimer?.Stop(); // בזמן ההתנתקות מ-Windows - לא "מחזירים" חלונות של תוכנות שנסגרות
+            await App.ChargeUsedMinutesAsync(); // הדקות שעוד לא חויבו
             var error = App.SignOutToWindowsSignIn();
             if (error != null)
             {
@@ -269,6 +270,15 @@ namespace KioskApp.Views
             _launchedAt = DateTime.Now;
             try { _appFolder = WindowGuard.AppFolderRoot(process.StartInfo.FileName); } catch { _appFolder = null; }
             App.LogInfo($"הופעלה תוכנה: {process.StartInfo.FileName}");
+            // אחרי 20 שניות: לאבחון - אילו חלונות פתחה התוכנה והאם הקיוסק מזהה אותם
+            var diag = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+            diag.Tick += (_, _) =>
+            {
+                diag.Stop();
+                try { App.LogInfo($"חלונות התוכנה ({_appFolder}):{WindowGuard.DescribeAppWindows(_appFolder)}"); }
+                catch (Exception ex) { App.LogError("אבחון חלונות התוכנה", ex); }
+            };
+            diag.Start();
             process.EnableRaisingEvents = true;
             process.Exited += OnLaunchedProcessExited;
             // מיקום החלון ונעילתו מתבצעים ע"י OnGuardTick (WindowGuard)

@@ -349,6 +349,32 @@ namespace KioskApp.Services
             return result;
         }
 
+        /// <summary>
+        /// ליומן: החלונות הגלויים של תהליכי התוכנה (מחלקה, כותרת, סגנון, בעלים, והאם הקיוסק
+        /// מזהה אותם כחלון תוכנה) - לאבחון תוכנה שלא נשארת במסך מלא.
+        /// </summary>
+        public static string DescribeAppWindows(string? folder)
+        {
+            var pids = new HashSet<int>();
+            foreach (var p in ProcessesFrom(folder)) { pids.Add(p.Id); p.Dispose(); }
+            var sb = new StringBuilder();
+            EnumWindows((hWnd, _) =>
+            {
+                GetWindowThreadProcessId(hWnd, out var pidRaw);
+                if (!pids.Contains((int)pidRaw) || !IsWindowVisible(hWnd)) return true;
+                var cls = new StringBuilder(256);
+                GetClassName(hWnd, cls, cls.Capacity);
+                var title = new StringBuilder(256);
+                GetWindowText(hWnd, title, title.Capacity);
+                var style = GetWindowLongPtr64(hWnd, GwlStyle).ToInt64();
+                var exStyle = GetWindowLongPtr64(hWnd, GwlExStyle).ToInt64();
+                var owner = GetWindow(hWnd, GwOwner);
+                sb.Append($" [{cls}|\"{title}\"|style={style:X}|ex={exStyle:X}|owner={(owner == IntPtr.Zero ? "-" : (IsWindowVisible(owner) ? "visible" : "hidden"))}|app={IsUserAppWindow(hWnd)}]");
+                return true;
+            }, IntPtr.Zero);
+            return sb.Length == 0 ? " (אין חלונות גלויים)" : sb.ToString();
+        }
+
         /// <summary>האם רץ כרגע תהליך כלשהו מתוך התיקייה הזו (התוכנה עוד נטענת / פתוחה בלי חלון)</summary>
         public static bool AnyProcessRunningFrom(string? folder)
         {
@@ -400,7 +426,10 @@ namespace KioskApp.Services
         private static bool IsUserAppWindow(IntPtr hWnd)
         {
             if (!IsWindowVisible(hWnd)) return false;
-            if (GetWindow(hWnd, GwOwner) != IntPtr.Zero) return false; // דיאלוג (שמירה/הדפסה) - לא נוגעים
+            // חלון "בבעלות" חלון גלוי = דיאלוג (שמירה/הדפסה) - לא נוגעים. אבל יש תוכנות (אוצר
+            // החכמה) שהחלון הראשי שלהן "בבעלות" חלון נסתר - זה החלון הראשי, ואותו כן אוכפים.
+            var owner = GetWindow(hWnd, GwOwner);
+            if (owner != IntPtr.Zero && IsWindowVisible(owner)) return false;
 
             var exStyle = GetWindowLongPtr64(hWnd, GwlExStyle).ToInt64();
             if ((exStyle & WsExToolWindow) != 0) return false;
@@ -441,6 +470,8 @@ namespace KioskApp.Services
 
         [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
         [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
         [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);

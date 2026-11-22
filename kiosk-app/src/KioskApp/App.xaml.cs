@@ -175,6 +175,19 @@ namespace KioskApp
         }
 
         private static UsageBillingService? _usageBilling;
+
+        /// <summary>לפני ניתוק / יציאה למחשב: חיוב על הדקות השלמות שעוד לא חויבו</summary>
+        public static async Task ChargeUsedMinutesAsync()
+        {
+            try
+            {
+                if (_usageBilling != null) await _usageBilling.ChargeUsedMinutesAsync();
+            }
+            catch (Exception ex)
+            {
+                LogError("חיוב דקות לפני ניתוק", ex);
+            }
+        }
         private static bool _loggingOut;
 
         /// <summary>
@@ -192,6 +205,7 @@ namespace KioskApp
                 {
                     overlay.StopGuard(); // שהשומר לא "יחזיר" חלונות של תוכנות שנסגרות
                 }
+                await ChargeUsedMinutesAsync();
                 StopSessionServices();
                 await ProcessLauncher.CloseAllTrackedAsync();
                 await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
