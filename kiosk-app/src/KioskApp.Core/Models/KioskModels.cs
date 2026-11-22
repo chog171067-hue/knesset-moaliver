@@ -19,6 +19,24 @@ namespace KioskApp.Core.Models
         public DateTimeOffset? UpdatedAt { get; set; }
     }
 
+    /// <summary>פרטי החשבון ללשונית הצפה (library-station-account-info)</summary>
+    public class AccountInfo
+    {
+        public bool IsCommunityMember { get; set; }
+        public decimal Balance { get; set; }
+        public List<AccountTransaction> Transactions { get; set; } = new List<AccountTransaction>();
+    }
+
+    /// <summary>שורה ב"היסטוריית תשלומים". Type: topup / signup = זיכוי, charge = חיוב</summary>
+    public class AccountTransaction
+    {
+        public DateTimeOffset Timestamp { get; set; }
+        public string Type { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = "";
+        public bool IsCharge => Type == "charge";
+    }
+
     public class AllowedApp
     {
         public string Id { get; set; } = "";

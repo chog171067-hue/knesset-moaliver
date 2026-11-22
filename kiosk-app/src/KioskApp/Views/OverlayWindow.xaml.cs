@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using KioskApp.Services;
 
@@ -30,20 +31,28 @@ namespace KioskApp.Views
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            Left = 0;
-            Top = 0;
-            Width = SystemParameters.PrimaryScreenWidth;
+            // הלשונית מתחילה בצד שמאל של המסך (או איפה שהמשתמש גרר אותה בפעם הקודמת)
+            var area = SystemParameters.WorkArea;
+            Left = _lastPosition?.X ?? area.Left + 8;
+            Top = _lastPosition?.Y ?? area.Top + 90;
+            ClampToScreen();
 
             var user = App.Session.CurrentUser;
             UsernameText.Text = string.IsNullOrWhiteSpace(user?.DisplayName) ? user?.Username ?? "" : user!.DisplayName!;
             UpdateBalanceText(App.Session.CurrentUser?.Balance ?? 0);
             TextEditorButton.Visibility = App.Session.Config?.TextEditorEnabled == true
                 ? Visibility.Visible : Visibility.Collapsed;
+            MemberTag.Visibility = App.Session.IsCommunityMember == true ? Visibility.Visible : Visibility.Collapsed;
             App.Session.BalanceChanged += OnSessionBalanceChanged;
 
+            UpdateTimerText();
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _clockTimer.Tick += (_, _) => TimerText.Text = $"זמן: {App.Session.Elapsed:hh\\:mm\\:ss}";
+            _clockTimer.Tick += (_, _) => UpdateTimerText();
             _clockTimer.Start();
+
+            // כשהלשונית נפתחת/נסגרת גודלה משתנה - שלא תחרוג מהמסך
+            SizeChanged += (_, _) => ClampToScreen();
+            _ = LoadAccountInfoAsync();
 
 
             FileDialogAssistant.UserMessage += OnFileDialogMessage;
@@ -53,8 +62,81 @@ namespace KioskApp.Views
             _guardTimer.Start();
         }
 
+        // מיקום הלשונית אחרי גרירה - נשמר עד הניתוק (גם במעבר בין תוכנות)
+        private static Point? _lastPosition;
+
+        /// <summary>מאפס את מיקום הלשונית (בניתוק) - המשתמש הבא מתחיל בצד שמאל</summary>
+        public static void ResetPosition() => _lastPosition = null;
+
+        private void UpdateTimerText()
+        {
+            var t = App.Session.Elapsed;
+            TimerText.Text = $"מחובר: {(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}";
+        }
+
+        // חבר קהילה + יתרה עדכנית מהשרת. תקלה כאן רק משאירה את מה שכבר מוצג.
+        private async System.Threading.Tasks.Task LoadAccountInfoAsync()
+        {
+            var userId = App.Session.CurrentUser?.Id;
+            if (string.IsNullOrEmpty(userId)) return;
+            try
+            {
+                var info = await App.ApiClient.GetAccountInfoAsync(userId);
+                if (App.Session.CurrentUser?.Id != userId) return; // בינתיים התנתקו
+                App.Session.IsCommunityMember = info.IsCommunityMember;
+                MemberTag.Visibility = info.IsCommunityMember ? Visibility.Visible : Visibility.Collapsed;
+                App.Session.UpdateBalance(info.Balance);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("הלשונית: כשל בטעינת פרטי החשבון", ex);
+            }
+        }
+
+        private void OnToggleClick(object sender, RoutedEventArgs e)
+        {
+            var open = ExpandedPanel.Visibility != Visibility.Visible;
+            ExpandedPanel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            ChevronRotate.Angle = open ? 180 : 0;
+            ToggleButton.ToolTip = open ? "סגירת הלשונית" : "פתיחת הלשונית";
+            if (open) _ = LoadAccountInfoAsync();
+        }
+
+        // גרירת הלשונית בפס העליון (לא בלחיצה על החץ)
+        private void OnHeaderMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is DependencyObject d && IsInside(d, ToggleButton)) return;
+            try { DragMove(); } catch (InvalidOperationException) { /* העכבר כבר שוחרר */ }
+            ClampToScreen();
+            _lastPosition = new Point(Left, Top);
+        }
+
+        private static bool IsInside(DependencyObject? d, DependencyObject container)
+        {
+            while (d != null)
+            {
+                if (d == container) return true;
+                d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d);
+            }
+            return false;
+        }
+
+        private void ClampToScreen()
+        {
+            var area = SystemParameters.WorkArea;
+            var w = ActualWidth > 0 ? ActualWidth : 320;
+            var h = ActualHeight > 0 ? ActualHeight : 90;
+            Left = Math.Max(area.Left, Math.Min(Left, area.Right - w));
+            Top = Math.Max(area.Top, Math.Min(Top, area.Bottom - h));
+        }
+
+        private void OnHistoryClick(object sender, RoutedEventArgs e)
+        {
+            new PaymentHistoryWindow { Owner = this }.ShowDialog();
+        }
+
         /// <summary>
-        /// כל חצי שנייה: מחזירים את חלונות התוכנות למסך מלא מתחת לסרגל, וכשהתוכנה
+        /// כל חצי שנייה: מחזירים את חלונות התוכנות למסך מלא (הלשונית צפה מעליהן), וכשהתוכנה
         /// נסגרה לגמרי (אין לה יותר אף חלון) - חוזרים למסך בחירת התוכנה.
         /// </summary>
         private void OnGuardTick(object? sender, EventArgs e)
@@ -63,7 +145,7 @@ namespace KioskApp.Views
             _inGuardTick = true;
             try
             {
-                WindowGuard.Enforce(OverlayHeightInPixels());
+                WindowGuard.Enforce(0); // מסך מלא - הלשונית צפה מעל התוכנה
                 // חלונות "שמירה"/"בחירת תיקייה" - נשמרים אוטומטית לדיסק-און-קי
                 FileDialogAssistant.Tick(WindowGuard.IsUserProcess);
 
@@ -82,16 +164,6 @@ namespace KioskApp.Views
             {
                 _inGuardTick = false;
             }
-        }
-
-        /// <summary>
-        /// גובה הסרגל בפיקסלים פיזיים. WPF עובד ביחידות "לוגיות", ובמחשב שבו התצוגה
-        /// מוגדלת (125%/150%) הן שונות מהפיקסלים ש-Windows משתמש בהם למיקום חלונות.
-        /// </summary>
-        private int OverlayHeightInPixels()
-        {
-            var scale = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
-            return (int)Math.Ceiling(ActualHeight * scale);
         }
 
         /// <summary>נקרא ע"י AppPickerWindow מיד אחרי יצירת ה-Overlay, עם התהליך שהופעל.</summary>
@@ -122,7 +194,7 @@ namespace KioskApp.Views
 
         private void OnSessionBalanceChanged(object? sender, decimal newBalance) => UpdateBalanceText(newBalance);
 
-        private void UpdateBalanceText(decimal balance) => BalanceText.Text = $"יתרה: {balance:0.00} ₪";
+        private void UpdateBalanceText(decimal balance) => BalanceText.Text = $"{balance:0.00} ₪";
 
         private void OnTextEditorClick(object sender, RoutedEventArgs e)
         {
@@ -166,6 +238,7 @@ namespace KioskApp.Views
     App.StopSessionServices();              // הדפסות תקועות מבוטלות ומוחזרות
 
     App.Session.End();
+    ResetPosition();
 
             var login = new LoginWindow();
             Application.Current.MainWindow = login;

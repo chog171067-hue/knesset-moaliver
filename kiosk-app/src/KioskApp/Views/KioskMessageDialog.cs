@@ -24,7 +24,8 @@ namespace KioskApp.Views
         private const string IconInfo = "M12,2 A10,10 0 1 1 11.99,2 Z M12,16 L12,12 M12,8 L12.01,8";
         private const string IconClock = "M12,2 A10,10 0 1 1 11.99,2 Z M12,6 L12,12 L16,14";
 
-        private KioskMessageDialog(Window? owner, KioskMessageKind kind, string title, string message, bool withButton)
+        private KioskMessageDialog(Window? owner, KioskMessageKind kind, string title, string message, bool withButton,
+            string buttonText = "אישור")
         {
             Title = title;
             FlowDirection = FlowDirection.RightToLeft;
@@ -96,7 +97,7 @@ namespace KioskApp.Views
             {
                 var ok = new Button
                 {
-                    Content = "אישור",
+                    Content = buttonText,
                     Style = Res<Style>(kind == KioskMessageKind.Error ? "KioskSecondaryButton" : "KioskPrimaryButton"),
                     MinHeight = 46,
                     MinWidth = 160,
@@ -133,6 +134,12 @@ namespace KioskApp.Views
         public static void ShowMessage(Window? owner, KioskMessageKind kind, string title, string message)
         {
             new KioskMessageDialog(owner, kind, title, message, withButton: true).ShowDialog();
+        }
+
+        /// <summary>הודעה עם כפתור בטקסט אחר (למשל "המשך") - חוזרת אחרי שנסגרה</summary>
+        public static void ShowMessage(Window? owner, KioskMessageKind kind, string title, string message, string buttonText)
+        {
+            new KioskMessageDialog(owner, kind, title, message, withButton: true, buttonText).ShowDialog();
         }
 
         /// <summary>הודעה שנסגרת לבד אחרי כמה שניות</summary>

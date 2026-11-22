@@ -137,6 +137,7 @@ namespace KioskApp
         public static void StartSessionServices()
         {
             StopSessionServices();
+            StartUsageReminder();
             _printMonitor = new PrintMonitorService(ApiClient, () => Session.CurrentUser?.Id ?? "");
             _printMonitor.PrintCharged += (_, e) => Session.UpdateBalance(e.NewBalance);
             _printMonitor.PrintRefunded += (_, e) =>
@@ -165,6 +166,26 @@ namespace KioskApp
         {
             _printMonitor?.Dispose();
             _printMonitor = null;
+            _usageReminder?.Stop();
+            _usageReminder = null;
+        }
+
+        // אחרי 10 דקות שימוש - תזכורת (פעם אחת בכל התחברות) לשים לב אם אחרים ממתינים לעמדה
+        private static readonly TimeSpan UsageReminderAfter = TimeSpan.FromMinutes(10);
+        private static System.Windows.Threading.DispatcherTimer? _usageReminder;
+
+        private static void StartUsageReminder()
+        {
+            _usageReminder = new System.Windows.Threading.DispatcherTimer { Interval = UsageReminderAfter };
+            _usageReminder.Tick += (_, _) =>
+            {
+                _usageReminder?.Stop();
+                if (!Session.IsActive) return;
+                App.LogInfo("תזכורת 10 דקות שימוש");
+                Views.KioskMessageDialog.ShowMessage(ActiveWindow(), Views.KioskMessageKind.Info, "תזכורת",
+                    "בבקשה שים לב אם אין סביבך משתמשים אחרים הזקוקים לעמדה.", "המשך");
+            };
+            _usageReminder.Start();
         }
 
         /// <summary>החלון הפעיל של הקיוסק (לבעלות על הודעות), או החלון הראשי</summary>

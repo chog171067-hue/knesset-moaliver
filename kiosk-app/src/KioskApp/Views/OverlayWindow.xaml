@@ -3,61 +3,136 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="קיוסק הספרייה"
         WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"
+        SizeToContent="WidthAndHeight"
         FlowDirection="RightToLeft"
-        Left="0" Top="0"
-        Height="60"
         FontFamily="{StaticResource KioskBodyFont}"
-        Foreground="{StaticResource KioskTextBrush}"
-        Background="{StaticResource KioskCardBrush}">
-    <Border BorderBrush="{StaticResource KioskAccentBrush}" BorderThickness="0,0,0,4" Padding="20,0">
-        <DockPanel LastChildFill="False" VerticalAlignment="Center">
-            <!-- ימין: מי מחובר, יתרה, זמן -->
-            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock x:Name="UsernameText" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,20,0" />
-                <Border Style="{StaticResource KioskPill}" Margin="0,0,20,0">
-                    <TextBlock x:Name="BalanceText" FontSize="15" FontWeight="SemiBold" />
-                </Border>
-                <TextBlock x:Name="TimerText" FontSize="15" Foreground="{StaticResource KioskMutedBrush}" VerticalAlignment="Center" />
-            </StackPanel>
+        Foreground="{StaticResource KioskTextBrush}">
+    <!--
+        לשונית צפה מעל התוכנה (במקום הסרגל העליון). אפשר לגרור אותה לכל מקום במסך.
+        סגורה: שם המשתמש + זמן החיבור + חץ לפתיחה. פתוחה: חבר קהילה, יתרה, היסטוריה,
+        סל הדפסות (בקרוב), עורך טקסט, חזרה לבחירת התוכנות, ניתוק.
+    -->
+    <Window.Resources>
+        <Style x:Key="TabMenuButton" TargetType="Button" BasedOn="{StaticResource KioskSecondaryButton}">
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Window.Resources>
 
-            <!-- שמאל: פעולות -->
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="TextEditorButton" Style="{StaticResource KioskSecondaryButton}" MinHeight="40" Padding="14,0"
-                        FontSize="15" Margin="0,0,8,0" Click="OnTextEditorClick" Visibility="Collapsed">
+    <Border Margin="14" Width="290" Background="{StaticResource KioskCardBrush}"
+            BorderBrush="{StaticResource KioskTanBrush}" BorderThickness="2" CornerRadius="16">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="22" ShadowDepth="5" Opacity="0.25" Color="#3E2F23" />
+        </Border.Effect>
+        <StackPanel>
+            <!-- ===== תמיד מוצג: גרירה + שם + זמן + חץ ===== -->
+            <Border x:Name="HeaderBar" Background="{StaticResource KioskBrandBrush}" CornerRadius="14"
+                    Padding="12,9,8,9" Cursor="SizeAll" MouseLeftButtonDown="OnHeaderMouseDown">
+                <DockPanel>
+                    <Button x:Name="ToggleButton" DockPanel.Dock="Right" Width="40" Height="40" Cursor="Hand"
+                            Click="OnToggleClick" ToolTip="פתיחת הלשונית" Background="Transparent" BorderThickness="0">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="#33FFFFFF" CornerRadius="10">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#55FFFFFF" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Path x:Name="ChevronPath" Data="M6,9 L12,15 L18,9" Style="{StaticResource KioskIcon}"
+                              Width="18" Height="18" StrokeThickness="2.4" Stroke="{StaticResource KioskOnBrandBrush}"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="ChevronRotate" Angle="0" />
+                            </Path.RenderTransform>
+                        </Path>
+                    </Button>
+                    <!-- נקודות גרירה -->
+                    <TextBlock DockPanel.Dock="Left" Text="⋮⋮" FontSize="16" Foreground="#99F4ECDD"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                        <TextBlock x:Name="UsernameText" FontSize="17" FontWeight="Bold"
+                                   Foreground="{StaticResource KioskOnBrandBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="TimerText" FontSize="13" Foreground="#D9F4ECDD" Margin="0,1,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- ===== נפתח בלחיצה על החץ ===== -->
+            <StackPanel x:Name="ExpandedPanel" Visibility="Collapsed" Margin="14,14,14,8">
+                <!-- חבר קהילה -->
+                <Border x:Name="MemberTag" Background="{StaticResource KioskSuccessBrush}" CornerRadius="14"
+                        Padding="12,5" HorizontalAlignment="Center" Margin="0,0,0,12" Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource IconPen}" Style="{StaticResource KioskIcon}" Width="16" Height="16" Margin="0,0,6,0"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        <Path Data="{StaticResource IconCheck}" Style="{StaticResource KioskIcon}" Width="15" Height="15"
+                              Stroke="White" StrokeThickness="2.4" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="חבר קהילה" Foreground="White" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- יתרה + הטענה -->
+                <Border Background="{StaticResource KioskSoftBrush}" CornerRadius="12" Padding="14,10" Margin="0,0,0,12">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource KioskPrimaryButton}" MinHeight="40"
+                                Padding="14,0" FontSize="15" Click="OnTopupClick">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconPlus}" Style="{StaticResource KioskIcon}" Width="15" Height="15"
+                                      Margin="0,0,6,0" Stroke="White" />
+                                <TextBlock Text="הטענה" />
+                            </StackPanel>
+                        </Button>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="יתרה" FontSize="13" Foreground="{StaticResource KioskMutedBrush}" />
+                            <TextBlock x:Name="BalanceText" FontSize="22" FontWeight="Bold" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Button Style="{StaticResource TabMenuButton}" Click="OnHistoryClick">
+                    <TextBlock Text="היסטוריית תשלומים" HorizontalAlignment="Center" />
+                </Button>
+
+                <Button Style="{StaticResource TabMenuButton}" IsEnabled="False">
+                    <TextBlock Text="סל הדפסות (בקרוב)" HorizontalAlignment="Center" />
+                </Button>
+
+                <Button x:Name="TextEditorButton" Style="{StaticResource TabMenuButton}" Click="OnTextEditorClick"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Path Data="{StaticResource IconPen}" Style="{StaticResource KioskIcon}" Width="16" Height="16"
+                              Margin="0,0,8,0" Stroke="{StaticResource KioskSecondaryTextBrush}" />
                         <TextBlock Text="עורך טקסט" />
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource KioskSecondaryButton}" MinHeight="40" Padding="14,0"
-                        FontSize="15" Margin="0,0,8,0" Click="OnSwitchAppClick">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource IconGrid}" Style="{StaticResource KioskIcon}" Width="16" Height="16" Margin="0,0,6,0"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        <TextBlock Text="החלפת תוכנה" />
+
+                <Button Style="{StaticResource TabMenuButton}" Click="OnSwitchAppClick">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Path Data="{StaticResource IconGrid}" Style="{StaticResource KioskIcon}" Width="16" Height="16"
+                              Margin="0,0,8,0" Stroke="{StaticResource KioskSecondaryTextBrush}" />
+                        <TextBlock Text="חזרה לבחירת התוכנות" />
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource KioskPrimaryButton}" MinHeight="40" Padding="14,0"
-                        FontSize="15" Margin="0,0,8,0" Click="OnTopupClick">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource IconPlus}" Style="{StaticResource KioskIcon}" Width="16" Height="16" Margin="0,0,6,0"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        <TextBlock Text="הטענת כסף" />
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource KioskDangerButton}" MinHeight="40" Padding="14,0"
-                        FontSize="15" Click="OnLogoutClick">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource IconLogout}" Style="{StaticResource KioskIcon}" Width="16" Height="16" Margin="0,0,6,0"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        <TextBlock Text="ניתוק" />
+
+                <Button Style="{StaticResource KioskDangerButton}" MinHeight="46" FontSize="16" Margin="0,4,0,0"
+                        Click="OnLogoutClick">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Path Data="{StaticResource IconLogout}" Style="{StaticResource KioskIcon}" Width="16" Height="16"
+                              Margin="0,0,8,0" Stroke="White" />
+                        <TextBlock Text="ניתוק מהחשבון" />
                     </StackPanel>
                 </Button>
             </StackPanel>
-        </DockPanel>
+        </StackPanel>
     </Border>
 </Window>

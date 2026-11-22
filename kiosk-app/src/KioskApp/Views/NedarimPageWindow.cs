@@ -39,19 +39,20 @@ namespace KioskApp.Views
         private readonly WebView2 _webView = new();
         private readonly DispatcherTimer _pollTimer;
         private readonly DispatcherTimer _pageTextTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-        // מצב "כניסה לאזור האישי בלבד" (ראו TryOpenDonorLoginAsync): הדף נטען מוסתר, ונחשף
-        // רק אחרי שנפתח חלון הסיסמה של נדרים. בלי אזור אישי - החלון נסגר (NoDonorArea).
+        // מצב "כניסה לאזור האישי" (ראו TryOpenDonorLoginAsync): הדף מוצג רגיל (דף מוסתר
+        // לא מסיים להציג את עצמו בדפדפן הפנימי), ושורת הודעה מעליו. כשמופיע "אתה מוכר: לחץ
+        // כאן" - לוחצים בשביל המשתמש. לא הופיע - הדף נשאר פתוח לתשלום רגיל בכרטיס.
         private readonly bool _donorLoginOnly;
         private readonly DispatcherTimer _loginClickTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
-        private readonly FrameworkElement? _checkingPanel;
+        private readonly Border? _checkingPanel;
+        private readonly TextBlock? _checkingText;
         private DateTime? _pageLoadedAt;
-        // אחרי שהדף נטען - כמה זמן לחכות ל"אתה מוכר" לפני שמחליטים שאין אזור אישי
-        private static readonly TimeSpan DonorDetectWait = TimeSpan.FromSeconds(7);
+        // מסגרות פנימיות בדף (iframe) - גם בהן מחפשים את "אתה מוכר"
+        private readonly System.Collections.Generic.List<CoreWebView2Frame> _frames = new();
+        // אחרי שהדף נטען - כמה זמן לחכות ל"אתה מוכר" לפני שמחליטים שלא זוהה אזור אישי
+        private static readonly TimeSpan DonorDetectWait = TimeSpan.FromSeconds(15);
         // אם הדף בכלל לא נטען תוך הזמן הזה - תקלת חיבור
         private static readonly TimeSpan PageLoadTimeout = TimeSpan.FromSeconds(30);
-
-        /// <summary>מצב "כניסה לאזור האישי בלבד": לת"ז אין אזור אישי בנדרים פלוס</summary>
-        public bool NoDonorArea { get; private set; }
 
         /// <summary>מצב "כניסה לאזור האישי בלבד": הדף של נדרים פלוס לא נטען</summary>
         public bool PageLoadFailed { get; private set; }
@@ -126,38 +127,30 @@ namespace KioskApp.Views
 
             // ===== הדף של נדרים פלוס, במסגרת =====
             _webView.FlowDirection = FlowDirection.LeftToRight; // הדף מנהל את הכיוון שלו
-            var pageArea = new Grid();
-            pageArea.Children.Add(_webView);
+            var pageArea = new DockPanel();
             if (_donorLoginOnly)
             {
-                // עד שנפתח חלון הסיסמה של נדרים - הדף מוסתר, ובמקומו הודעת המתנה
-                _webView.Visibility = Visibility.Hidden;
-                _checkingPanel = new StackPanel
+                // שורת הודעה מעל הדף (לא מעליו בשכבה - הדפדפן הפנימי תמיד "מעל" כל דבר אחר)
+                _checkingText = new TextBlock
                 {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = "בודקים אם יש לך אזור אישי בנדרים פלוס...",
-                            FontSize = 20,
-                            FontWeight = FontWeights.SemiBold,
-                            Foreground = Res<Brush>("KioskTextBrush"),
-                            HorizontalAlignment = HorizontalAlignment.Center
-                        },
-                        new TextBlock
-                        {
-                            Text = "זה לוקח כמה שניות",
-                            FontSize = 15,
-                            Foreground = Res<Brush>("KioskMutedBrush"),
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            Margin = new Thickness(0, 6, 0, 0)
-                        }
-                    }
+                    Text = "בודקים אם יש לך אזור אישי בנדרים פלוס... (כמה שניות)",
+                    FontSize = 17,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = Res<Brush>("KioskOnBrandBrush"),
+                    TextWrapping = TextWrapping.Wrap,
+                    TextAlignment = TextAlignment.Center
                 };
+                _checkingPanel = new Border
+                {
+                    Background = Res<Brush>("KioskBrandBrush"),
+                    CornerRadius = new CornerRadius(10, 10, 0, 0),
+                    Padding = new Thickness(14, 10, 14, 10),
+                    Child = _checkingText
+                };
+                DockPanel.SetDock(_checkingPanel, Dock.Top);
                 pageArea.Children.Add(_checkingPanel);
             }
+            pageArea.Children.Add(_webView);
 
             var pageFrame = new Border
             {
@@ -253,6 +246,12 @@ namespace KioskApp.Views
                 core.Settings.IsStatusBarEnabled = false;
                 core.NavigationStarting += OnNavigationStarting;
                 core.NewWindowRequested += OnNewWindowRequested;
+                core.FrameCreated += (_, e) =>
+                {
+                    var frame = e.Frame;
+                    _frames.Add(frame);
+                    frame.Destroyed += (_, _) => _frames.Remove(frame);
+                };
                 core.Navigate(_startUrl);
                 App.LogInfo($"{Title}: נפתח דף נדרים פלוס");
                 _pollTimer.Start();
@@ -261,7 +260,9 @@ namespace KioskApp.Views
                 {
                     core.NavigationCompleted += (_, e) =>
                     {
+                        // מעבר בין דפים (למשל קישור מקוצר ← הדף עצמו): סופרים מהטעינה האחרונה
                         if (e.IsSuccess) _pageLoadedAt = DateTime.Now;
+                        else App.LogInfo($"{Title}: טעינת הדף נכשלה ({e.WebErrorStatus})");
                     };
                     _loginClickTimer.Tick += async (_, _) => await TryOpenDonorLoginAsync();
                     _loginClickTimer.Start();
@@ -278,32 +279,41 @@ namespace KioskApp.Views
 
         /// <summary>
         /// הדף של נדרים פלוס מזהה לפי הת"ז שמילאנו מראש מי שיש לו אזור אישי, ומציג קישור
-        /// "אתה מוכר: לחץ כאן" שפותח את חלון הסיסמה. הדף נטען מוסתר; כשהקישור מופיע - לוחצים
-        /// עליו בשביל המשתמש וחושפים את הדף (עם חלון הסיסמה כבר פתוח). אם הדף נטען והקישור
-        /// לא הופיע תוך כמה שניות - אין לת"ז אזור אישי: החלון נסגר (NoDonorArea).
+        /// "אתה מוכר: לחץ כאן" שפותח את חלון הסיסמה. כשהקישור מופיע (בדף או במסגרת פנימית) - לוחצים
+        /// עליו בשביל המשתמש. אם הדף נטען והקישור
+        /// לא הופיע תוך 15 שניות - הדף נשאר פתוח לתשלום רגיל בכרטיס, ושורת ההודעה מסבירה.
         /// </summary>
         private async Task TryOpenDonorLoginAsync()
         {
             if (_closing || _webView.CoreWebView2 == null) return;
 
+            const string script =
+                "(function(){" +
+                "if(window.__kioskLoginClicked)return 'done';" +
+                "var best=null;" +
+                "document.querySelectorAll('a,span,div,label,p,button,b,strong').forEach(function(e){" +
+                " var t=(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim();" +
+                " if(t.indexOf('מוכר')<0||t.indexOf('לחץ')<0||t.length>60)return;" +
+                // רק משהו שמוצג בפועל (לא תבנית מוסתרת בדף)
+                " var r=e.getBoundingClientRect();if(r.width===0&&r.height===0)return;" +
+                " if(!best||t.length<(best.innerText||'').length)best=e;});" +
+                "if(!best)return 'wait';" +
+                "var link=null;best.querySelectorAll('a,span,button,u').forEach(function(x){" +
+                " if(!link&&(x.innerText||x.textContent||'').indexOf('לחץ')>=0)link=x;});" +
+                "(link||best).click();window.__kioskLoginClicked=true;return 'clicked';" +
+                "})()";
+
             string? result = null;
             try
             {
-                const string script =
-                    "(function(){" +
-                    "if(window.__kioskLoginClicked)return 'done';" +
-                    "var best=null;" +
-                    "document.querySelectorAll('a,span,div,label,p,button').forEach(function(e){" +
-                    " var t=(e.innerText||'').replace(/\\s+/g,' ').trim();" +
-                    // offsetParent: רק קישור שמוצג בפועל (לא תבנית מוסתרת בדף)
-                    " if(t.indexOf('אתה מוכר')<0||t.indexOf('לחץ כאן')<0||t.length>40||e.offsetParent===null)return;" +
-                    " if(!best||t.length<(best.innerText||'').length)best=e;});" +
-                    "if(!best)return 'wait';" +
-                    "var link=null;best.querySelectorAll('a,span,button').forEach(function(x){" +
-                    " if(!link&&(x.innerText||'').indexOf('לחץ כאן')>=0)link=x;});" +
-                    "(link||best).click();window.__kioskLoginClicked=true;return 'clicked';" +
-                    "})()";
                 result = JsonSerializer.Deserialize<string>(await _webView.CoreWebView2.ExecuteScriptAsync(script));
+                // גם במסגרות פנימיות של הדף
+                foreach (var frame in _frames.ToArray())
+                {
+                    if (result == "clicked" || result == "done") break;
+                    try { result = JsonSerializer.Deserialize<string>(await frame.ExecuteScriptAsync(script)); }
+                    catch { /* מסגרת שנסגרה / בטעינה */ }
+                }
             }
             catch
             {
@@ -314,18 +324,23 @@ namespace KioskApp.Views
             {
                 _loginClickTimer.Stop();
                 App.LogInfo($"{Title}: נמצא אזור אישי - נפתח חלון הכניסה של נדרים");
-                await Task.Delay(600); // שחלון הסיסמה של נדרים יספיק להופיע
-                if (_checkingPanel != null) _checkingPanel.Visibility = Visibility.Collapsed;
-                _webView.Visibility = Visibility.Visible;
+                if (_checkingText != null)
+                {
+                    _checkingText.Text = "זוהה אזור אישי - מקלידים את הסיסמה של נדרים פלוס, בוחרים כרטיס שמור ומשלמים";
+                }
                 return;
             }
 
             if (_pageLoadedAt is DateTime loaded && DateTime.Now - loaded > DonorDetectWait)
             {
+                // לא זוהה אזור אישי. לא סוגרים: הדף נשאר פתוח, ואפשר לשלם בו בכרטיס (סכום
+                // וקטגוריה נעולים, התשלום נקלט לפי האסימון כמו בכרטיס שמור).
                 _loginClickTimer.Stop();
-                NoDonorArea = true;
-                App.LogInfo($"{Title}: לת\"ז אין אזור אישי בנדרים פלוס");
-                await CloseAndClearAsync();
+                await LogPageForDiagnosisAsync();
+                if (_checkingText != null)
+                {
+                    _checkingText.Text = "לא זוהה אזור אישי בנדרים פלוס לתעודת הזהות הזו. אפשר לשלם כאן בכרטיס אשראי, או לסגור ב-X.";
+                }
                 return;
             }
 
@@ -335,6 +350,22 @@ namespace KioskApp.Views
                 PageLoadFailed = true;
                 App.LogInfo($"{Title}: הדף של נדרים פלוס לא נטען");
                 await CloseAndClearAsync();
+            }
+        }
+
+        // ליומן הקיוסק: כתובת הדף ותחילת הטקסט שבו - כדי להבין למה "אתה מוכר" לא נמצא
+        private async Task LogPageForDiagnosisAsync()
+        {
+            try
+            {
+                var core = _webView.CoreWebView2;
+                var text = JsonSerializer.Deserialize<string>(await core.ExecuteScriptAsync(
+                    "(document.body?document.body.innerText:'').replace(/\\s+/g,' ').substring(0,400)")) ?? "";
+                App.LogInfo($"{Title}: לא זוהה אזור אישי. כתובת: {core.Source} | מסגרות: {_frames.Count} | טקסט: {text}");
+            }
+            catch (Exception ex)
+            {
+                App.LogError($"{Title}: כשל ברישום הדף ליומן", ex);
             }
         }
 

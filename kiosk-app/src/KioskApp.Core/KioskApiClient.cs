@@ -88,6 +88,25 @@ namespace KioskApp.Core
             return response.Exists;
         }
 
+        /// <summary>
+        /// הלשונית הצפה: חבר קהילה, יתרה עדכנית והעסקאות האחרונות של המשתמש המחובר
+        /// </summary>
+        public async Task<AccountInfo> GetAccountInfoAsync(string userId, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<AccountInfoResponse>(
+                "/.netlify/functions/library-station-account-info", new { userId }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בטעינת פרטי החשבון", statusCode);
+            }
+            return new AccountInfo
+            {
+                IsCommunityMember = response.IsCommunityMember,
+                Balance = response.Balance,
+                Transactions = response.Transactions ?? new System.Collections.Generic.List<AccountTransaction>()
+            };
+        }
+
         public async Task<PasswordResetInfo> GetPasswordResetInfoAsync(string username, CancellationToken ct = default)
         {
             var (statusCode, response) = await PostRawAsync<ResetInfoResponse>(
@@ -318,6 +337,13 @@ namespace KioskApp.Core
         {
             public KioskUser? User { get; set; }
             public bool MustChangePassword { get; set; }
+        }
+
+        private class AccountInfoResponse : ApiEnvelope
+        {
+            public bool IsCommunityMember { get; set; }
+            public decimal Balance { get; set; }
+            public System.Collections.Generic.List<AccountTransaction>? Transactions { get; set; }
         }
 
         private class AccountCheckResponse : ApiEnvelope

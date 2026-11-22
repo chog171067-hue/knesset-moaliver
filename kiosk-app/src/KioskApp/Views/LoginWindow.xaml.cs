@@ -127,6 +127,13 @@ namespace KioskApp.Views
             try
             {
                 var config = await App.ApiClient.GetConfigAsync();
+                // מחיר ההדפסה בתעריפים - לפי ההגדרה בדף הניהול
+                if (config.PricePerPage > 0)
+                {
+                    PrintPriceText.Text = config.PricePerPage < 1
+                        ? $"{config.PricePerPage * 100:0} אג' לעמוד"
+                        : $"{config.PricePerPage:0.##} ₪ לעמוד";
+                }
                 if (!string.IsNullOrWhiteSpace(config.PasswordResetPhone))
                 {
                     ForgotPasswordButton.Visibility = Visibility.Visible;

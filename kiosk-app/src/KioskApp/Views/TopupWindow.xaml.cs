@@ -362,12 +362,6 @@ namespace KioskApp.Views
                 donorLoginOnly: true) { Owner = this };
             page.ShowDialog();
 
-            if (page.NoDonorArea)
-            {
-                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Info, "אין לתעודת הזהות הזו אזור אישי בנדרים פלוס",
-                    "אפשר לשלם בכפתור \"תשלום בכרטיס אשראי\".");
-                return;
-            }
             if (page.PageLoadFailed)
             {
                 KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן להתחבר לנדרים פלוס",

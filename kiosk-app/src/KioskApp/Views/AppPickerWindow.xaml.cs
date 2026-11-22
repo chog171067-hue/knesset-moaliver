@@ -23,8 +23,7 @@ namespace KioskApp.Views
             WelcomeText.Text = string.IsNullOrWhiteSpace(user?.DisplayName)
                 ? $"שלום, {user?.Username}" : $"שלום, {user!.DisplayName}";
             UpdateBalance(user?.Balance ?? 0);
-            var price = App.Session.Config?.PricePerPage ?? 0;
-            FooterText.Text = $"הדפסה: {price:0.00} ₪ לעמוד · לעזרה פנו לגבאים";
+            FooterText.Text = "לעזרה פנו לגבאים";
 
             // רק למשתמשים שסומנו בדף הניהול כ"מורשה יציאה"
             ExitToDesktopButton.Visibility = user?.CanExitKiosk == true
@@ -176,6 +175,7 @@ namespace KioskApp.Views
             TextEditorWindow.EndSession();
             App.StopSessionServices();
             App.Session.End();
+            OverlayWindow.ResetPosition();
             var login = new LoginWindow();
             Application.Current.MainWindow = login;
             login.Show();
