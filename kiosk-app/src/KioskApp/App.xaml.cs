@@ -77,6 +77,47 @@ namespace KioskApp
             }
         }
 
+        // --- רשת ביטחון: הקיוסק לא נשאר סגור בעמדה נעולה ---
+        private static readonly DateTime StartedAt = DateTime.Now;
+        private static bool _intentionalExit;
+
+        /// <summary>
+        /// בעמדה נעולה אין שולחן עבודה: אם הקיוסק נסגר (בכל דרך שלא חסמנו, או קריסה) - נשאר
+        /// מסך שחור, ורק כיבוי פיזי מחזיר אותו. לכן ביציאה לא מכוונת הקיוסק מפעיל את עצמו מחדש.
+        /// לא מפעילים מחדש: בהתנתקות/כיבוי של Windows, ב"יציאה למחשב", ואם הקיוסק נסגר בתוך
+        /// 30 שניות מההפעלה (כנראה תקלה בהפעלה עצמה - כדי לא להיכנס ללולאה).
+        /// </summary>
+        protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+        {
+            _intentionalExit = true;
+            base.OnSessionEnding(e);
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                if (!_intentionalExit && IsRunningAsKioskShell() && DateTime.Now - StartedAt > TimeSpan.FromSeconds(30))
+                {
+                    var exe = Environment.ProcessPath;
+                    if (!string.IsNullOrEmpty(exe))
+                    {
+                        LogInfo("הקיוסק נסגר שלא במכוון בעמדה נעולה - מפעיל מחדש");
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe)
+                        {
+                            UseShellExecute = true,
+                            WorkingDirectory = AppContext.BaseDirectory
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("הפעלה מחדש של הקיוסק", ex);
+            }
+            base.OnExit(e);
+        }
+
         private static void BlockAltF4(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == System.Windows.Input.Key.System && e.SystemKey == System.Windows.Input.Key.F4)
@@ -184,6 +225,7 @@ namespace KioskApp
 
             // נותנים למשימה רגע לכבות את ההתחברות האוטומטית לפני ההתנתקות
             System.Threading.Thread.Sleep(2000);
+            _intentionalExit = true; // התנתקות מכוונת - לא להפעיל את הקיוסק מחדש
             if (!ExitWindowsEx(EwxLogoff | EwxForceIfHung, 0))
             {
                 return "ההתנתקות מ-Windows נכשלה. אפשר להתנתק ידנית: Ctrl+Alt+Delete ← יציאה.";
