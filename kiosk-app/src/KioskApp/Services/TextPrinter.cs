@@ -79,12 +79,13 @@ namespace KioskApp.Services
             return Math.Max(1, Paginate(CloneForPrint(source)).PageCount);
         }
 
-        /// <summary>שולח להדפסה (XPS לתור). מחזיר את מספר העמודים.</summary>
-        public static int Print(FlowDocument source, string printerName)
+        /// <summary>שולח להדפסה (XPS לתור). documentName - השם של העבודה בתור. מחזיר את מספר העמודים.</summary>
+        public static int Print(FlowDocument source, string printerName, string documentName)
         {
             var paginator = Paginate(CloneForPrint(source));
             using var server = new LocalPrintServer();
             using var queue = server.GetPrintQueue(printerName);
+            queue.CurrentJobSettings.Description = documentName;
             var ticket = queue.DefaultPrintTicket ?? new PrintTicket();
             ticket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
             ticket.PageOrientation = PageOrientation.Portrait;
