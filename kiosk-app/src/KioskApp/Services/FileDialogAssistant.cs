@@ -87,7 +87,10 @@ namespace KioskApp.Services
             // חלון ההדפסה של Windows (בחירת מדפסת/עותקים): מאשרים אותו לבד, למדפסת שנבחרה בו
             // (ברירת המחדל - המדפסת של העמדה). את העמודים בוחרים בתוך התוכנה, והאישור והחיוב
             // מוצגים בחלון האישור של הקיוסק (PrintMonitorService) כשהעבודה מגיעה לתור.
-            if (okButton != null && nameBox == null && IsPrintDialog(root, okButton, title))
+            // (בחלון ההדפסה יש שדות "עמודים:" / "מספר עותקים:" - לכן לא תלוי ב-nameBox; חלון שמירה
+            // אמיתי, גם "Save Print Output As", מזוהה לפי שדה שם הקובץ 1001)
+            if (okButton != null && FindByAutomationId(root, "1001", ControlType.Edit) == null
+                && IsPrintDialog(root, okButton, title))
             {
                 Invoke(okButton);
                 App.LogInfo($"חלון הדפסה של Windows ({title}): אושר אוטומטית");

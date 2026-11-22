@@ -74,8 +74,39 @@ namespace KioskApp.Services
         /// מאכף את מצב כל החלונות. overlayHeightPx ומידות המסך - בפיקסלים פיזיים
         /// (לא ביחידות של WPF), כדי שהחישוב יהיה נכון גם כשהתצוגה מוגדלת ל-125%/150%.
         /// </summary>
-        public static void Enforce(int overlayHeightPx)
+        public static void Enforce(int overlayHeightPx) => Enforce(overlayHeightPx, null);
+
+        // מטמון: האם תהליך שייך לתיקיית התוכנה (שלא נבדוק את הנתיב בכל חצי שנייה)
+        private static readonly Dictionary<int, bool> PidInAppFolder = new();
+        private static string? _pidCacheFolder;
+
+        private static bool IsFromFolder(int pid, string folder)
         {
+            if (_pidCacheFolder != folder) { PidInAppFolder.Clear(); _pidCacheFolder = folder; }
+            if (PidInAppFolder.TryGetValue(pid, out var known)) return known;
+            var result = false;
+            try
+            {
+                using var p = Process.GetProcessById(pid);
+                var path = p.MainModule?.FileName;
+                result = path != null && path.StartsWith(folder, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // אין גישה לנתיב - לא של התוכנה
+            }
+            if (PidInAppFolder.Count > 500) PidInAppFolder.Clear();
+            PidInAppFolder[pid] = result;
+            return result;
+        }
+
+        /// <summary>
+        /// appFolder: תיקיית התוכנה שהופעלה. כשידועה - רק חלונות של תהליכים ממנה נמתחים למסך
+        /// מלא. חלונות אחרים (למשל "מצב הדפסה" של הדרייבר של Samsung) נשארים בגודל שלהם.
+        /// </summary>
+        public static void Enforce(int overlayHeightPx, string? appFolder)
+        {
+            var onlyFolder = IsTrackableFolder(appFolder) ? appFolder : null;
             var screenW = GetSystemMetrics(SmCxScreen);
             var screenH = GetSystemMetrics(SmCyScreen);
             var targetX = 0;
@@ -93,6 +124,11 @@ namespace KioskApp.Services
                     {
                         if (IsIconic(hWnd)) ShowWindow(hWnd, SwRestore);
                         continue;
+                    }
+                    if (onlyFolder != null)
+                    {
+                        GetWindowThreadProcessId(hWnd, out var wpid);
+                        if (!IsFromFolder((int)wpid, onlyFolder)) continue; // חלון של דרייבר / תוכנה אחרת
                     }
 
                     if (IsIconic(hWnd) || IsZoomed(hWnd))
