@@ -130,6 +130,19 @@ namespace KioskApp.Services
                 // מדפסות וירטואליות (שמירה כ-PDF/XPS וכו') - לא מדפסת אמיתית, לא מחייבים כהדפסה
                 if (IsVirtualPrinter(printerName)) return;
 
+                // הדפסה מעורך הטקסט שכבר אושרה וחויבה מראש (PrepayAsync) - לא שואלים ולא מחייבים שוב,
+                // רק עוקבים אחריה (תקלה ← ביטול + החזר)
+                var document = Convert.ToString(targetInstance["Document"]) ?? "";
+                if (PrepaidJobs.TryRemove(document, out var prepaid))
+                {
+                    ChargedJobs.TryAdd($"{printerName}|{jobId}", DateTime.Now);
+                    _lastCharged = (printerName, jobId, prepaid.UserId, prepaid.TransactionId, DateTime.Now);
+                    _lastChargedRefunded = false;
+                    App.LogInfo($"הדפסה: עבודה {jobId} מעורך הטקסט - כבר אושרה וחויבה");
+                    _ = WatchChargedJobAsync(printerName, jobId, prepaid.UserId, prepaid.TransactionId, _stopCts.Token);
+                    return;
+                }
+
                 var userId = _getCurrentUserId();
                 if (string.IsNullOrEmpty(userId)) return; // אין משתמש מחובר כרגע (לא אמור לקרות, שכבת הגנה בלבד)
 
@@ -511,6 +524,64 @@ namespace KioskApp.Services
         /// חלון האישור של הקיוסק לפני הדפסה: מספר עמודים, שחור-לבן, צד אחד, והסכום לחיוב.
         /// יתרה לא מספיקה - "להטענה" (ואז בודקים שוב) או ביטול. מחזיר true = להדפיס.
         /// </summary>
+        // הדפסות שאושרו וחויבו מראש (עורך הטקסט): שם המסמך הייחודי ← המשתמש והעסקה
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string UserId, string TransactionId)> PrepaidJobs = new();
+
+        /// <summary>
+        /// עורך הטקסט: אישור וחיוב **לפני** ששולחים להדפסה (מספר העמודים ידוע מראש). עבודה קטנה
+        /// מהעורך מגיעה למדפסת מהר יותר ממה שהמעקב מספיק לעצור אותה - לכן לא סומכים על העצירה.
+        /// מחזיר שם מסמך ייחודי לעבודה (להעביר להדפסה), או null אם בוטל / לא חויב.
+        /// נקרא על ה-UI thread.
+        /// </summary>
+        public async Task<string?> PrepayAsync(string printerName, int pages)
+        {
+            var userId = _getCurrentUserId();
+            if (string.IsNullOrEmpty(userId)) return null;
+            var price = App.Session.Config?.PricePerPage ?? 0;
+            var cost = Math.Round(pages * price, 2);
+
+            if (!WaitForPrinterReady(printerName) || !ConfirmPrint(pages, cost)) return null;
+
+            try
+            {
+                var result = await _apiClient.ChargePrintAsync(userId, pages);
+                PrintCharged?.Invoke(this, new PrintChargedEventArgs { Pages = pages, Cost = result.Cost, NewBalance = result.Balance });
+                var transactionId = result.Transaction?.Id ?? "";
+                var documentName = $"עורך טקסט - {Guid.NewGuid():N}";
+                if (transactionId.Length > 0)
+                {
+                    PrepaidJobs[documentName] = (userId, transactionId);
+                    // תקלה מהדרייבר (אין נייר) עוד לפני שהמעקב ראה את העבודה - "בטל" יחזיר את הכסף
+                    _lastCharged = (printerName, -1, userId, transactionId, DateTime.Now);
+                    _lastChargedRefunded = false;
+                }
+                App.LogInfo($"הדפסה מעורך הטקסט: {pages} עמודים, חויבו {result.Cost:0.00} ₪");
+                return documentName;
+            }
+            catch (InsufficientFundsException ex)
+            {
+                PrintBlocked?.Invoke(this, new PrintBlockedEventArgs { Balance = ex.Balance, Cost = ex.Cost });
+                return null;
+            }
+            catch (Exception ex)
+            {
+                App.LogError("הדפסה מעורך הטקסט: החיוב נכשל", ex);
+                KioskMessageDialog.ShowMessage(App.ActiveWindow(), KioskMessageKind.Error, "ההדפסה בוטלה",
+                    "לא ניתן היה לחייב את ההדפסה כרגע (אין חיבור לשרת). לא חויבתם. אפשר לנסות שוב בעוד רגע.");
+                return null;
+            }
+        }
+
+        /// <summary>עורך הטקסט: ההדפסה נכשלה אחרי החיוב (לא נשלחה) - מחזירים את הכסף</summary>
+        public async Task RefundPrepaidAsync(string documentName)
+        {
+            if (PrepaidJobs.TryRemove(documentName, out var prepaid))
+            {
+                _lastChargedRefunded = true;
+                await RefundAsync(prepaid.UserId, prepaid.TransactionId, notify: true);
+            }
+        }
+
         private static bool ConfirmPrint(int pages, decimal cost)
         {
             return Application.Current.Dispatcher.Invoke(() =>

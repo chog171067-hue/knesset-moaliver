@@ -130,6 +130,9 @@ namespace KioskApp
         // --- שירותים שפועלים לאורך כל ההתחברות (לא רק כשתוכנה פתוחה) ---
         private static PrintMonitorService? _printMonitor;
 
+        /// <summary>מעקב ההדפסות של ההתחברות הנוכחית (null אם אין משתמש מחובר)</summary>
+        public static PrintMonitorService? PrintMonitor => _printMonitor;
+
         /// <summary>
         /// נקרא בהתחברות: חיוב על הדפסה פועל בכל מסך - גם מעורך הטקסט שנפתח ממסך הבחירה,
         /// וגם במעבר בין תוכנות (קודם הוא היה חלק מהסרגל העליון ונעצר בכל החלפת תוכנה).

@@ -478,7 +478,7 @@ namespace KioskApp.Views
 
         // ===================== פעולות =====================
 
-        private void OnPrintClick(object sender, RoutedEventArgs e)
+        private async void OnPrintClick(object sender, RoutedEventArgs e)
         {
             if (IsEmpty)
             {
@@ -487,22 +487,35 @@ namespace KioskApp.Views
             }
 
             var printer = TextPrinter.DefaultPhysicalPrinter();
-            if (printer == null)
+            var monitor = App.PrintMonitor;
+            if (printer == null || monitor == null)
             {
                 ShowStatus("לא מוגדרת מדפסת בעמדה. נא לפנות לגבאים.", isError: true);
                 return;
             }
 
+            string? documentName = null;
             try
             {
-                // האישור (עמודים + סכום לחיוב) והחיוב - בחלון האישור של מעקב ההדפסות, כמו בכל תוכנה
-                var pages = TextPrinter.Print(_editor.Document, printer);
+                // אישור (עמודים + סכום) וחיוב - לפני ששולחים להדפסה
+                var pages = TextPrinter.CountPages(_editor.Document);
+                documentName = await monitor.PrepayAsync(printer, pages);
+                if (documentName == null)
+                {
+                    ShowStatus("ההדפסה בוטלה.", isError: false);
+                    return;
+                }
+                TextPrinter.Print(_editor.Document, printer, documentName);
                 App.LogInfo($"עורך טקסט: נשלחו להדפסה {pages} עמודים ({printer})");
-                ShowStatus($"נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")} - יש לאשר בחלון שנפתח.", isError: false);
+                ShowStatus($"נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")}.", isError: false);
+                await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success, "נשלח להדפסה",
+                    $"{pages} {(pages == 1 ? "עמוד" : "עמודים")}", 2.5);
             }
             catch (Exception ex)
             {
                 App.LogError("עורך טקסט: הדפסה נכשלה", ex);
+                // חויב אבל לא נשלח - מחזירים את הכסף
+                if (documentName != null) await monitor.RefundPrepaidAsync(documentName);
                 ShowStatus("ההדפסה נכשלה: " + ex.Message, isError: true);
             }
         }
