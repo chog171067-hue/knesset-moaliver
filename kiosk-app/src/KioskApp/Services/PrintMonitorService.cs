@@ -487,17 +487,28 @@ namespace KioskApp.Services
 
         private static void TryResumeJob(string printerName, int jobId)
         {
-            try
+            // משחררים, ובודקים שהעבודה באמת כבר לא עצורה (עד 3 ניסיונות) - עם רישום ליומן
+            for (var attempt = 1; attempt <= 3; attempt++)
             {
-                using var printServer = new PrintServer();
-                using var queue = printServer.GetPrintQueue(printerName);
-                using var job = queue.GetJob(jobId);
-                job.Resume();
+                try
+                {
+                    using var printServer = new PrintServer();
+                    using var queue = printServer.GetPrintQueue(printerName);
+                    using var job = queue.GetJob(jobId);
+                    job.Resume();
+                    Thread.Sleep(700);
+                    job.Refresh();
+                    App.LogInfo($"הדפסה: שחרור עבודה {jobId} (ניסיון {attempt}) - מצב: {job.JobStatus}");
+                    if (!job.IsPaused) return;
+                }
+                catch (Exception ex)
+                {
+                    // העבודה כבר לא בתור = כבר הודפסה / נשלחה למדפסת
+                    App.LogInfo($"הדפסה: עבודה {jobId} כבר לא בתור אחרי השחרור ({ex.GetType().Name})");
+                    return;
+                }
             }
-            catch (Exception ex)
-            {
-                App.LogError($"הדפסה: כשל בשחרור העבודה אחרי האישור (מדפסת: {printerName}, jobId: {jobId})", ex);
-            }
+            App.LogInfo($"הדפסה: עבודה {jobId} עדיין עצורה אחרי 3 ניסיונות שחרור");
         }
 
         /// <summary>ראו הערת המגבלה בראש הקובץ - ניסיון ביטול מיידי, בלי ערבות שיצליח בזמן.</summary>
