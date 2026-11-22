@@ -138,6 +138,28 @@ namespace KioskApp
         {
             StopSessionServices();
             StartUsageReminder();
+            // כל רבע שנייה: חלון ההדפסה של Windows מאושר, חלונות שמירה נשמרים לדיסק-און-קי,
+            // וחלונות "מצב הדפסה" של הדרייבר נסגרים - בכל מסך (גם בעורך הטקסט)
+            _dialogTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _dialogTimer.Tick += (_, _) =>
+            {
+                if (_inDialogTick) return;
+                _inDialogTick = true;
+                try
+                {
+                    FileDialogAssistant.Tick(WindowGuard.IsUserProcess);
+                    WindowGuard.CloseDriverPopups();
+                }
+                catch (Exception ex)
+                {
+                    LogError("טיפול בחלונות הדפסה/שמירה", ex);
+                }
+                finally
+                {
+                    _inDialogTick = false;
+                }
+            };
+            _dialogTimer.Start();
             _usageBilling = new UsageBillingService();
             _usageBilling.Start();
             _printMonitor = new PrintMonitorService(ApiClient, () => Session.CurrentUser?.Id ?? "");
@@ -170,11 +192,15 @@ namespace KioskApp
             _printMonitor = null;
             _usageReminder?.Stop();
             _usageReminder = null;
+            _dialogTimer?.Stop();
+            _dialogTimer = null;
             _usageBilling?.Dispose();
             _usageBilling = null;
         }
 
         private static UsageBillingService? _usageBilling;
+        private static System.Windows.Threading.DispatcherTimer? _dialogTimer;
+        private static bool _inDialogTick;
 
         /// <summary>לפני ניתוק / יציאה למחשב: חיוב על הדקות השלמות שעוד לא חויבו</summary>
         public static async Task ChargeUsedMinutesAsync()

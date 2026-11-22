@@ -29,7 +29,14 @@ namespace KioskApp.Views
         {
             Title = title;
             FlowDirection = FlowDirection.RightToLeft;
-            WindowStartupLocation = owner != null ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen;
+            // תמיד באמצע המסך (לא ליד החלון שפתח - למשל הלשונית הצפה בצד)
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Loaded += (_, _) =>
+            {
+                var area = SystemParameters.WorkArea;
+                Left = area.Left + (area.Width - ActualWidth) / 2;
+                Top = area.Top + (area.Height - ActualHeight) / 2;
+            };
             ResizeMode = ResizeMode.NoResize;
             SizeToContent = SizeToContent.WidthAndHeight;
             WindowStyle = WindowStyle.None;

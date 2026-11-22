@@ -168,8 +168,7 @@ namespace KioskApp.Views
             try
             {
                 WindowGuard.Enforce(0, _appFolder); // מסך מלא (רק חלונות התוכנה) - הלשונית צפה מעליה
-                // חלונות "שמירה"/"בחירת תיקייה" - נשמרים אוטומטית לדיסק-און-קי
-                FileDialogAssistant.Tick(WindowGuard.IsUserProcess);
+                // חלונות "שמירה" / "הדפסה" / דרייבר המדפסת - בטיימר המהיר של App (StartSessionServices)
 
                 if (_launchedProcessExited
                     && DateTime.Now - _launchedAt > LaunchGracePeriod
