@@ -65,7 +65,8 @@ namespace KioskApp.Views
             _ = LoadAccountInfoAsync();
 
             SwitchAppButton.Visibility = _pickerMode ? Visibility.Collapsed : Visibility.Visible;
-            ExitToDesktopButton.Visibility = _pickerMode && user?.CanExitKiosk == true ? Visibility.Visible : Visibility.Collapsed;
+            // גם בתוך תוכנה: היציאה מנתקת מ-Windows, וזה סוגר ממילא את כל התוכנות
+            ExitToDesktopButton.Visibility = user?.CanExitKiosk == true ? Visibility.Visible : Visibility.Collapsed;
 
             // תשובה חדשה מהגבאי - בדיקה עכשיו ואחת לדקה
             _ = CheckGabaiUnreadAsync();
@@ -251,9 +252,11 @@ namespace KioskApp.Views
                 "כדי לחזור לקיוסק: להפעיל את המחשב מחדש (או להתנתק מ-Windows).",
                 "יציאה", "ביטול");
             if (!go) return;
+            _guardTimer?.Stop(); // בזמן ההתנתקות מ-Windows - לא "מחזירים" חלונות של תוכנות שנסגרות
             var error = App.SignOutToWindowsSignIn();
             if (error != null)
             {
+                _guardTimer?.Start();
                 KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "יציאה למחשב", error);
             }
         }
