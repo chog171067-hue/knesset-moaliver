@@ -313,27 +313,74 @@ namespace KioskApp.Services
                 + System.IO.Path.DirectorySeparatorChar;
         }
 
+        /// <summary>
+        /// תיקיית תוכנה שמותר "לעקוב" אחרי התהליכים שלה. לא תיקיית Windows (פנקס רשימות וכו'):
+        /// משם רצים גם תהליכי מערכת של המשתמש, שאסור לסגור ושלא מעידים על התוכנה.
+        /// </summary>
+        private static bool IsTrackableFolder(string? folder)
+        {
+            if (string.IsNullOrEmpty(folder)) return false;
+            var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            return !string.IsNullOrEmpty(windows)
+                && !folder.StartsWith(windows.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static List<Process> ProcessesFrom(string? folder)
+        {
+            var result = new List<Process>();
+            if (!IsTrackableFolder(folder)) return result;
+            foreach (var p in Process.GetProcesses())
+            {
+                var keep = false;
+                try
+                {
+                    if (p.Id != OwnPid && !IgnoredProcessNames.Contains(p.ProcessName))
+                    {
+                        var path = p.MainModule?.FileName;
+                        keep = path != null && path.StartsWith(folder!, StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+                catch
+                {
+                    // תהליך של המערכת / של משתמש אחר - אין גישה לנתיב שלו, ולא רלוונטי
+                }
+                if (keep) result.Add(p); else p.Dispose();
+            }
+            return result;
+        }
+
         /// <summary>האם רץ כרגע תהליך כלשהו מתוך התיקייה הזו (התוכנה עוד נטענת / פתוחה בלי חלון)</summary>
         public static bool AnyProcessRunningFrom(string? folder)
         {
-            if (string.IsNullOrEmpty(folder)) return false;
-            foreach (var p in Process.GetProcesses())
+            var list = ProcessesFrom(folder);
+            foreach (var p in list) p.Dispose();
+            return list.Count > 0;
+        }
+
+        /// <summary>
+        /// סוגר בכוח תהליכים שנשארו מתיקיית תוכנה (למשל אוצר החכמה שנתקע ברקע). תוכנות כאלה
+        /// מרשות רק עותק אחד: עותק תקוע גורם לכל הפעלה חדשה "להיתקע" במסך הפתיחה.
+        /// מחזיר כמה תהליכים נסגרו.
+        /// </summary>
+        public static int KillProcessesFrom(string? folder)
+        {
+            var killed = 0;
+            foreach (var p in ProcessesFrom(folder))
             {
                 using (p)
                 {
-                    if (p.Id == OwnPid) continue;
                     try
                     {
-                        var path = p.MainModule?.FileName;
-                        if (path != null && path.StartsWith(folder, StringComparison.OrdinalIgnoreCase)) return true;
+                        p.Kill(entireProcessTree: true);
+                        killed++;
                     }
                     catch
                     {
-                        // תהליך של המערכת / של משתמש אחר - אין גישה לנתיב שלו, ולא רלוונטי
+                        // כבר נסגר / אין הרשאה - ממשיכים
                     }
                 }
             }
-            return false;
+            return killed;
         }
 
         public static bool IsUserProcess(int pid)

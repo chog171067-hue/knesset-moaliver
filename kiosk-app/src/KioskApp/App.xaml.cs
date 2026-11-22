@@ -195,6 +195,20 @@ namespace KioskApp
                 StopSessionServices();
                 await ProcessLauncher.CloseAllTrackedAsync();
                 await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
+                // תהליכים של התוכנות המאושרות שנשארו ברקע בלי חלון (למשל באמצע טעינה) - נסגרים,
+                // כדי שלא יישארו פתוחים למשתמש הבא ולא ימנעו הפעלה חדשה
+                foreach (var allowed in Session.Config?.AllowedApps ?? new System.Collections.Generic.List<KioskApp.Core.Models.AllowedApp>())
+                {
+                    try
+                    {
+                        var n = WindowGuard.KillProcessesFrom(WindowGuard.AppFolderRoot(allowed.ExePath));
+                        if (n > 0) LogInfo($"ניתוק: נסגרו {n} תהליכים שנשארו של {allowed.DisplayName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogError($"ניתוק: כשל בסגירת תהליכים של {allowed.DisplayName}", ex);
+                    }
+                }
                 WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו + נתוני הדפדפן (נדרים פלוס)
                 WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
                 TextEditorWindow.EndSession();          // הטקסט בעורך נמחק
