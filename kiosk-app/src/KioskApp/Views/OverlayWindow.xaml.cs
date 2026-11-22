@@ -87,6 +87,27 @@ namespace KioskApp.Views
         // מיקום הלשונית אחרי גרירה - נשמר עד הניתוק (גם במעבר בין תוכנות)
         private static Point? _lastPosition;
 
+        /// <summary>
+        /// מעלה את הלשונית הצפה מעל כל החלונות (למשל מעל עורך הטקסט, שגם הוא "תמיד למעלה"),
+        /// בלי לקחת את הפוקוס מהחלון הפעיל.
+        /// </summary>
+        public static void RaiseAllTabs()
+        {
+            foreach (var tab in System.Linq.Enumerable.OfType<OverlayWindow>(Application.Current.Windows))
+            {
+                if (!tab.IsVisible) continue;
+                var handle = new System.Windows.Interop.WindowInteropHelper(tab).Handle;
+                if (handle == IntPtr.Zero) continue;
+                SetWindowPos(handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+            }
+        }
+
+        private static readonly IntPtr HwndTopmost = new(-1);
+        private const uint SwpNoSize = 0x0001, SwpNoMove = 0x0002, SwpNoActivate = 0x0010, SwpShowWindow = 0x0040;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
         /// <summary>מאפס את מיקום הלשונית (בניתוק) - המשתמש הבא מתחיל בצד שמאל</summary>
         public static void ResetPosition() => _lastPosition = null;
 
