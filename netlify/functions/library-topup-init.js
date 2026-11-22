@@ -48,7 +48,7 @@ exports.handler = async function (event) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, error: `לא ניתן להטעין: חסרים בחשבון פרטים (${missing.join(', ')}). נא לפנות לצוות הספרייה לעדכון.` })
+        body: JSON.stringify({ success: false, error: `לא ניתן להטעין: חסרים בחשבון פרטים (${missing.join(', ')}). נא לפנות לגבאים לעדכון.` })
       };
     }
 

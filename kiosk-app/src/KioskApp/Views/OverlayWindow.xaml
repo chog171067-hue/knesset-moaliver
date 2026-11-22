@@ -12,7 +12,7 @@
         FontFamily="{StaticResource KioskBodyFont}"
         Foreground="{StaticResource KioskTextBrush}"
         Background="{StaticResource KioskCardBrush}">
-    <Border BorderBrush="{StaticResource KioskOutlineBrush}" BorderThickness="0,0,0,2" Padding="20,0">
+    <Border BorderBrush="{StaticResource KioskAccentBrush}" BorderThickness="0,0,0,4" Padding="20,0">
         <DockPanel LastChildFill="False" VerticalAlignment="Center">
             <!-- ימין: מי מחובר, יתרה, זמן -->
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">

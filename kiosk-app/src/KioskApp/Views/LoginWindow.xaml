@@ -49,82 +49,83 @@
     </Window.Resources>
 
     <Grid>
+        <!-- פס חום עליון -->
+        <Border Height="8" VerticalAlignment="Top" Background="{StaticResource KioskBrandBrush}" />
+
         <!-- פינה ימנית עליונה: שם הספרייה -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="40,28,40,0">
-            <Path Data="{StaticResource IconBook}" Style="{StaticResource KioskIcon}" Width="34" Height="34"
-                  Stroke="{StaticResource KioskAccentBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="40,34,40,0">
+            <Border Width="52" Height="52" CornerRadius="14" Background="{StaticResource KioskBrandBrush}"
+                    Margin="0,0,14,0" VerticalAlignment="Center">
+                <Path Data="{StaticResource IconBook}" Style="{StaticResource KioskIcon}" Width="30" Height="30"
+                      Stroke="{StaticResource KioskOnBrandBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
             <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="ספריית בית הכנסת מוהליבר" Style="{StaticResource KioskHeading}" FontSize="22" />
-                <TextBlock Text="עמדת קיוסק" FontSize="14" Foreground="{StaticResource KioskMutedBrush}" />
+                <TextBlock Text="ספריית בית הכנסת המרכזי מוהליבר" Style="{StaticResource KioskHeading}" FontSize="24" />
+                <TextBlock Text="עמדת מחשב" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource KioskAccentBrush}" />
             </StackPanel>
         </StackPanel>
 
-        <!-- פינה שמאלית עליונה: שעה ותאריך עברי -->
-        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="40,30,40,0">
-            <TextBlock x:Name="ClockText" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Right" />
-            <TextBlock x:Name="DateText" FontSize="14" Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Right" />
-        </StackPanel>
-
-        <!-- ===== מסך הפתיחה: שני ריבועים ===== -->
-        <StackPanel x:Name="ChoicePanel" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBlock Text="ברוכים הבאים" Style="{StaticResource KioskHeading}" FontSize="40"
-                       HorizontalAlignment="Center" Margin="0,0,0,8" />
-            <TextBlock Text="לשימוש בעמדה יש להיכנס לחשבון" FontSize="18"
-                       Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Center" Margin="0,0,0,30" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button x:Name="ChooseSignupButton" Style="{StaticResource KioskTileButton}" Width="300" Height="260"
-                        Margin="16" Click="OnChooseSignupClick">
-                    <StackPanel HorizontalAlignment="Center">
-                        <Border Width="84" Height="84" CornerRadius="20" Background="{StaticResource KioskSoftBrush}"
-                                Margin="0,0,0,18">
-                            <Path Data="{StaticResource IconUserPlus}" Style="{StaticResource KioskIcon}" Width="44" Height="44"
-                                  StrokeThickness="1.6" Stroke="{StaticResource KioskAccentBrush}"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Text="פתיחת חשבון" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center" />
-                        <TextBlock Text="בפעם הראשונה בעמדה" FontSize="15" Foreground="{StaticResource KioskMutedBrush}"
-                                   HorizontalAlignment="Center" Margin="0,6,0,0" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="ChooseLoginButton" Style="{StaticResource KioskTileButton}" Width="300" Height="260"
-                        Margin="16" Click="OnChooseLoginClick">
-                    <StackPanel HorizontalAlignment="Center">
-                        <Border Width="84" Height="84" CornerRadius="20" Background="{StaticResource KioskSoftBrush}"
-                                Margin="0,0,0,18">
-                            <Path Data="{StaticResource IconLogin}" Style="{StaticResource KioskIcon}" Width="44" Height="44"
-                                  StrokeThickness="1.6" Stroke="{StaticResource KioskAccentBrush}"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Text="כניסה לחשבון" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center" />
-                        <TextBlock Text="עם תעודת זהות וסיסמה" FontSize="15" Foreground="{StaticResource KioskMutedBrush}"
-                                   HorizontalAlignment="Center" Margin="0,6,0,0" />
-                    </StackPanel>
-                </Button>
+        <!-- פינה שמאלית עליונה: שעה, תאריך עברי ותאריך לועזי - במסגרת -->
+        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="40,30,40,0"
+                Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskTanBrush}"
+                BorderThickness="2" CornerRadius="16" Padding="26,12,26,14" MinWidth="230">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.10" Color="#5B4636" />
+            </Border.Effect>
+            <StackPanel>
+                <TextBlock x:Name="ClockText" FontSize="38" FontWeight="Bold" HorizontalAlignment="Center"
+                           Foreground="{StaticResource KioskBrandBrush}" />
+                <Border Height="1.5" Background="{StaticResource KioskTanBrush}" Margin="0,4,0,8" />
+                <TextBlock x:Name="DateText" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock x:Name="GregorianDateText" FontSize="15" Foreground="{StaticResource KioskMutedBrush}"
+                           HorizontalAlignment="Center" Margin="0,2,0,0" />
             </StackPanel>
-        </StackPanel>
+        </Border>
 
-        <!-- ===== הכרטיס המרכזי: כניסה / פתיחת חשבון / שכחתי סיסמה / סיסמה חדשה ===== -->
-        <Border x:Name="CardBorder" Visibility="Collapsed"
-                Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskBorderBrush}"
-                BorderThickness="1" CornerRadius="20" Width="480"
-                HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,30,40,26">
+        <!-- מרכז: לוגו הספרייה + הכרטיס (ת"ז / סיסמה / פתיחת חשבון / שחזור / סיסמה חדשה) -->
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,50">
+            <!-- הלוגו נטען מ-Assets\library-logo.png. אם הקובץ לא קיים - לא מוצג כלום -->
+            <Image x:Name="LogoImage" MaxHeight="130" MaxWidth="420" Stretch="Uniform"
+                   HorizontalAlignment="Center" Margin="0,0,0,18" Visibility="Collapsed"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+
+        <Border x:Name="CardBorder"
+                Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskTanBrush}"
+                BorderThickness="2" CornerRadius="20" Width="480"
+                HorizontalAlignment="Center" Padding="40,30,40,26">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.12" Color="#5B4636" />
             </Border.Effect>
             <StackPanel>
                 <Grid>
 
-                    <!-- כניסה לחשבון -->
-                    <StackPanel x:Name="LoginPanel" Visibility="Collapsed">
-                        <TextBlock Text="כניסה לחשבון" Style="{StaticResource KioskHeading}" FontSize="32"
+                    <!-- מסך הפתיחה: רק תעודת זהות. יש חשבון ← סיסמה; אין ← פתיחת חשבון -->
+                    <StackPanel x:Name="IdentifyPanel">
+                        <TextBlock Text="ברוכים הבאים" Style="{StaticResource KioskHeading}" FontSize="34"
                                    HorizontalAlignment="Center" Margin="0,0,0,6" />
-                        <TextBlock Text="התחברו עם תעודת הזהות והסיסמה שלכם" FontSize="16"
+                        <TextBlock Text="לשימוש בעמדה יש להקליד את מספר תעודת הזהות" FontSize="16"
                                    Foreground="{StaticResource KioskMutedBrush}" HorizontalAlignment="Center"
                                    TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,24" />
 
                         <TextBlock Text="תעודת זהות" Style="{StaticResource FieldLabel}" />
-                        <TextBox x:Name="UsernameBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,18"
-                                 KeyDown="OnFieldKeyDown" />
+                        <TextBox x:Name="UsernameBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,22"
+                                 FontSize="22" MaxLength="20" KeyDown="OnIdentifyKeyDown" />
+
+                        <Button x:Name="IdentifyButton" Content="המשך" Style="{StaticResource KioskPrimaryButton}"
+                                MinHeight="52" FontSize="19" Click="OnIdentifyClick" />
+
+                        <TextBlock Text="בפעם הראשונה בעמדה? מקלידים תעודת זהות, ונפתח לכם חשבון חדש."
+                                   Style="{StaticResource FieldHint}" TextAlignment="Center" Margin="0,14,0,0" />
+                    </StackPanel>
+
+                    <!-- כניסה לחשבון: סיסמה -->
+                    <StackPanel x:Name="LoginPanel" Visibility="Collapsed">
+                        <TextBlock Text="כניסה לחשבון" Style="{StaticResource KioskHeading}" FontSize="32"
+                                   HorizontalAlignment="Center" Margin="0,0,0,10" />
+                        <Border Background="{StaticResource KioskSoftBrush}" CornerRadius="12" Padding="14,8"
+                                HorizontalAlignment="Center" Margin="0,0,0,22">
+                            <TextBlock x:Name="LoginTzText" FontSize="17" FontWeight="SemiBold" />
+                        </Border>
 
                         <TextBlock Text="סיסמה" Style="{StaticResource FieldLabel}" />
                         <PasswordBox x:Name="PasswordBox" Style="{StaticResource KioskPasswordBox}" Margin="0,0,0,24"
@@ -138,7 +139,7 @@
                                 Margin="0,12,0,0" Click="OnForgotPasswordClick" Visibility="Collapsed" />
 
                         <Button Content="חזרה" Style="{StaticResource LinkButton}" Margin="0,4,0,0"
-                                Foreground="{StaticResource KioskMutedBrush}" Click="OnBackToChoiceClick" />
+                                Foreground="{StaticResource KioskMutedBrush}" Click="OnBackToIdentifyClick" />
                     </StackPanel>
 
                     <!-- פתיחת חשבון -->
@@ -151,8 +152,9 @@
                                  MaxLength="60" KeyDown="OnSignupFieldKeyDown" />
 
                         <TextBlock Text="תעודת זהות" Style="{StaticResource FieldLabel}" />
+                        <!-- ממולא ממסך הפתיחה ולא ניתן לשינוי כאן (לשינוי - "חזרה") -->
                         <TextBox x:Name="SignupTzBox" Style="{StaticResource KioskTextBox}" Margin="0,0,0,14"
-                                 MaxLength="9" PreviewTextInput="OnDigitsOnlyInput" KeyDown="OnSignupFieldKeyDown" />
+                                 IsReadOnly="True" Focusable="False" Background="{StaticResource KioskSoftBrush}" />
 
                         <TextBlock Text="טלפון" Style="{StaticResource FieldLabel}" />
                         <TextBox x:Name="SignupPhoneBox" Style="{StaticResource KioskTextBox}"
@@ -184,7 +186,7 @@
                                 MinHeight="52" FontSize="19" Click="OnSignupContinueClick" />
 
                         <Button Content="חזרה" Style="{StaticResource LinkButton}" Margin="0,8,0,0"
-                                Foreground="{StaticResource KioskMutedBrush}" Click="OnBackToChoiceClick" />
+                                Foreground="{StaticResource KioskMutedBrush}" Click="OnBackToIdentifyClick" />
                     </StackPanel>
 
                     <!-- שכחתי סיסמה: לאן להתקשר ומאיזה טלפון (מוסתר) -->
@@ -243,9 +245,13 @@
                            Margin="0,14,0,0" Visibility="Collapsed" />
             </StackPanel>
         </Border>
+        </StackPanel>
 
-        <TextBlock Text="לעזרה פנו לצוות הספרייה" FontSize="14" Foreground="{StaticResource KioskMutedBrush}"
-                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24" />
+        <!-- פס חום תחתון -->
+        <Border VerticalAlignment="Bottom" Background="{StaticResource KioskBrandBrush}" Padding="0,11">
+            <TextBlock Text="לעזרה פנו לגבאים" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource KioskOnBrandBrush}" HorizontalAlignment="Center" />
+        </Border>
 
         <!-- ===== חלון קופץ אחרי "המשך": חבר קהילה + הטענה לפתיחת החשבון ===== -->
         <Grid x:Name="SignupOfferOverlay" Visibility="Collapsed" Background="#993E2F23">

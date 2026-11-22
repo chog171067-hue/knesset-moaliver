@@ -32,7 +32,7 @@ exports.handler = async function (event) {
   try {
     const details = validateSignupDetails(JSON.parse(event.body || '{}'));
     if (await isTzBlocked(details.username, event)) {
-      throw new Error('לא ניתן לפתוח חשבון עם תעודת הזהות הזאת. יש לפנות לצוות הספרייה.');
+      throw new Error('לא ניתן לפתוח חשבון עם תעודת הזהות הזאת. יש לפנות לגבאים.');
     }
 
     const config = await getConfig(event);

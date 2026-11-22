@@ -40,7 +40,84 @@ namespace KioskApp.Views
             PreviewMouseDown += (_, _) => _lastActivity = DateTime.Now;
             clock.Start();
             Closed += (_, _) => clock.Stop();
-            Loaded += async (_, _) => await LoadForgotPasswordButtonAsync();
+            Loaded += async (_, _) =>
+            {
+                UsernameBox.Focus();
+                await LoadForgotPasswordButtonAsync();
+            };
+            LoadLogo();
+        }
+
+        // לוגו הספרייה (Assets\library-logo.png, שקוף). אם הקובץ לא נכלל בבנייה - בלי לוגו.
+        private void LoadLogo()
+        {
+            try
+            {
+                var logo = new System.Windows.Media.Imaging.BitmapImage();
+                logo.BeginInit();
+                logo.UriSource = new Uri("pack://application:,,,/Assets/library-logo.png", UriKind.Absolute);
+                logo.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                logo.EndInit();
+                LogoImage.Source = logo;
+                LogoImage.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                LogoImage.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        // ===================== מסך הפתיחה: תעודת זהות =====================
+
+        private void OnIdentifyKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) OnIdentifyClick(sender, e);
+        }
+
+        /// <summary>"המשך" אחרי הקלדת ת"ז: יש חשבון ← סיסמה. אין ← פתיחת חשבון.</summary>
+        private async void OnIdentifyClick(object sender, RoutedEventArgs e)
+        {
+            var tz = UsernameBox.Text.Trim();
+            HideError();
+            if (string.IsNullOrEmpty(tz))
+            {
+                ShowError("יש להקליד מספר תעודת זהות");
+                UsernameBox.Focus();
+                return;
+            }
+
+            IdentifyButton.IsEnabled = false;
+            IdentifyButton.Content = "בודק...";
+            try
+            {
+                if (await App.ApiClient.AccountExistsAsync(tz))
+                {
+                    ShowLoginPanel();
+                    return;
+                }
+                if (!IsValidIsraeliId(tz))
+                {
+                    ShowError("מספר תעודת הזהות אינו תקין. יש לבדוק את המספר (כולל ספרת הביקורת)");
+                    UsernameBox.Focus();
+                    UsernameBox.SelectAll();
+                    return;
+                }
+                // אין חשבון - פתיחת חשבון חדש עם הת"ז שהוקלדה
+                ClearSignupForm();
+                SignupTzBox.Text = tz;
+                ShowPanel(SignupPanel);
+                SignupNameBox.Focus();
+            }
+            catch (Exception ex)
+            {
+                App.LogError("כשל בבדיקת תעודת הזהות", ex);
+                ShowError(ex.Message);
+            }
+            finally
+            {
+                IdentifyButton.IsEnabled = true;
+                IdentifyButton.Content = "המשך";
+            }
         }
 
         // הכפתור "שכחתי סיסמה" מוצג רק אם בדף הניהול הוגדר מספר לשחזור. תקלה כאן
@@ -76,9 +153,15 @@ namespace KioskApp.Views
             var username = UsernameBox.Text.Trim();
             var password = PasswordBox.Password;
 
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+            if (string.IsNullOrEmpty(username))
             {
-                ShowError("יש להזין תעודת זהות וסיסמה");
+                ShowIdentify();
+                return;
+            }
+            if (string.IsNullOrEmpty(password))
+            {
+                ShowError("יש להקליד סיסמה");
+                PasswordBox.Focus();
                 return;
             }
 
@@ -118,11 +201,19 @@ namespace KioskApp.Views
             {
                 var hebrew = new System.Globalization.CultureInfo("he-IL");
                 hebrew.DateTimeFormat.Calendar = new System.Globalization.HebrewCalendar();
-                DateText.Text = now.ToString("dddd · d MMMM", hebrew);
+                DateText.Text = now.ToString("dddd · d MMMM yyyy", hebrew);
             }
             catch
             {
-                DateText.Text = now.ToString("dd/MM/yyyy");
+                DateText.Text = "";
+            }
+            try
+            {
+                GregorianDateText.Text = now.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("he-IL"));
+            }
+            catch
+            {
+                GregorianDateText.Text = now.ToString("dd/MM/yyyy");
             }
         }
 
@@ -206,12 +297,12 @@ namespace KioskApp.Views
                 var info = await App.ApiClient.GetPasswordResetInfoAsync(username);
                 if (string.IsNullOrWhiteSpace(info.ResetPhone))
                 {
-                    ShowError("שחזור סיסמה בטלפון אינו זמין כרגע. יש לפנות לצוות הספרייה.");
+                    ShowError("שחזור סיסמה בטלפון אינו זמין כרגע. יש לפנות לגבאים.");
                     return;
                 }
                 if (!info.Found)
                 {
-                    ShowError("לא נמצא חשבון פעיל עם תעודת הזהות שהוקלדה. יש לבדוק את המספר, או לפנות לצוות הספרייה.");
+                    ShowError("לא נמצא חשבון פעיל עם תעודת הזהות שהוקלדה. יש לבדוק את המספר, או לפנות לגבאים.");
                     return;
                 }
 
@@ -220,7 +311,7 @@ namespace KioskApp.Views
                 ForgotInstructionsText.Text =
                     "במערכת הטלפונית תתבקשו להקיש את תעודת הזהות, ותשמעו סיסמה זמנית. " +
                     "היכנסו איתה כאן, ותתבקשו לבחור סיסמה חדשה. " +
-                    "אם המספר הזה כבר לא שלכם, יש לפנות לצוות הספרייה.";
+                    "אם המספר הזה כבר לא שלכם, יש לפנות לגבאים.";
 
                 LoginPanel.Visibility = Visibility.Collapsed;
                 ForgotPanel.Visibility = Visibility.Visible;
@@ -275,59 +366,55 @@ namespace KioskApp.Views
         private void ShowLoginPanel()
         {
             ClearPending();
+            if (string.IsNullOrWhiteSpace(UsernameBox.Text))
+            {
+                ShowIdentify();
+                return;
+            }
+            LoginTzText.Text = "תעודת זהות: " + UsernameBox.Text.Trim();
             ShowPanel(LoginPanel);
             NewPasswordBox.Clear();
             ConfirmPasswordBox.Clear();
             PasswordBox.Clear();
-            if (string.IsNullOrEmpty(UsernameBox.Text)) UsernameBox.Focus(); else PasswordBox.Focus();
+            PasswordBox.Focus();
         }
 
         /// <summary>מציג את הכרטיס המרכזי עם אחד המסכים שבו (כניסה / פתיחת חשבון / ...)</summary>
         private void ShowPanel(FrameworkElement panel)
         {
             HideError();
-            ChoicePanel.Visibility = Visibility.Collapsed;
             SignupOfferOverlay.Visibility = Visibility.Collapsed;
-            CardBorder.Visibility = Visibility.Visible;
-            foreach (var p in new FrameworkElement[] { LoginPanel, SignupPanel, ForgotPanel, ChangePasswordPanel })
+            foreach (var p in new FrameworkElement[] { IdentifyPanel, LoginPanel, SignupPanel, ForgotPanel, ChangePasswordPanel })
             {
                 p.Visibility = p == panel ? Visibility.Visible : Visibility.Collapsed;
             }
+            // טופס פתיחת החשבון ארוך - הלוגו קטן יותר כדי שהכול ייכנס במסך
+            LogoImage.MaxHeight = panel == SignupPanel ? 80 : 130;
         }
 
-        /// <summary>חזרה למסך הפתיחה (שני הריבועים) - מוחק כל מה שהוקלד</summary>
-        private void ShowChoice()
+        /// <summary>חזרה למסך הפתיחה (הקלדת ת"ז) - מוחק כל מה שהוקלד</summary>
+        private void ShowIdentify()
         {
             ClearPending();
-            HideError();
             UsernameBox.Clear();
             PasswordBox.Clear();
             ClearSignupForm();
-            SignupOfferOverlay.Visibility = Visibility.Collapsed;
-            CardBorder.Visibility = Visibility.Collapsed;
-            ChoicePanel.Visibility = Visibility.Visible;
+            ShowPanel(IdentifyPanel);
+            UsernameBox.Focus();
         }
-
-        private void OnChooseLoginClick(object sender, RoutedEventArgs e) => ShowLoginPanel();
 
         private void ResetIfIdle()
         {
-            if (_paymentOpen || ChoicePanel.Visibility == Visibility.Visible) return;
+            if (_paymentOpen) return;
+            if (IdentifyPanel.Visibility == Visibility.Visible && UsernameBox.Text.Length == 0) return;
             if (ChangePasswordPanel.Visibility == Visibility.Visible) return; // באמצע החלפת סיסמה זמנית
             if (DateTime.Now - _lastActivity < IdleReset) return;
-            ShowChoice();
+            ShowIdentify();
         }
 
-        private void OnBackToChoiceClick(object sender, RoutedEventArgs e) => ShowChoice();
+        private void OnBackToIdentifyClick(object sender, RoutedEventArgs e) => ShowIdentify();
 
         // ===================== פתיחת חשבון =====================
-
-        private void OnChooseSignupClick(object sender, RoutedEventArgs e)
-        {
-            ClearSignupForm();
-            ShowPanel(SignupPanel);
-            SignupNameBox.Focus();
-        }
 
         private void ClearSignupForm()
         {
@@ -577,9 +664,8 @@ namespace KioskApp.Views
             }
 
             ClearSignupForm();
-            ShowLoginPanel();
             UsernameBox.Text = details.Tz;
-            PasswordBox.Focus();
+            ShowLoginPanel();
             ShowError("החשבון נפתח בהצלחה! נא להיכנס עם תעודת הזהות והסיסמה שבחרתם.");
         }
 

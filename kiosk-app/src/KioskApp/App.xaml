@@ -9,14 +9,17 @@
         <!-- צבעים -->
         <SolidColorBrush x:Key="KioskGroundBrush" Color="#F4ECDD" />    <!-- רקע המסכים -->
         <SolidColorBrush x:Key="KioskCardBrush" Color="#FFFDF8" />      <!-- כרטיסים וסרגלים -->
-        <SolidColorBrush x:Key="KioskSoftBrush" Color="#EFE4D2" />      <!-- הדגשה רכה (יתרה, אריחי סמל) -->
-        <SolidColorBrush x:Key="KioskBorderBrush" Color="#E6D9C3" />    <!-- קווי מתאר עדינים -->
+        <SolidColorBrush x:Key="KioskSoftBrush" Color="#EADAC0" />      <!-- הדגשה רכה (יתרה, אריחי סמל) -->
+        <SolidColorBrush x:Key="KioskBorderBrush" Color="#DFCBAA" />    <!-- קווי מתאר עדינים -->
         <SolidColorBrush x:Key="KioskOutlineBrush" Color="#C9B28F" />   <!-- מסגרת כפתור משני ושדות -->
         <SolidColorBrush x:Key="KioskInputBrush" Color="#FBF7EF" />     <!-- רקע שדות קלט -->
         <SolidColorBrush x:Key="KioskTextBrush" Color="#3E2F23" />      <!-- טקסט וכותרות -->
         <SolidColorBrush x:Key="KioskSecondaryTextBrush" Color="#5B4636" />
         <SolidColorBrush x:Key="KioskMutedBrush" Color="#7A6A58" />     <!-- טקסט משני -->
         <SolidColorBrush x:Key="KioskSuccessBrush" Color="#5E7A3A" />
+        <SolidColorBrush x:Key="KioskBrandBrush" Color="#5C3D22" />     <!-- חום כהה: פסים עליונים/תחתונים, גלולת יתרה -->
+        <SolidColorBrush x:Key="KioskOnBrandBrush" Color="#F4ECDD" />   <!-- טקסט על חום כהה -->
+        <SolidColorBrush x:Key="KioskTanBrush" Color="#C9A272" />       <!-- חום בינוני: קו תחתון לאריחים ולסרגלים -->
 
         <!-- שמות ישנים - נשמרים למקומות בקוד שעוד משתמשים בהם -->
         <SolidColorBrush x:Key="KioskPrimaryBrush" Color="#3E2F23" />
@@ -95,8 +98,8 @@
             <Setter Property="Height" Value="200" />
             <Setter Property="Margin" Value="12" />
             <Setter Property="Background" Value="{StaticResource KioskCardBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource KioskBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{StaticResource KioskTanBrush}" />
+            <Setter Property="BorderThickness" Value="1,1,1,5" />
             <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
             <Setter Property="FontFamily" Value="{StaticResource KioskBodyFont}" />
             <Setter Property="Cursor" Value="Hand" />
@@ -115,7 +118,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource KioskOutlineBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource KioskAccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource KioskSoftBrush}" />
@@ -197,7 +200,8 @@
 
         <!-- גלולה (יתרה בסרגל) -->
         <Style x:Key="KioskPill" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource KioskSoftBrush}" />
+            <Setter Property="Background" Value="{StaticResource KioskBrandBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource KioskOnBrandBrush}" />
             <Setter Property="CornerRadius" Value="16" />
             <Setter Property="Padding" Value="14,5" />
             <Setter Property="VerticalAlignment" Value="Center" />

@@ -444,7 +444,7 @@ async function changeOwnPassword(event, { username, currentPassword, newPassword
     const viaMain = verifyPassword(cur, u.passwordSalt, u.passwordHash);
     const viaTemp = !viaMain && hasActiveTempPassword(u) && verifyPassword(cur, u.tempPasswordSalt, u.tempPasswordHash);
     if (!viaMain && !viaTemp) throw new Error('הסיסמה הזמנית שגויה או שפג תוקפה - יש להתקשר שוב לקבלת סיסמה חדשה');
-    if (!u.isActive) throw new Error('החשבון מושבת - יש לפנות לצוות הספרייה');
+    if (!u.isActive) throw new Error('החשבון מושבת - יש לפנות לגבאים');
     if (next === cur) throw new Error('הסיסמה החדשה חייבת להיות שונה מהסיסמה הזמנית');
     usedTemp = viaTemp;
     u.passwordSalt = salt;
@@ -742,7 +742,14 @@ function isTzTaken(users, username) {
     || (tz && normalizeTz(u.username) === tz));
 }
 
-const TZ_TAKEN_MESSAGE = 'כבר קיים חשבון עם תעודת הזהות הזאת. אפשר להיכנס דרך "כניסה לחשבון" (ואם הסיסמה נשכחה - "שכחתי סיסמה").';
+const TZ_TAKEN_MESSAGE = 'כבר קיים חשבון עם תעודת הזהות הזאת. יש לחזור למסך הפתיחה, להקליד את תעודת הזהות ולהיכנס עם הסיסמה (ואם הסיסמה נשכחה - "שכחתי סיסמה").';
+
+// מסך הפתיחה בעמדה: האם יש כבר חשבון (פעיל או מושבת) לת"ז / שם המשתמש הזה
+async function accountExists(event, username) {
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  return isTzTaken(users, String(username || '').trim());
+}
 
 async function assertTzAvailable(event, username) {
   const store = getKioskStore(event);
@@ -1222,6 +1229,7 @@ module.exports = {
   createPendingTopup,
   validateSignupDetails,
   assertTzAvailable,
+  accountExists,
   createPendingSignup,
   confirmPendingTopup,
   recordOrphanTopup,

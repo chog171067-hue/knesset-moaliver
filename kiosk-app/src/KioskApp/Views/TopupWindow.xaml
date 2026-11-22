@@ -14,8 +14,8 @@
         Background="{StaticResource KioskGroundBrush}">
     <!-- כרטיס שמנת במרכז המסך, כמו שאר חלונות הקיוסק. החלון עצמו לא שקוף כי הדפדפן הפנימי
          (טופס האשראי של נדרים פלוס) לא מוצג בחלון שקוף - לכן הרקע הוא צבע הרקע של הקיוסק -->
-    <Border Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskBorderBrush}"
-            BorderThickness="1" CornerRadius="20" Width="560"
+    <Border Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskTanBrush}"
+            BorderThickness="2" CornerRadius="20" Width="560"
             HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20" Padding="34,22,34,30">
         <Border.Effect>
             <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.14" Color="#5B4636" />

@@ -74,6 +74,20 @@ namespace KioskApp.Core
         /// <summary>
         /// למסך "שכחתי סיסמה": לאיזה מספר להתקשר, והטלפון הרשום בחשבון (מוסתר).
         /// </summary>
+        /// <summary>
+        /// מסך הפתיחה: האם כבר יש חשבון לתעודת הזהות שהוקלדה (כן ← סיסמה, לא ← פתיחת חשבון)
+        /// </summary>
+        public async Task<bool> AccountExistsAsync(string username, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<AccountCheckResponse>(
+                "/.netlify/functions/library-station-account-check", new { username }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בבדיקת תעודת הזהות", statusCode);
+            }
+            return response.Exists;
+        }
+
         public async Task<PasswordResetInfo> GetPasswordResetInfoAsync(string username, CancellationToken ct = default)
         {
             var (statusCode, response) = await PostRawAsync<ResetInfoResponse>(
@@ -304,6 +318,11 @@ namespace KioskApp.Core
         {
             public KioskUser? User { get; set; }
             public bool MustChangePassword { get; set; }
+        }
+
+        private class AccountCheckResponse : ApiEnvelope
+        {
+            public bool Exists { get; set; }
         }
 
         private class ResetInfoResponse : ApiEnvelope

@@ -13,7 +13,7 @@
     <DockPanel>
         <!-- סרגל עליון -->
         <Border DockPanel.Dock="Top" Background="{StaticResource KioskCardBrush}"
-                BorderBrush="{StaticResource KioskBorderBrush}" BorderThickness="0,0,0,1" Padding="40,14">
+                BorderBrush="{StaticResource KioskAccentBrush}" BorderThickness="0,0,0,4" Padding="40,14">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="WelcomeText" Text="שלום!" Style="{StaticResource KioskHeading}" FontSize="24"
@@ -50,8 +50,10 @@
             </DockPanel>
         </Border>
 
-        <TextBlock DockPanel.Dock="Bottom" x:Name="FooterText" FontSize="14" Foreground="{StaticResource KioskMutedBrush}"
-                   HorizontalAlignment="Center" Margin="0,0,0,24" />
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource KioskBrandBrush}" Padding="0,11">
+            <TextBlock x:Name="FooterText" FontSize="15" Foreground="{StaticResource KioskOnBrandBrush}"
+                       HorizontalAlignment="Center" />
+        </Border>
 
         <TextBlock DockPanel.Dock="Top" Text="במה תרצו להשתמש?" Style="{StaticResource KioskHeading}" FontSize="32"
                    HorizontalAlignment="Center" Margin="0,44,0,20" />
