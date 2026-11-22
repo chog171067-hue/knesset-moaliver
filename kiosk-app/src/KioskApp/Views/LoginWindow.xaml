@@ -82,6 +82,53 @@
             </StackPanel>
         </Border>
 
+        <!-- צד שמאל: תעריפי שימוש -->
+        <Border HorizontalAlignment="Right" VerticalAlignment="Center" Margin="40,120,40,60" Width="290"
+                Background="{StaticResource KioskCardBrush}" BorderBrush="{StaticResource KioskTanBrush}"
+                BorderThickness="2" CornerRadius="16">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.10" Color="#5B4636" />
+            </Border.Effect>
+            <StackPanel>
+                <Border Background="{StaticResource KioskBrandBrush}" CornerRadius="14,14,0,0" Padding="16,10">
+                    <TextBlock Text="תעריפי שימוש" Style="{StaticResource KioskHeading}" FontSize="22"
+                               Foreground="{StaticResource KioskOnBrandBrush}" HorizontalAlignment="Center" />
+                </Border>
+                <StackPanel Margin="20,14,20,16">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="10 ₪" FontSize="17" FontWeight="Bold"
+                                   Foreground="{StaticResource KioskAccentBrush}" />
+                        <TextBlock Text="פתיחת חשבון" FontSize="17" FontWeight="SemiBold" />
+                    </DockPanel>
+                    <TextBlock Text="הסכום במלואו נטען בארנק האישי לשימוש בהמשך" FontSize="13"
+                               Foreground="{StaticResource KioskMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+
+                    <Border Height="1" Background="{StaticResource KioskBorderBrush}" Margin="0,12" />
+
+                    <DockPanel>
+                        <TextBlock x:Name="UsagePriceText" DockPanel.Dock="Right" Text="2 ₪ ל-10 דקות" FontSize="17" FontWeight="Bold"
+                                   Foreground="{StaticResource KioskAccentBrush}" />
+                        <TextBlock Text="שימוש" FontSize="17" FontWeight="SemiBold" />
+                    </DockPanel>
+                    <DockPanel Margin="0,6,0,0">
+                        <TextBlock DockPanel.Dock="Right" Text="חינם" FontSize="17" FontWeight="Bold"
+                                   Foreground="{StaticResource KioskSuccessBrush}" />
+                        <TextBlock Text="לחברי הקהילה" FontSize="17" FontWeight="SemiBold" />
+                    </DockPanel>
+
+                    <Border Height="1" Background="{StaticResource KioskBorderBrush}" Margin="0,12" />
+
+                    <DockPanel>
+                        <TextBlock x:Name="PrintPriceText" DockPanel.Dock="Right" Text="20 אג' לעמוד" FontSize="17"
+                                   FontWeight="Bold" Foreground="{StaticResource KioskAccentBrush}" />
+                        <TextBlock Text="הדפסה" FontSize="17" FontWeight="SemiBold" />
+                    </DockPanel>
+                    <TextBlock Text="שחור לבן בלבד · צד אחד בלבד" FontSize="13"
+                               Foreground="{StaticResource KioskMutedBrush}" Margin="0,2,0,0" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <!-- מרכז: לוגו הספרייה + הכרטיס (ת"ז / סיסמה / פתיחת חשבון / שחזור / סיסמה חדשה) -->
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,50">
             <!-- הלוגו נטען מ-Assets\library-logo.png. אם הקובץ לא קיים - לא מוצג כלום -->

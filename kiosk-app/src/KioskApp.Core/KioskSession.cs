@@ -14,6 +14,8 @@ namespace KioskApp.Core
         public KioskUser? CurrentUser { get; private set; }
         public KioskConfig? Config { get; private set; }
         public DateTimeOffset LoginTime { get; private set; }
+        /// <summary>חבר קהילה (לתגית בלשונית) - null עד שנבדק מול השרת</summary>
+        public bool? IsCommunityMember { get; set; }
 
         public bool IsActive => CurrentUser != null;
         public TimeSpan Elapsed => IsActive ? DateTimeOffset.Now - LoginTime : TimeSpan.Zero;
@@ -26,6 +28,7 @@ namespace KioskApp.Core
             CurrentUser = user;
             Config = config;
             LoginTime = DateTimeOffset.Now;
+            IsCommunityMember = null;
         }
 
         public void UpdateBalance(decimal newBalance)
@@ -39,6 +42,7 @@ namespace KioskApp.Core
         {
             CurrentUser = null;
             Config = null;
+            IsCommunityMember = null;
             SessionEnded?.Invoke(this, EventArgs.Empty);
         }
     }

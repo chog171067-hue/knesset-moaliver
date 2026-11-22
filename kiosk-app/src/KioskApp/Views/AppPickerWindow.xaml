@@ -11,52 +11,20 @@
         Foreground="{StaticResource KioskTextBrush}"
         Background="{StaticResource KioskGroundBrush}">
     <DockPanel>
-        <!-- סרגל עליון -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource KioskCardBrush}"
-                BorderBrush="{StaticResource KioskAccentBrush}" BorderThickness="0,0,0,4" Padding="40,14">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="WelcomeText" Text="שלום!" Style="{StaticResource KioskHeading}" FontSize="24"
-                               VerticalAlignment="Center" Margin="0,0,24,0" />
-                    <Border Style="{StaticResource KioskPill}">
-                        <TextBlock x:Name="BalanceText" FontSize="16" FontWeight="SemiBold" />
-                    </Border>
-                </StackPanel>
-
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="ExitToDesktopButton" Style="{StaticResource KioskSecondaryButton}" Margin="0,0,12,0"
-                            Click="OnExitToDesktopClick" Visibility="Collapsed">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource IconTool}" Style="{StaticResource KioskIcon}" Margin="0,0,8,0"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <TextBlock Text="יציאה למחשב" />
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource KioskSecondaryButton}" Margin="0,0,12,0" Click="OnTopupClick">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource IconPlus}" Style="{StaticResource KioskIcon}" Margin="0,0,8,0"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <TextBlock Text="הטענת כסף" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="LogoutButton" Style="{StaticResource KioskDangerButton}" Click="OnLogoutClick">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource IconLogout}" Style="{StaticResource KioskIcon}" Margin="0,0,8,0"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <TextBlock Text="ניתוק" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <!-- פס חום עליון (פרטי המשתמש, יתרה וניתוק - בלשונית הצפה) -->
+        <Border DockPanel.Dock="Top" Height="8" Background="{StaticResource KioskBrandBrush}" />
 
         <Border DockPanel.Dock="Bottom" Background="{StaticResource KioskBrandBrush}" Padding="0,11">
             <TextBlock x:Name="FooterText" FontSize="15" Foreground="{StaticResource KioskOnBrandBrush}"
                        HorizontalAlignment="Center" />
         </Border>
 
-        <TextBlock DockPanel.Dock="Top" Text="במה תרצו להשתמש?" Style="{StaticResource KioskHeading}" FontSize="32"
-                   HorizontalAlignment="Center" Margin="0,44,0,20" />
+        <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center" Margin="0,44,0,20">
+            <TextBlock x:Name="WelcomeText" Text="שלום!" FontSize="20" FontWeight="SemiBold"
+                       Foreground="{StaticResource KioskAccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,4" />
+            <TextBlock Text="במה תרצו להשתמש?" Style="{StaticResource KioskHeading}" FontSize="32"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <WrapPanel x:Name="AppsPanel" HorizontalAlignment="Center" Margin="30,10,30,30" />

@@ -88,6 +88,25 @@ namespace KioskApp.Core
             return response.Exists;
         }
 
+        /// <summary>
+        /// הלשונית הצפה: חבר קהילה, יתרה עדכנית והעסקאות האחרונות של המשתמש המחובר
+        /// </summary>
+        public async Task<AccountInfo> GetAccountInfoAsync(string userId, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<AccountInfoResponse>(
+                "/.netlify/functions/library-station-account-info", new { userId }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בטעינת פרטי החשבון", statusCode);
+            }
+            return new AccountInfo
+            {
+                IsCommunityMember = response.IsCommunityMember,
+                Balance = response.Balance,
+                Transactions = response.Transactions ?? new System.Collections.Generic.List<AccountTransaction>()
+            };
+        }
+
         public async Task<PasswordResetInfo> GetPasswordResetInfoAsync(string username, CancellationToken ct = default)
         {
             var (statusCode, response) = await PostRawAsync<ResetInfoResponse>(
@@ -220,6 +239,44 @@ namespace KioskApp.Core
         }
 
         /// <summary>
+        /// חיוב על זמן שימוש (בסוף כל 10 דקות, או על הדקות שנותרו כשהיתרה נגמרת).
+        /// השרת לא מחייב חבר קהילה ולא יורד מתחת ל-0. מחזיר את היתרה החדשה.
+        /// </summary>
+        public async Task<decimal> ChargeUsageAsync(string userId, int minutes, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<ChargeResponse>(
+                "/.netlify/functions/library-station-usage-charge", new { userId, minutes }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "חיוב זמן השימוש נכשל", statusCode);
+            }
+            return response.Balance;
+        }
+
+        /// <summary>השיחה עם הגבאי (markRead: סימון תשובות הגבאי כנקראו)</summary>
+        public async Task<GabaiThread> GetGabaiThreadAsync(string userId, bool markRead, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<GabaiThreadResponse>(
+                "/.netlify/functions/library-station-gabai", new { userId, action = "get", markRead }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בטעינת ההודעות", statusCode);
+            }
+            return new GabaiThread { Messages = response.Messages ?? new System.Collections.Generic.List<GabaiMessage>(), HasUnread = response.HasUnread };
+        }
+
+        public async Task<GabaiThread> SendGabaiMessageAsync(string userId, string text, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<GabaiThreadResponse>(
+                "/.netlify/functions/library-station-gabai", new { userId, action = "send", text }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "שליחת ההודעה נכשלה", statusCode);
+            }
+            return new GabaiThread { Messages = response.Messages ?? new System.Collections.Generic.List<GabaiMessage>(), HasUnread = response.HasUnread };
+        }
+
+        /// <summary>
         /// החזר על חיוב הדפסה שנכשלה (המדפסת מנותקת/תקלה). מחזיר את היתרה החדשה.
         /// השרת מאפשר החזר אחד בלבד לכל חיוב - קריאה כפולה מחזירה שגיאה ולא כסף כפול.
         /// </summary>
@@ -320,6 +377,13 @@ namespace KioskApp.Core
             public bool MustChangePassword { get; set; }
         }
 
+        private class AccountInfoResponse : ApiEnvelope
+        {
+            public bool IsCommunityMember { get; set; }
+            public decimal Balance { get; set; }
+            public System.Collections.Generic.List<AccountTransaction>? Transactions { get; set; }
+        }
+
         private class AccountCheckResponse : ApiEnvelope
         {
             public bool Exists { get; set; }
@@ -330,6 +394,12 @@ namespace KioskApp.Core
             public string? ResetPhone { get; set; }
             public bool Found { get; set; }
             public string? MaskedPhone { get; set; }
+        }
+
+        private class GabaiThreadResponse : ApiEnvelope
+        {
+            public System.Collections.Generic.List<GabaiMessage>? Messages { get; set; }
+            public bool HasUnread { get; set; }
         }
 
         private class ConfigResponse : ApiEnvelope

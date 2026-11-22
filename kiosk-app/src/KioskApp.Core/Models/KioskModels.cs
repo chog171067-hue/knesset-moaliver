@@ -19,6 +19,24 @@ namespace KioskApp.Core.Models
         public DateTimeOffset? UpdatedAt { get; set; }
     }
 
+    /// <summary>פרטי החשבון ללשונית הצפה (library-station-account-info)</summary>
+    public class AccountInfo
+    {
+        public bool IsCommunityMember { get; set; }
+        public decimal Balance { get; set; }
+        public List<AccountTransaction> Transactions { get; set; } = new List<AccountTransaction>();
+    }
+
+    /// <summary>שורה ב"היסטוריית תשלומים". Type: topup / signup = זיכוי, charge = חיוב</summary>
+    public class AccountTransaction
+    {
+        public DateTimeOffset Timestamp { get; set; }
+        public string Type { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = "";
+        public bool IsCharge => Type == "charge";
+    }
+
     public class AllowedApp
     {
         public string Id { get; set; } = "";
@@ -36,6 +54,23 @@ namespace KioskApp.Core.Models
         public bool TextEditorEnabled { get; set; }
         /// <summary>מספר הטלפון לשחזור סיסמה (ימות המשיח). ריק = לא מציגים "שכחתי סיסמה"</summary>
         public string PasswordResetPhone { get; set; } = "";
+        /// <summary>תעריף שימוש לדקה (לא לחברי קהילה). 0 = בלי חיוב על זמן</summary>
+        public decimal UsagePricePerMinute { get; set; }
+    }
+
+    /// <summary>הודעה בשיחה עם הגבאי (from: user / admin)</summary>
+    public class GabaiMessage
+    {
+        public string From { get; set; } = "";
+        public string Text { get; set; } = "";
+        public DateTimeOffset Timestamp { get; set; }
+        public bool FromAdmin => From == "admin";
+    }
+
+    public class GabaiThread
+    {
+        public List<GabaiMessage> Messages { get; set; } = new List<GabaiMessage>();
+        public bool HasUnread { get; set; }
     }
 
     /// <summary>תשובת library-station-reset-info - למסך "שכחתי סיסמה"</summary>
