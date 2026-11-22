@@ -46,7 +46,7 @@ namespace KioskApp.Views
             });
             titleRow.Children.Add(new TextBlock
             {
-                Text = "ההדפסה לא מתבצעת",
+                Text = "בעיה במדפסת",
                 FontSize = 22,
                 FontWeight = FontWeights.Bold,
                 VerticalAlignment = VerticalAlignment.Center
@@ -62,7 +62,7 @@ namespace KioskApp.Views
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "אפשר לבטל את ההדפסה (הכסף יוחזר ליתרה), או לתקן את הבעיה ולהמשיך לחכות.",
+                Text = "אפשר לתקן ולהמשיך, או לבטל את ההדפסה (אם כבר חויבתם - הכסף יוחזר ליתרה).",
                 FontSize = 15,
                 Foreground = Res<Brush>("KioskMutedBrush"),
                 TextWrapping = TextWrapping.Wrap,
@@ -83,7 +83,7 @@ namespace KioskApp.Views
 
             var waitButton = new Button
             {
-                Content = "המשך לחכות",
+                Content = "טענתי - המשך",
                 Style = Res<Style>("KioskSecondaryButton"),
                 MinHeight = 46
             };

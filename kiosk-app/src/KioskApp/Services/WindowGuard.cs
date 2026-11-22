@@ -405,21 +405,68 @@ namespace KioskApp.Services
         {
             EnumWindows((hWnd, _) =>
             {
-                if (!IsWindowVisible(hWnd) || IsStandardDialog(hWnd)) return true;
+                if (!IsWindowVisible(hWnd)) return true;
+                GetWindowThreadProcessId(hWnd, out var pid);
+                // חלון-דו-שיח רגיל (#32770) נסגר רק אם הוא של תוכנת הדרייבר - לא חלון ההדפסה של התוכנה
+                if (IsStandardDialog(hWnd) && !IsPrinterDriverProcess((int)pid)) return true;
                 var title = new StringBuilder(256);
                 GetWindowText(hWnd, title, title.Capacity);
                 var t = title.ToString();
-                if (t.IndexOf("Samsung", StringComparison.OrdinalIgnoreCase) < 0
-                    && t.IndexOf("Printing Status", StringComparison.OrdinalIgnoreCase) < 0
-                    && t.IndexOf("מצב הדפסה", StringComparison.Ordinal) < 0
-                    && t.IndexOf("מצב ההדפסה", StringComparison.Ordinal) < 0) return true;
-                GetWindowThreadProcessId(hWnd, out var pid);
+                var byTitle = t.IndexOf("Samsung", StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("Printing Status", StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("מצב הדפסה", StringComparison.Ordinal) >= 0
+                    || t.IndexOf("מצב ההדפסה", StringComparison.Ordinal) >= 0;
+                // גם לפי מיקום התוכנה: תוכנות של הדרייבר (תיקיית Samsung / תיקיית הדרייברים של Windows)
+                if (!byTitle && !IsPrinterDriverProcess((int)pid)) return true;
                 if (!IsUserProcess((int)pid)) return true;
                 PostMessage(hWnd, WmClose, IntPtr.Zero, IntPtr.Zero);
                 if (ClosedDriverPopups.Add(hWnd)) App.LogInfo($"נסגר חלון של דרייבר המדפסת: \"{t}\"");
                 return true;
             }, IntPtr.Zero);
             if (ClosedDriverPopups.Count > 200) ClosedDriverPopups.Clear();
+        }
+
+        /// <summary>ליומן: כל החלונות הגלויים של תהליכי המשתמש - כותרת, מחלקה ונתיב התוכנה</summary>
+        public static string DescribeVisibleWindows()
+        {
+            var sb = new StringBuilder();
+            EnumWindows((hWnd, _) =>
+            {
+                if (!IsWindowVisible(hWnd)) return true;
+                GetWindowThreadProcessId(hWnd, out var pid);
+                if (!IsUserProcess((int)pid)) return true;
+                var title = new StringBuilder(256);
+                GetWindowText(hWnd, title, title.Capacity);
+                var cls = new StringBuilder(128);
+                GetClassName(hWnd, cls, cls.Capacity);
+                string path;
+                try { using var p = Process.GetProcessById((int)pid); path = p.MainModule?.FileName ?? "?"; }
+                catch { path = "?"; }
+                sb.Append($" [\"{title}\"|{cls}|{path}]");
+                return true;
+            }, IntPtr.Zero);
+            return sb.Length == 0 ? " (אין)" : sb.ToString();
+        }
+
+        private static readonly Dictionary<int, bool> DriverPidCache = new();
+
+        private static bool IsPrinterDriverProcess(int pid)
+        {
+            if (DriverPidCache.TryGetValue(pid, out var known)) return known;
+            var result = false;
+            try
+            {
+                using var p = Process.GetProcessById(pid);
+                var path = (p.MainModule?.FileName ?? "").ToLowerInvariant();
+                result = path.Contains("\\samsung") || path.Contains("\\spool\\drivers\\") || path.Contains("\\hp\\");
+            }
+            catch
+            {
+                // אין גישה - לא נוגעים
+            }
+            if (DriverPidCache.Count > 500) DriverPidCache.Clear();
+            DriverPidCache[pid] = result;
+            return result;
         }
 
         private static bool IsStandardDialog(IntPtr hWnd)

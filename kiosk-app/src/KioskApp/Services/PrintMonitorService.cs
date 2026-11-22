@@ -148,7 +148,9 @@ namespace KioskApp.Services
                 var cost = Math.Round(pages * price, 2);
                 App.LogInfo($"הדפסה: עבודה חדשה {jobKey}, {pages} עמודים, {cost:0.00} ₪ - ממתין לאישור (נעצרה: {paused})");
 
-                if (!ConfirmPrint(pages, cost))
+                try { App.LogInfo($"הדפסה: חלונות פתוחים לפני האישור:{WindowGuard.DescribeVisibleWindows()}"); }
+                catch { /* רק לאבחון */ }
+                if (!WaitForPrinterReady(printerName) || !ConfirmPrint(pages, cost))
                 {
                     App.LogInfo($"הדפסה: המשתמש ביטל את {jobKey}");
                     TryCancelPrintJob(printerName, jobId);
@@ -337,17 +339,48 @@ namespace KioskApp.Services
         /// </summary>
         private static string? DescribeError(PrintQueue queue, PrintSystemJobInfo job)
         {
-            if (queue.IsOutOfPaper || job.IsPaperOut) return "נגמר הנייר במדפסת";
-            if (queue.IsPaperJammed) return "נייר תקוע במדפסת";
-            if (queue.IsDoorOpened) return "מכסה המדפסת פתוח";
-            if (queue.IsOutOfMemory) return "זיכרון המדפסת מלא";
-            if (queue.IsOffline || queue.IsNotAvailable || job.IsOffline) return "המדפסת כבויה או מנותקת";
-            if (queue.IsInError || job.IsInError || job.IsBlocked || job.IsUserInterventionRequired
-                || queue.IsManualFeedRequired || queue.IsOutputBinFull)
-                return queue.IsTonerLow
-                    ? "שגיאה במדפסת - כנראה נגמר הדיו"
-                    : "שגיאה במדפסת (ייתכן שנגמר הדיו, או תקלה אחרת)";
+            var queueProblem = DescribeQueueProblem(queue);
+            if (queueProblem != null) return queueProblem;
+            if (job.IsPaperOut) return PaperOutText;
+            if (job.IsOffline) return OfflineText;
+            if (job.IsInError || job.IsBlocked || job.IsUserInterventionRequired) return GeneralErrorText;
             return null;
+        }
+
+        private const string PaperOutText = "אין נייר במדפסת.\nיש לטעון נייר במגש המדפסת, ואז ללחוץ \"טענתי - המשך\".";
+        private const string OfflineText = "המדפסת כבויה או מנותקת.\nיש לבדוק שהמדפסת דלוקה ומחוברת. אם זה לא עוזר - לפנות לגבאים.";
+        private const string GeneralErrorText = "יש תקלה במדפסת (ייתכן שנגמר הטונר, או תקלה אחרת).\nיש לפנות לגבאים.";
+
+        /// <summary>תקלה במדפסת עצמה (לא בעבודה מסוימת) - עם הסבר מה לעשות. null = אין תקלה.</summary>
+        private static string? DescribeQueueProblem(PrintQueue queue)
+        {
+            if (queue.IsOutOfPaper) return PaperOutText;
+            if (queue.IsPaperJammed) return "נייר תקוע במדפסת.\nיש לפנות לגבאים לשחרור הנייר.";
+            if (queue.IsDoorOpened) return "מכסה המדפסת פתוח.\nיש לסגור את המכסה, ואז ללחוץ \"טענתי - המשך\".";
+            if (queue.IsManualFeedRequired) return "המדפסת ממתינה להזנת נייר ידנית.\nיש לטעון נייר במגש, ואז ללחוץ \"טענתי - המשך\".";
+            if (queue.IsOutputBinFull) return "מגש היציאה של המדפסת מלא.\nיש להוציא את הדפים מהמגש, ואז ללחוץ \"טענתי - המשך\".";
+            if (queue.IsOutOfMemory) return "זיכרון המדפסת מלא.\nיש לפנות לגבאים.";
+            if (queue.IsOffline || queue.IsNotAvailable) return OfflineText;
+            if (queue.IsInError || queue.NeedUserIntervention)
+                return queue.IsTonerLow ? "נגמר הטונר (הדיו) במדפסת.\nיש לפנות לגבאים." : GeneralErrorText;
+            return null;
+        }
+
+        /// <summary>מצב המדפסת כרגע (לפני אישור ההדפסה). null = אין תקלה / לא ידוע.</summary>
+        private static string? CheckPrinterProblem(string printerName)
+        {
+            try
+            {
+                using var printServer = new PrintServer();
+                using var queue = printServer.GetPrintQueue(printerName);
+                queue.Refresh();
+                return DescribeQueueProblem(queue);
+            }
+            catch (Exception ex)
+            {
+                App.LogError($"הדפסה: כשל בבדיקת מצב המדפסת ({printerName})", ex);
+                return null;
+            }
         }
 
         /// <summary>
@@ -440,6 +473,31 @@ namespace KioskApp.Services
                 }
                 return false;
             });
+        }
+
+        /// <summary>
+        /// לפני אישור ההדפסה: אם יש תקלה במדפסת (אין נייר, מכסה פתוח...) - חלון של הקיוסק עם
+        /// הסבר מה לעשות: "טענתי - המשך" (בודקים שוב) או "בטל הדפסה". מחזיר false = לבטל.
+        /// </summary>
+        private static bool WaitForPrinterReady(string printerName)
+        {
+            for (var round = 0; round < 20; round++)
+            {
+                var problem = CheckPrinterProblem(printerName);
+                if (problem == null) return true;
+                App.LogInfo($"הדפסה: תקלה במדפסת לפני אישור - {problem.Replace("\n", " ")}");
+                var cancel = Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var dialog = new PrintProblemDialog(problem);
+                    var owner = App.ActiveWindow();
+                    if (owner != null && owner.IsVisible && owner != dialog) dialog.Owner = owner;
+                    dialog.ShowDialog();
+                    return dialog.CancelRequested;
+                });
+                if (cancel || !App.Session.IsActive) return false;
+                Thread.Sleep(1500); // שהמדפסת תספיק לעדכן את המצב שלה
+            }
+            return false;
         }
 
         /// <summary>
