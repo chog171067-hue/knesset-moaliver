@@ -278,25 +278,10 @@ namespace KioskApp.Views
             try
             {
                 var pages = TextPrinter.CountPages(_editor.Text, printer);
-                var price = App.Session.Config?.PricePerPage ?? 0;
-                var cost = pages * price;
-                var balance = App.Session.CurrentUser?.Balance ?? 0;
-
-                if (cost > balance)
-                {
-                    ShowStatus($"ההדפסה ({pages} עמודים) עולה {cost:0.00} ₪, והיתרה {balance:0.00} ₪. יש להטעין כסף.", isError: true);
-                    return;
-                }
-
-                var answer = MessageBox.Show(this,
-                    $"להדפיס {pages} {(pages == 1 ? "עמוד" : "עמודים")}?\nעלות: {cost:0.00} ₪",
-                    "הדפסה", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (answer != MessageBoxResult.Yes) return;
-
-                // החיוב עצמו - דרך מעקב ההדפסות הרגיל (כולל החזר אם ההדפסה נכשלת)
+                // האישור (עמודים + סכום לחיוב) והחיוב - בחלון האישור של מעקב ההדפסות, כמו בכל תוכנה
                 TextPrinter.Print(_editor.Text, printer);
                 App.LogInfo($"עורך טקסט: נשלחו להדפסה {pages} עמודים ({printer})");
-                ShowStatus($"נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")}.", isError: false);
+                ShowStatus($"נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")} - יש לאשר בחלון שנפתח.", isError: false);
             }
             catch (Exception ex)
             {

@@ -87,6 +87,14 @@ namespace KioskApp.Services
             {
                 try
                 {
+                    // חלון-דו-שיח רגיל של Windows (הדפסה, "מדפיס...", הודעה) - לא מותחים למסך מלא:
+                    // הוא קטן מטבעו, ומתוח הוא נראה כמו מסך לבן ענק
+                    if (IsStandardDialog(hWnd))
+                    {
+                        if (IsIconic(hWnd)) ShowWindow(hWnd, SwRestore);
+                        continue;
+                    }
+
                     if (IsIconic(hWnd) || IsZoomed(hWnd))
                     {
                         // ממוזער - מחזירים. "מוגדל" של Windows מכסה גם את אזור ה-Overlay,
@@ -347,6 +355,13 @@ namespace KioskApp.Services
                 if (keep) result.Add(p); else p.Dispose();
             }
             return result;
+        }
+
+        private static bool IsStandardDialog(IntPtr hWnd)
+        {
+            var cls = new StringBuilder(64);
+            GetClassName(hWnd, cls, cls.Capacity);
+            return cls.ToString() == "#32770";
         }
 
         /// <summary>
