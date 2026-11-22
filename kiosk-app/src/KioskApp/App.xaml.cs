@@ -65,6 +65,25 @@ namespace KioskApp
             loginWindow.Show();
 
             StartScreenWatchdog();
+
+            // בעמדה נעולה הקיוסק הוא ה"שולחן העבודה" של Windows: Alt+F4 על אחד מחלונות הקיוסק
+            // היה סוגר את התוכנה כולה ומשאיר מסך שחור (נמצא בהפעלה הראשונה במחשב הספרייה).
+            // לכן חוסמים אותו בכל חלונות הקיוסק. לפני הנעילה (לא Shell) - עובד כרגיל, לבדיקות.
+            // תוכנות שהקיוסק פותח (אוצריא וכו') הן תהליכים נפרדים - אצלן Alt+F4 לא מושפע.
+            if (IsRunningAsKioskShell())
+            {
+                EventManager.RegisterClassHandler(typeof(Window), UIElement.PreviewKeyDownEvent,
+                    new System.Windows.Input.KeyEventHandler(BlockAltF4), handledEventsToo: true);
+            }
+        }
+
+        private static void BlockAltF4(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.System && e.SystemKey == System.Windows.Input.Key.F4)
+            {
+                e.Handled = true;
+                LogInfo("Alt+F4 נחסם (עמדה נעולה)");
+            }
         }
 
         // --- שירותים שפועלים לאורך כל ההתחברות (לא רק כשתוכנה פתוחה) ---
