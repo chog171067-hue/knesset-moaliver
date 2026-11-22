@@ -35,7 +35,7 @@ exports.handler = async function (event) {
     const user = auth.user;
 
     if (!user.isActive) {
-      return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'החשבון מושבת - יש לפנות לצוות הספרייה' }) };
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, error: 'החשבון מושבת - יש לפנות לגבאים' }) };
     }
 
     // כניסה עם סיסמה זמנית (משחזור בטלפון): לא מחזירים את פרטי המשתמש, כך שהעמדה

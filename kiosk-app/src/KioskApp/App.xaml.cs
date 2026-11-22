@@ -142,7 +142,7 @@ namespace KioskApp
             _printMonitor.PrintRefunded += (_, e) =>
             {
                 Session.UpdateBalance(e.NewBalance);
-                ShowMessage("ההדפסה בוטלה והחיוב הוחזר ליתרה שלך.\n\nאם התקלה חוזרת - נא לפנות לצוות הספרייה.",
+                ShowMessage("ההדפסה בוטלה והחיוב הוחזר ליתרה שלך.\n\nאם התקלה חוזרת - נא לפנות לגבאים.",
                     "ההדפסה בוטלה", MessageBoxImage.Information);
             };
             _printMonitor.PrintBlocked += (_, e) => ShowMessage(

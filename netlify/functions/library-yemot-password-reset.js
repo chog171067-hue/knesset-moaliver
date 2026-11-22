@@ -83,7 +83,7 @@ function maskTz(tz) {
   return d ? '*'.repeat(Math.max(0, d.length - 3)) + d.slice(-3) : '';
 }
 
-const MSG_CONTACT_STAFF = say('לבירורים ניתן לפנות לצוות הספרייה');
+const MSG_CONTACT_STAFF = say('לבירורים ניתן לפנות לגבאים');
 
 exports.handler = async function (event) {
   const p = readParams(event);

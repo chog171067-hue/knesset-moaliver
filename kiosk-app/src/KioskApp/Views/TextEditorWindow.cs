@@ -151,8 +151,8 @@ namespace KioskApp.Views
             var bar = new Border
             {
                 Background = Res<Brush>("KioskCardBrush"),
-                BorderBrush = Res<Brush>("KioskBorderBrush"),
-                BorderThickness = new Thickness(0, 0, 0, 1),
+                BorderBrush = Res<Brush>("KioskAccentBrush"),
+                BorderThickness = new Thickness(0, 0, 0, 4),
                 Padding = new Thickness(20, 12, 20, 12),
                 Child = barContent
             };
@@ -271,7 +271,7 @@ namespace KioskApp.Views
             var printer = TextPrinter.DefaultPhysicalPrinter();
             if (printer == null)
             {
-                ShowStatus("לא מוגדרת מדפסת בעמדה. נא לפנות לצוות הספרייה.", isError: true);
+                ShowStatus("לא מוגדרת מדפסת בעמדה. נא לפנות לגבאים.", isError: true);
                 return;
             }
 

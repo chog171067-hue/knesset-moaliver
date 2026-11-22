@@ -179,8 +179,8 @@ namespace KioskApp.Views
             Content = new Border
             {
                 Background = Res<Brush>("KioskCardBrush"),
-                BorderBrush = Res<Brush>("KioskBorderBrush"),
-                BorderThickness = new Thickness(1),
+                BorderBrush = Res<Brush>("KioskTanBrush"),
+                BorderThickness = new Thickness(2),
                 CornerRadius = new CornerRadius(20),
                 Padding = new Thickness(28, 22, 28, 26),
                 Margin = new Thickness(40, 30, 40, 30),

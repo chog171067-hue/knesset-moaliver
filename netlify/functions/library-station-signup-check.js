@@ -28,7 +28,7 @@ exports.handler = async function (event) {
     details = validateSignupDetails(JSON.parse(event.body || '{}'));
     await assertTzAvailable(event, details.username);
     if (await isTzBlocked(details.username, event)) {
-      throw new Error('לא ניתן לפתוח חשבון עם תעודת הזהות הזאת. יש לפנות לצוות הספרייה.');
+      throw new Error('לא ניתן לפתוח חשבון עם תעודת הזהות הזאת. יש לפנות לגבאים.');
     }
   } catch (error) {
     return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: error.message }) };

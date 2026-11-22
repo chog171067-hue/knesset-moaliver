@@ -358,7 +358,7 @@ namespace KioskApp.Services
             if (notify)
             {
                 Application.Current.Dispatcher.Invoke(() => MessageBox.Show(
-                    "ההדפסה בוטלה, אך החזרת הכסף ליתרה נכשלה.\nנא לפנות לצוות הספרייה - הפרטים נשמרו במערכת.",
+                    "ההדפסה בוטלה, אך החזרת הכסף ליתרה נכשלה.\nנא לפנות לגבאים - הפרטים נשמרו במערכת.",
                     "החזר לא בוצע", MessageBoxButton.OK, MessageBoxImage.Warning));
             }
         }

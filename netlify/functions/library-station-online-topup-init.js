@@ -38,7 +38,7 @@ exports.handler = async function (event) {
     if (body.signup) {
       const details = validateSignupDetails(body.signup);
       if (await isTzBlocked(details.username, event)) {
-        throw new Error('לא ניתן לפתוח חשבון עם תעודת הזהות הזאת. יש לפנות לצוות הספרייה.');
+        throw new Error('לא ניתן לפתוח חשבון עם תעודת הזהות הזאת. יש לפנות לגבאים.');
       }
       const config = await getConfig(event);
       pending = await createPendingSignup(event, details, config.signupAmount, 'online');

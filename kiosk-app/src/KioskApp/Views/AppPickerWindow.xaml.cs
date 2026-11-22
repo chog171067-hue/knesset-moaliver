@@ -24,7 +24,7 @@ namespace KioskApp.Views
                 ? $"שלום, {user?.Username}" : $"שלום, {user!.DisplayName}";
             UpdateBalance(user?.Balance ?? 0);
             var price = App.Session.Config?.PricePerPage ?? 0;
-            FooterText.Text = $"הדפסה: {price:0.00} ₪ לעמוד · לעזרה פנו לצוות הספרייה";
+            FooterText.Text = $"הדפסה: {price:0.00} ₪ לעמוד · לעזרה פנו לגבאים";
 
             // רק למשתמשים שסומנו בדף הניהול כ"מורשה יציאה"
             ExitToDesktopButton.Visibility = user?.CanExitKiosk == true
@@ -37,7 +37,7 @@ namespace KioskApp.Views
             {
                 AppsPanel.Children.Add(new TextBlock
                 {
-                    Text = "לא הוגדרו עדיין תוכנות מאושרות. יש לפנות לצוות הספרייה.",
+                    Text = "לא הוגדרו עדיין תוכנות מאושרות. יש לפנות לגבאים.",
                     Foreground = (System.Windows.Media.Brush)FindResource("KioskMutedBrush"),
                     FontSize = 18
                 });
