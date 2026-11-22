@@ -216,13 +216,16 @@ $logFile = Join-Path $kioskDir "kiosk-app.log"
 if (-not (Test-Path $logFile)) { New-Item -ItemType File -Path $logFile | Out-Null }
 icacls "$logFile" /grant "*${sid}:M" | Out-Null
 
-# כוננים פנימיים נוספים (D:, E: וכו'): ב-Windows כל משתמש יכול לשנות ולמחוק בהם כברירת מחדל.
-# חוסמים כתיבה/מחיקה למשתמש הקיוסק בלבד, בכל הכונן (קריאה נשארת - למקרה שתוכנה קוראת משם).
+# כוננים פנימיים נוספים (D:, E: וכו'): חוסמים למשתמש הקיוסק רק יצירת קבצים ותיקיות חדשים
+# ישירות בשורש הכונן - לא בכל הכונן. תוכנות מאושרות שמותקנות על כונן כזה צריכות לכתוב
+# בתיקיות שלהן: אוצר החכמה (D:) כותב ל-D:\tmp, D:\data וכו', ובלי זה נתקע במסך הפתיחה.
+# קודם מסירים חסימה ישנה על כל הכונן (מהתקנה קודמת של הסקריפט).
 # כונן המערכת (C) מוגן ע"י Windows עצמו, והתיקיות שלנו בו - למעלה.
 foreach ($d in $fixedDrives) {
     if ($d -eq $env:SystemDrive) { continue }
-    icacls "$d\" /deny "*${sid}:(OI)(CI)(W,D,DC)" | Out-Null
-    Write-Host "  $KioskUsername cannot write/delete on drive $d" -ForegroundColor Green
+    icacls "$d\" /remove:d "*$sid" | Out-Null
+    icacls "$d\" /deny "*${sid}:(W)" | Out-Null
+    Write-Host "  $KioskUsername cannot create new files in the root of drive $d" -ForegroundColor Green
 }
 
 # התיקייה הציבורית של Windows פתוחה לכתיבה לכל המשתמשים - חוסמים בה כתיבה/מחיקה למשתמש הקיוסק
