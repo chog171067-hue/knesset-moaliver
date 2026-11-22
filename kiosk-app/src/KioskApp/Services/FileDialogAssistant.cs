@@ -14,6 +14,9 @@ namespace KioskApp.Services
     /// נשמר לדיסק-און-קי המחובר. אם אין דיסק-און-קי - החלון נסגר והמשתמש מקבל הסבר.
     /// גם חלון "Restrictions" של Windows (נפתח כשחלון קבצים מנסה להציג כונן חסום) נסגר.
     ///
+    /// גם חלון "הדפסה" של Windows מאושר לבד (העמודים נבחרים בתוכנה, והאישור והחיוב - בחלון
+    /// האישור של הקיוסק).
+    ///
     /// חלונות "פתיחת קובץ" לא מטופלים - שם המשתמש צריך לבחור קובץ (מדיסק-און-קי; שאר
     /// הכוננים חסומים בסקריפט הנעילה).
     ///
@@ -80,6 +83,17 @@ namespace KioskApp.Services
             var okButton = FindByAutomationId(root, "1", ControlType.Button);
             var cancelButton = FindByAutomationId(root, "2", ControlType.Button);
             var nameBox = FindNameEdit(root);
+
+            // חלון ההדפסה של Windows (בחירת מדפסת/עותקים): מאשרים אותו לבד, למדפסת שנבחרה בו
+            // (ברירת המחדל - המדפסת של העמדה). את העמודים בוחרים בתוך התוכנה, והאישור והחיוב
+            // מוצגים בחלון האישור של הקיוסק (PrintMonitorService) כשהעבודה מגיעה לתור.
+            if (okButton != null && nameBox == null && IsPrintDialog(root, okButton, title))
+            {
+                Invoke(okButton);
+                App.LogInfo($"חלון הדפסה של Windows ({title}): אושר אוטומטית");
+                return true;
+            }
+
             if (okButton == null || nameBox == null) return false; // עוד לא נטען / לא חלון קבצים
 
             var kind = Classify(okButton.Current.Name, title);
@@ -115,6 +129,18 @@ namespace KioskApp.Services
                 ? $"הקובץ נשמר בדיסק-און-קי ({usb})."
                 : $"הקובץ נשמר בדיסק-און-קי:\n{target}");
             return true;
+        }
+
+        /// <summary>
+        /// חלון "הדפסה" הרגיל: יש בו רשימת מדפסות (מזהה 1139) או כפתור "מאפיינים" (1025),
+        /// או שהכותרת / כפתור האישור הם "הדפסה" / "Print"
+        /// </summary>
+        private static bool IsPrintDialog(AutomationElement root, AutomationElement okButton, string title)
+        {
+            if (FindByAutomationId(root, "1139", ControlType.ComboBox) != null) return true;
+            if (FindByAutomationId(root, "1025", ControlType.Button) != null) return true;
+            var text = ((okButton.Current.Name ?? "") + " " + title).ToLowerInvariant();
+            return text.Contains("print") || text.Contains("הדפס");
         }
 
         private static DialogKind Classify(string okName, string title)
