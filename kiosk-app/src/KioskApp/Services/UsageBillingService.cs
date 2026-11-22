@@ -116,6 +116,34 @@ namespace KioskApp.Services
             }
         }
 
+        /// <summary>
+        /// בניתוק (כפתור, יציאה למחשב): חיוב על הדקות השלמות שעברו מאז החיוב האחרון -
+        /// אחרת אפשר היה להתנתק רגע לפני סוף 10 הדקות ולא לשלם אף פעם. חלק של דקה לא נחשב.
+        /// </summary>
+        public async Task ChargeUsedMinutesAsync()
+        {
+            // סבב חיוב שרץ ברגע זה - מחכים שיסתיים, שלא יהיה חיוב כפול
+            for (var i = 0; i < 50 && _busy; i++) await Task.Delay(100);
+            if (_disposed || !_checkedAtLogin || !App.Session.IsActive || !Applies) return;
+            _disposed = true; // מכאן - בלי חיובים נוספים בחיבור הזה
+            _timer.Stop();
+
+            var minutes = (int)Math.Floor((DateTime.Now - _blockStart).TotalMinutes);
+            if (minutes > BlockMinutes) minutes = BlockMinutes;
+            if (minutes < 1) return;
+            var user = App.Session.CurrentUser!;
+            try
+            {
+                var balance = await App.ApiClient.ChargeUsageAsync(user.Id, minutes);
+                App.Session.UpdateBalance(balance);
+                App.LogInfo($"חיוב זמן שימוש בניתוק: {minutes} דקות, יתרה {balance:0.00}");
+            }
+            catch (Exception ex)
+            {
+                App.LogError("חיוב זמן שימוש בניתוק", ex);
+            }
+        }
+
         private static int AffordableMinutes(decimal balance)
         {
             var price = Price;

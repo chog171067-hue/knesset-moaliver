@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using KioskApp.Core;
+using KioskApp.Views;
 
 namespace KioskApp.Services
 {
@@ -140,13 +141,30 @@ namespace KioskApp.Services
                     App.LogInfo($"הדפסה: דיווח כפול על אותה עבודה ({jobKey}) - לא מחייבים שוב");
                     return;
                 }
-                App.LogInfo($"הדפסה: עבודה חדשה {jobKey}, {pages} עמודים - מחייב");
+                // עוצרים את העבודה בתור עד שהמשתמש מאשר את העלות (חלון האישור של הקיוסק)
+                var paused = TryPauseJob(printerName, jobId);
+                pages = await WaitForSpoolingAsync(printerName, jobId, pages);
+                var price = App.Session.Config?.PricePerPage ?? 0;
+                var cost = Math.Round(pages * price, 2);
+                App.LogInfo($"הדפסה: עבודה חדשה {jobKey}, {pages} עמודים, {cost:0.00} ₪ - ממתין לאישור (נעצרה: {paused})");
+
+                if (!ConfirmPrint(pages, cost))
+                {
+                    App.LogInfo($"הדפסה: המשתמש ביטל את {jobKey}");
+                    TryCancelPrintJob(printerName, jobId);
+                    return;
+                }
 
                 try
                 {
                     var result = await _apiClient.ChargePrintAsync(userId, pages);
                     Application.Current.Dispatcher.Invoke(() =>
                         PrintCharged?.Invoke(this, new PrintChargedEventArgs { Pages = pages, Cost = result.Cost, NewBalance = result.Balance }));
+                    if (paused) TryResumeJob(printerName, jobId);
+                    App.LogInfo($"הדפסה: {jobKey} חויבה ({result.Cost:0.00} ₪) ונשלחה למדפסת");
+                    _ = Application.Current.Dispatcher.InvokeAsync(async () =>
+                        await KioskMessageDialog.ShowTimedAsync(App.ActiveWindow(), KioskMessageKind.Success,
+                            "נשלח להדפסה", $"{pages} {(pages == 1 ? "עמוד" : "עמודים")} · חויבו {result.Cost:0.00} ₪", 2.5));
 
                     var transactionId = result.Transaction?.Id;
                     if (!string.IsNullOrEmpty(transactionId))
@@ -159,6 +177,15 @@ namespace KioskApp.Services
                     TryCancelPrintJob(printerName, jobId);
                     Application.Current.Dispatcher.Invoke(() =>
                         PrintBlocked?.Invoke(this, new PrintBlockedEventArgs { Balance = ex.Balance, Cost = ex.Cost }));
+                }
+                catch (Exception ex)
+                {
+                    // החיוב נכשל (למשל אין אינטרנט) - לא מדפיסים בלי חיוב
+                    App.LogError($"הדפסה: חיוב {jobKey} נכשל - העבודה מבוטלת", ex);
+                    TryCancelPrintJob(printerName, jobId);
+                    Application.Current.Dispatcher.Invoke(() =>
+                        KioskMessageDialog.ShowMessage(App.ActiveWindow(), KioskMessageKind.Error, "ההדפסה בוטלה",
+                            "לא ניתן היה לחייב את ההדפסה כרגע (אין חיבור לשרת). לא חויבתם. אפשר לנסות שוב בעוד רגע."));
                 }
             }
             catch (Exception ex)
@@ -381,6 +408,96 @@ namespace KioskApp.Services
         {
             var idx = wmiJobName.LastIndexOf(',');
             return idx > 0 ? wmiJobName.Substring(0, idx).Trim() : wmiJobName.Trim();
+        }
+
+        /// <summary>
+        /// חלון האישור של הקיוסק לפני הדפסה: מספר עמודים, שחור-לבן, צד אחד, והסכום לחיוב.
+        /// יתרה לא מספיקה - "להטענה" (ואז בודקים שוב) או ביטול. מחזיר true = להדפיס.
+        /// </summary>
+        private static bool ConfirmPrint(int pages, decimal cost)
+        {
+            return Application.Current.Dispatcher.Invoke(() =>
+            {
+                while (App.Session.IsActive)
+                {
+                    var balance = App.Session.CurrentUser?.Balance ?? 0;
+                    var pagesText = pages == 1 ? "עמוד אחד" : $"{pages} עמודים";
+                    if (balance < cost)
+                    {
+                        var topup = KioskMessageDialog.ShowChoice(App.ActiveWindow(), KioskMessageKind.Info, "אין מספיק יתרה להדפסה",
+                            $"הדפסה של {pagesText} עולה {cost:0.00} ₪, והיתרה בארנק היא {balance:0.00} ₪.",
+                            "להטענה", "ביטול ההדפסה");
+                        if (!topup) return false;
+                        var owner = App.ActiveWindow();
+                        var window = new TopupWindow();
+                        if (owner != null && owner.IsVisible) window.Owner = owner;
+                        window.ShowDialog();
+                        continue; // בודקים שוב אחרי ההטענה
+                    }
+                    return KioskMessageDialog.ShowChoice(App.ActiveWindow(), KioskMessageKind.Info, "אישור הדפסה",
+                        $"הינך עומד להדפיס {pagesText}\nשחור-לבן · צד אחד בלבד\n\nסכום לחיוב: {cost:0.00} ₪",
+                        "אישור והדפסה", "ביטול");
+                }
+                return false;
+            });
+        }
+
+        /// <summary>
+        /// מחכים שהתוכנה תסיים לשלוח את העבודה לתור (עד 30 שניות) - רק אז מספר העמודים סופי.
+        /// </summary>
+        private static async Task<int> WaitForSpoolingAsync(string printerName, int jobId, int pagesSoFar)
+        {
+            var pages = pagesSoFar;
+            for (var i = 0; i < 60; i++)
+            {
+                try
+                {
+                    using var printServer = new PrintServer();
+                    using var queue = printServer.GetPrintQueue(printerName);
+                    using var job = queue.GetJob(jobId);
+                    job.Refresh();
+                    if (job.NumberOfPages > pages) pages = job.NumberOfPages;
+                    if (!job.IsSpooling) break;
+                }
+                catch
+                {
+                    break; // העבודה כבר לא בתור / אין גישה - נשארים עם מה שידוע
+                }
+                await Task.Delay(500);
+            }
+            return Math.Max(1, pages);
+        }
+
+        private static bool TryPauseJob(string printerName, int jobId)
+        {
+            try
+            {
+                using var printServer = new PrintServer();
+                using var queue = printServer.GetPrintQueue(printerName);
+                using var job = queue.GetJob(jobId);
+                job.Pause();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                App.LogError($"הדפסה: כשל בעצירת העבודה לאישור (מדפסת: {printerName}, jobId: {jobId})", ex);
+                return false;
+            }
+        }
+
+        private static void TryResumeJob(string printerName, int jobId)
+        {
+            try
+            {
+                using var printServer = new PrintServer();
+                using var queue = printServer.GetPrintQueue(printerName);
+                using var job = queue.GetJob(jobId);
+                job.Resume();
+            }
+            catch (Exception ex)
+            {
+                App.LogError($"הדפסה: כשל בשחרור העבודה אחרי האישור (מדפסת: {printerName}, jobId: {jobId})", ex);
+            }
         }
 
         /// <summary>ראו הערת המגבלה בראש הקובץ - ניסיון ביטול מיידי, בלי ערבות שיצליח בזמן.</summary>
