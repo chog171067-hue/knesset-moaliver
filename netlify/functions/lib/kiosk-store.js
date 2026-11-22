@@ -40,8 +40,12 @@ const DEFAULT_CONFIG = {
   signupAmount: 10,
   communityJoinUrl: 'https://nedar.im/icYF',
   memberKevaGroupe: 'דמי חבר',
-  memberKevaMinAmount: 100
+  memberKevaMinAmount: 100,
+  // חיוב על זמן שימוש בעמדה (לא לחברי קהילה): לדקה, נגבה בסוף כל 10 דקות
+  usagePricePerMinute: 0.2
 };
+
+const USAGE_BLOCK_MINUTES = 10;
 
 // ⚠️ עקביות הנתונים - קריטי כאן כי מדובר בכסף:
 // כברירת מחדל, קריאה מ-Netlify Blobs עוברת דרך מטמון (CDN) ועלולה להחזיר נתונים
@@ -583,6 +587,45 @@ async function chargeForPrint(event, { userId, pages }) {
   return { balance: chargedUser.balance, cost, transaction };
 }
 
+// חיוב על זמן שימוש בעמדה: העמדה מבקשת חיוב בסוף כל 10 דקות (או על הדקות שנותרו
+// כשהיתרה נגמרת והחשבון מתנתק). העלות = דקות × תעריף לדקה, ולעולם לא יותר מהיתרה
+// (היתרה לא יורדת מתחת ל-0). חבר קהילה (isMember, נבדק בפונקציה) - לא מחויב.
+async function chargeForUsage(event, { userId, minutes, isMember }) {
+  const numericMinutes = Number(minutes);
+  if (!Number.isInteger(numericMinutes) || numericMinutes <= 0 || numericMinutes > USAGE_BLOCK_MINUTES) {
+    throw new Error('מספר דקות לא תקין');
+  }
+  const config = await getConfig(event);
+  const price = Number(config.usagePricePerMinute) || 0;
+
+  const store = getKioskStore(event);
+  let cost = 0;
+  const user = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[userId];
+    if (!u) throw new Error('משתמש לא נמצא');
+    if (!u.isActive) throw new Error('החשבון מושבת');
+    cost = isMember || price <= 0 ? 0 : Math.min(Number((numericMinutes * price).toFixed(2)), Math.max(0, u.balance));
+    if (cost <= 0) return toPublicUser(u);
+    u.balance = Number((u.balance - cost).toFixed(2));
+    u.updatedAt = new Date().toISOString();
+    return toPublicUser(u);
+  });
+
+  if (cost > 0) {
+    // כשהיתרה הספיקה רק לחלק מהזמן - רושמים את הדקות שבאמת שולמו
+    const paidMinutes = Math.min(numericMinutes, Math.max(1, Math.round(cost / price)));
+    await appendTransaction(event, {
+      userId,
+      type: 'charge',
+      source: 'usage',
+      amount: cost,
+      description: `שימוש בעמדה - ${paidMinutes} ${paidMinutes === 1 ? 'דקה' : 'דקות'}`,
+      minutes: paidMinutes
+    });
+  }
+  return { balance: user.balance, cost, pricePerMinute: price };
+}
+
 // החזר על הדפסה שנכשלה (מדפסת מנותקת, נגמר נייר וכו'): עמדת הקיוסק מחייבת מראש
 // ברגע שעבודת ההדפסה נכנסת לתור, ואם העבודה נכשלה ובוטלה - מבקשת כאן החזר.
 // ההחזר מותר פעם אחת בלבד לכל חיוב (מסומן על עסקת החיוב עצמה), רק על חיוב
@@ -672,6 +715,10 @@ async function updateConfig(event, patch) {
     const min = Number(patch.memberKevaMinAmount);
     if (!Number.isFinite(min) || min < 0) throw new Error('הסכום המינימלי להוראת הקבע חייב להיות מספר לא שלילי');
   }
+  if (patch.usagePricePerMinute !== undefined) {
+    const p = Number(patch.usagePricePerMinute);
+    if (!Number.isFinite(p) || p < 0) throw new Error('תעריף השימוש לדקה חייב להיות מספר לא שלילי');
+  }
   let resetPhone;
   if (patch.passwordResetPhone !== undefined) {
     resetPhone = String(patch.passwordResetPhone || '').trim();
@@ -689,6 +736,7 @@ async function updateConfig(event, patch) {
     if (joinUrl !== undefined) config.communityJoinUrl = joinUrl;
     if (patch.memberKevaGroupe !== undefined) config.memberKevaGroupe = String(patch.memberKevaGroupe || '').trim();
     if (patch.memberKevaMinAmount !== undefined) config.memberKevaMinAmount = Number(patch.memberKevaMinAmount);
+    if (patch.usagePricePerMinute !== undefined) config.usagePricePerMinute = Number(patch.usagePricePerMinute);
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };
   });
@@ -1230,6 +1278,7 @@ module.exports = {
   validateSignupDetails,
   assertTzAvailable,
   accountExists,
+  chargeForUsage,
   createPendingSignup,
   confirmPendingTopup,
   recordOrphanTopup,

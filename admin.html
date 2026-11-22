@@ -581,7 +581,9 @@
                     <p class="panel-desc">משתמש חדש פותח חשבון בעמדה בעצמו (שם, ת"ז, טלפון, סיסמה) ומשלם באשראי הטענה ראשונה. החשבון נוצר רק אחרי שהתשלום מאושר, והסכום כולו נכנס ליתרה שלו.</p>
                     <div class="form-grid">
                         <div class="field"><label>סכום ההטענה הראשונה (₪)</label><input type="number" step="1" min="1" id="libSignupAmount"></div>
+                        <div class="field"><label>תעריף שימוש לדקה (₪) - חברי קהילה בחינם</label><input type="number" step="0.01" min="0" id="libUsagePricePerMinute"></div>
                     </div>
+                    <p class="panel-desc">החיוב על זמן שימוש מתבצע כל 10 דקות (בסוף כל 10 דקות). 0 = בלי חיוב על זמן.</p>
                     <p class="panel-desc" style="margin-top:14px;">חבר קהילה (תגית בעמדה וזכאות להנחות) נקבע לפי קובץ התורמים. מי שלא ברשימה רואה כפתור "להצטרפות ל'חבר קהילה'" שפותח את דף נדרים פלוס שלמטה. אם הוא מקים שם הוראת קבע חדשה שעומדת בתנאים - הוא נחשב חבר קהילה מיד, עד העלאת הקובץ הבא (ואז הקובץ קובע). כשהקישור ריק, הכפתור לא מוצג.</p>
                     <div class="form-grid">
                         <div class="field"><label>קישור לדף ההצטרפות בנדרים פלוס</label><input type="url" id="libCommunityJoinUrl" placeholder="https://nedar.im/..." dir="ltr"></div>
@@ -2176,6 +2178,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             document.getElementById('libTextEditorEnabled').checked = !!result.config.textEditorEnabled;
             document.getElementById('libPasswordResetPhone').value = result.config.passwordResetPhone || '';
             document.getElementById('libSignupAmount').value = result.config.signupAmount != null ? result.config.signupAmount : 10;
+            document.getElementById('libUsagePricePerMinute').value = result.config.usagePricePerMinute != null ? result.config.usagePricePerMinute : 0.2;
             document.getElementById('libCommunityJoinUrl').value = result.config.communityJoinUrl || '';
             document.getElementById('libMemberKevaGroupe').value = result.config.memberKevaGroupe || '';
             document.getElementById('libMemberKevaMinAmount').value = result.config.memberKevaMinAmount != null ? result.config.memberKevaMinAmount : 100;
@@ -2222,6 +2225,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     signupAmount: amount,
+                    usagePricePerMinute: Number(document.getElementById('libUsagePricePerMinute').value),
                     communityJoinUrl: document.getElementById('libCommunityJoinUrl').value.trim(),
                     memberKevaGroupe: document.getElementById('libMemberKevaGroupe').value.trim(),
                     memberKevaMinAmount: Number(document.getElementById('libMemberKevaMinAmount').value)

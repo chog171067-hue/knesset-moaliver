@@ -17,6 +17,9 @@ namespace KioskApp.Views
         private bool _launchedProcessExited;
         private bool _returningToPicker;
         private bool _inGuardTick;
+        // מצב "מסך בחירת התוכנה": אין תוכנה פתוחה - בלי שומר חלונות ובלי "חזרה לבחירת התוכנות"
+        private bool _pickerMode;
+        private DispatcherTimer? _gabaiTimer;
 
         // זמן חסד אחרי הפעלה: תוכנות עם "Launcher" סוגרות את התהליך שהפעלנו ופותחות
         // את החלון האמיתי רק אחרי כמה שניות - לא חוזרים למסך הבחירה לפני שזה קרה.
@@ -53,6 +56,17 @@ namespace KioskApp.Views
             // כשהלשונית נפתחת/נסגרת גודלה משתנה - שלא תחרוג מהמסך
             SizeChanged += (_, _) => ClampToScreen();
             _ = LoadAccountInfoAsync();
+
+            SwitchAppButton.Visibility = _pickerMode ? Visibility.Collapsed : Visibility.Visible;
+            ExitToDesktopButton.Visibility = _pickerMode && user?.CanExitKiosk == true ? Visibility.Visible : Visibility.Collapsed;
+
+            // תשובה חדשה מהגבאי - בדיקה עכשיו ואחת לדקה
+            _ = CheckGabaiUnreadAsync();
+            _gabaiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+            _gabaiTimer.Tick += async (_, _) => await CheckGabaiUnreadAsync();
+            _gabaiTimer.Start();
+
+            if (_pickerMode) return; // מסך בחירת התוכנה - אין תוכנה לשמור עליה
 
 
             FileDialogAssistant.UserMessage += OnFileDialogMessage;
@@ -166,6 +180,59 @@ namespace KioskApp.Views
             }
         }
 
+        /// <summary>הלשונית במסך בחירת התוכנה (בלי תוכנה פתוחה)</summary>
+        public void InitializeForPicker(AppPickerWindow ownerPicker)
+        {
+            _ownerPicker = ownerPicker;
+            _pickerMode = true;
+        }
+
+        /// <summary>עצירת שומר החלונות (לפני ניתוק - שלא "יחזיר" חלונות של תוכנות שנסגרות)</summary>
+        public void StopGuard() => _guardTimer?.Stop();
+
+        private async System.Threading.Tasks.Task CheckGabaiUnreadAsync()
+        {
+            var userId = App.Session.CurrentUser?.Id;
+            if (string.IsNullOrEmpty(userId)) return;
+            try
+            {
+                var thread = await App.ApiClient.GetGabaiThreadAsync(userId, markRead: false);
+                SetGabaiUnread(thread.HasUnread);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("הלשונית: כשל בבדיקת הודעות מהגבאי", ex);
+            }
+        }
+
+        private void SetGabaiUnread(bool unread)
+        {
+            var v = unread ? Visibility.Visible : Visibility.Collapsed;
+            GabaiUnreadBadge.Visibility = v;
+            HeaderUnreadDot.Visibility = v;
+        }
+
+        private void OnGabaiClick(object sender, RoutedEventArgs e)
+        {
+            new GabaiChatWindow { Owner = this }.ShowDialog();
+            SetGabaiUnread(false); // החלון מסמן את התשובות כנקראו
+        }
+
+        private void OnExitToDesktopClick(object sender, RoutedEventArgs e)
+        {
+            if (App.Session.CurrentUser?.CanExitKiosk != true) return;
+            var go = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "יציאה למחשב",
+                "לצאת מהקיוסק למסך הכניסה של Windows?\nשם בוחרים את חשבון המנהל ומקלידים את הסיסמה שלו.\n" +
+                "כדי לחזור לקיוסק: להפעיל את המחשב מחדש (או להתנתק מ-Windows).",
+                "יציאה", "ביטול");
+            if (!go) return;
+            var error = App.SignOutToWindowsSignIn();
+            if (error != null)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "יציאה למחשב", error);
+            }
+        }
+
         /// <summary>נקרא ע"י AppPickerWindow מיד אחרי יצירת ה-Overlay, עם התהליך שהופעל.</summary>
         public void Initialize(Process process, AppPickerWindow ownerPicker)
         {
@@ -221,31 +288,14 @@ namespace KioskApp.Views
         }
 
         private async void OnLogoutClick(object sender, RoutedEventArgs e)
-{
-    _guardTimer?.Stop(); // סוגרים בכוונה - שהשומר לא "יחזיר" חלונות בזמן הסגירה
-    if (_process != null)
-    {
-        _process.Exited -= OnLaunchedProcessExited;
-    }
-
-    // רשת ביטחון: סוגר את כל התהליכים שהופעלו ב-session הזה, לא רק את זה
-    // שה-Overlay עוקב אחריו - ראו ההערה המפורטת ב-ProcessLauncher.CloseAllTrackedAsync
-    await ProcessLauncher.CloseAllTrackedAsync();
-    await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
-    WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו אוטומטית - לא יוצג למשתמש הבא
-    WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
-    TextEditorWindow.EndSession();          // הטקסט בעורך נמחק
-    App.StopSessionServices();              // הדפסות תקועות מבוטלות ומוחזרות
-
-    App.Session.End();
-    ResetPosition();
-
-            var login = new LoginWindow();
-            Application.Current.MainWindow = login;
-            login.Show();
-
-            _ownerPicker?.Close();
-            Close();
+        {
+            LogoutButton.IsEnabled = false;
+            _guardTimer?.Stop(); // סוגרים בכוונה - שהשומר לא "יחזיר" חלונות בזמן הסגירה
+            if (_process != null)
+            {
+                _process.Exited -= OnLaunchedProcessExited;
+            }
+            await App.LogoutAsync();
         }
 
         private void ReturnToPicker()
@@ -268,6 +318,7 @@ namespace KioskApp.Views
             App.Session.BalanceChanged -= OnSessionBalanceChanged;
             _clockTimer?.Stop();
             _guardTimer?.Stop();
+            _gabaiTimer?.Stop();
             FileDialogAssistant.UserMessage -= OnFileDialogMessage;
         }
     }

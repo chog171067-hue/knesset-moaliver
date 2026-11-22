@@ -106,7 +106,7 @@
                     <Border Height="1" Background="{StaticResource KioskBorderBrush}" Margin="0,12" />
 
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="2 ₪ ל-10 דקות" FontSize="17" FontWeight="Bold"
+                        <TextBlock x:Name="UsagePriceText" DockPanel.Dock="Right" Text="2 ₪ ל-10 דקות" FontSize="17" FontWeight="Bold"
                                    Foreground="{StaticResource KioskAccentBrush}" />
                         <TextBlock Text="שימוש" FontSize="17" FontWeight="SemiBold" />
                     </DockPanel>

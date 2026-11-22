@@ -50,6 +50,7 @@
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Button.Template>
+                        <Grid>
                         <Path x:Name="ChevronPath" Data="M6,9 L12,15 L18,9" Style="{StaticResource KioskIcon}"
                               Width="18" Height="18" StrokeThickness="2.4" Stroke="{StaticResource KioskOnBrandBrush}"
                               RenderTransformOrigin="0.5,0.5">
@@ -57,6 +58,11 @@
                                 <RotateTransform x:Name="ChevronRotate" Angle="0" />
                             </Path.RenderTransform>
                         </Path>
+                        <!-- נקודה אדומה: יש תשובה חדשה מהגבאי -->
+                        <Ellipse x:Name="HeaderUnreadDot" Width="11" Height="11" Fill="#E04A3A" Stroke="White"
+                                 StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                 Margin="0,-12,-12,0" Visibility="Collapsed" />
+                        </Grid>
                     </Button>
                     <!-- נקודות גרירה -->
                     <TextBlock DockPanel.Dock="Left" Text="⋮⋮" FontSize="16" Foreground="#99F4ECDD"
@@ -103,6 +109,16 @@
                     <TextBlock Text="היסטוריית תשלומים" HorizontalAlignment="Center" />
                 </Button>
 
+                <Button Style="{StaticResource TabMenuButton}" Click="OnGabaiClick">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="שליחת הודעה לגבאי" />
+                        <Border x:Name="GabaiUnreadBadge" Background="#E04A3A" CornerRadius="9" Padding="8,1"
+                                Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                            <TextBlock Text="תשובה חדשה" FontSize="12" Foreground="White" FontWeight="Bold" />
+                        </Border>
+                    </StackPanel>
+                </Button>
+
                 <Button Style="{StaticResource TabMenuButton}" IsEnabled="False">
                     <TextBlock Text="סל הדפסות (בקרוב)" HorizontalAlignment="Center" />
                 </Button>
@@ -116,7 +132,7 @@
                     </StackPanel>
                 </Button>
 
-                <Button Style="{StaticResource TabMenuButton}" Click="OnSwitchAppClick">
+                <Button x:Name="SwitchAppButton" Style="{StaticResource TabMenuButton}" Click="OnSwitchAppClick">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <Path Data="{StaticResource IconGrid}" Style="{StaticResource KioskIcon}" Width="16" Height="16"
                               Margin="0,0,8,0" Stroke="{StaticResource KioskSecondaryTextBrush}" />
@@ -124,7 +140,17 @@
                     </StackPanel>
                 </Button>
 
-                <Button Style="{StaticResource KioskDangerButton}" MinHeight="46" FontSize="16" Margin="0,4,0,0"
+                <!-- רק במסך בחירת התוכנה, ורק לחשבון שסומן בדף הניהול כ"מורשה יציאה" -->
+                <Button x:Name="ExitToDesktopButton" Style="{StaticResource TabMenuButton}" Click="OnExitToDesktopClick"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Path Data="{StaticResource IconTool}" Style="{StaticResource KioskIcon}" Width="16" Height="16"
+                              Margin="0,0,8,0" Stroke="{StaticResource KioskSecondaryTextBrush}" />
+                        <TextBlock Text="יציאה למחשב" />
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="LogoutButton" Style="{StaticResource KioskDangerButton}" MinHeight="46" FontSize="16" Margin="0,4,0,0"
                         Click="OnLogoutClick">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <Path Data="{StaticResource IconLogout}" Style="{StaticResource KioskIcon}" Width="16" Height="16"

@@ -12,9 +12,27 @@ namespace KioskApp.Views
         {
             InitializeComponent();
             App.KeepFullScreen(this);
-            Loaded += (_, _) => PopulateApps();
-            App.Session.BalanceChanged += OnBalanceChanged;
-            Closed += (_, _) => App.Session.BalanceChanged -= OnBalanceChanged;
+            Loaded += (_, _) => { PopulateApps(); ShowTab(); };
+            Closed += (_, _) => CloseTab();
+        }
+
+        // הלשונית הצפה (שם, זמן, יתרה, הודעה לגבאי, ניתוק...) גם במסך הזה
+        private OverlayWindow? _tab;
+
+        private void ShowTab()
+        {
+            if (_tab != null || !App.Session.IsActive) return;
+            // Owner = המסך הזה: חלון "בבעלות" תמיד מוצג מעליו, גם כשלוחצים על המסך עצמו
+            _tab = new OverlayWindow { Owner = this };
+            _tab.InitializeForPicker(this);
+            _tab.Closed += (_, _) => _tab = null;
+            _tab.Show();
+        }
+
+        private void CloseTab()
+        {
+            _tab?.Close();
+            _tab = null;
         }
 
         private void PopulateApps()
@@ -22,12 +40,7 @@ namespace KioskApp.Views
             var user = App.Session.CurrentUser;
             WelcomeText.Text = string.IsNullOrWhiteSpace(user?.DisplayName)
                 ? $"שלום, {user?.Username}" : $"שלום, {user!.DisplayName}";
-            UpdateBalance(user?.Balance ?? 0);
             FooterText.Text = "לעזרה פנו לגבאים";
-
-            // רק למשתמשים שסומנו בדף הניהול כ"מורשה יציאה"
-            ExitToDesktopButton.Visibility = user?.CanExitKiosk == true
-                ? Visibility.Visible : Visibility.Collapsed;
             AppsPanel.Children.Clear();
 
             var apps = App.Session.Config?.AllowedApps ?? new System.Collections.Generic.List<AllowedApp>();
@@ -111,16 +124,6 @@ namespace KioskApp.Views
             return new Button { Style = (Style)FindResource("KioskTileButton"), Content = panel };
         }
 
-        private void UpdateBalance(decimal balance) => BalanceText.Text = $"יתרה: {balance:0.00} ₪";
-
-        private void OnBalanceChanged(object? sender, decimal balance) => Dispatcher.Invoke(() => UpdateBalance(balance));
-
-        private void OnTopupClick(object sender, RoutedEventArgs e)
-        {
-            var topup = new TopupWindow { Owner = this };
-            topup.ShowDialog();
-        }
-
         private static System.Collections.Generic.List<AllowedApp> SortApps(System.Collections.Generic.List<AllowedApp> apps)
         {
             var copy = new System.Collections.Generic.List<AllowedApp>(apps);
@@ -143,6 +146,7 @@ namespace KioskApp.Views
                 overlay.Initialize(process, this);
                 overlay.Show();
 
+                CloseTab(); // בתוך התוכנה - הלשונית של התוכנה במקומה
                 Hide(); // לא Close: אם המשתמש יבחר "החלפת תוכנה" מה-Overlay, נחזור לחלון הזה
             }
             catch (Exception ex)
@@ -153,35 +157,6 @@ namespace KioskApp.Views
             }
         }
 
-        private void OnExitToDesktopClick(object sender, RoutedEventArgs e)
-        {
-            if (App.Session.CurrentUser?.CanExitKiosk != true) return;
-
-            var answer = MessageBox.Show(
-                "לצאת מהקיוסק למסך הכניסה של Windows?\n\nשם בוחרים את חשבון המנהל ומקלידים את הסיסמה שלו.\nכדי לחזור לקיוסק: להפעיל את המחשב מחדש (או להתנתק מ-Windows).",
-                "יציאה למחשב", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (answer != MessageBoxResult.Yes) return;
-
-            var error = App.SignOutToWindowsSignIn();
-            if (error != null)
-            {
-                MessageBox.Show(error, "יציאה למחשב", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        private void OnLogoutClick(object sender, RoutedEventArgs e)
-        {
-            WindowGuard.ClearKioskBrowserData(); // התחברות לאזור האישי בנדרים פלוס - לא עוברת למשתמש הבא
-            TextEditorWindow.EndSession();
-            App.StopSessionServices();
-            App.Session.End();
-            OverlayWindow.ResetPosition();
-            var login = new LoginWindow();
-            Application.Current.MainWindow = login;
-            login.Show();
-            Close();
-        }
-
         /// <summary>נקרא מה-Overlay כשהמשתמש בוחר "החלפת תוכנה" - חוזרים למסך הזה בלי להתנתק.</summary>
         public void ShowAgain()
         {
@@ -189,6 +164,7 @@ namespace KioskApp.Views
             Show();
             Application.Current.MainWindow = this;
             App.BringToFront(this);
+            ShowTab();
         }
     }
 }

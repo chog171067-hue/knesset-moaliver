@@ -138,6 +138,8 @@ namespace KioskApp
         {
             StopSessionServices();
             StartUsageReminder();
+            _usageBilling = new UsageBillingService();
+            _usageBilling.Start();
             _printMonitor = new PrintMonitorService(ApiClient, () => Session.CurrentUser?.Id ?? "");
             _printMonitor.PrintCharged += (_, e) => Session.UpdateBalance(e.NewBalance);
             _printMonitor.PrintRefunded += (_, e) =>
@@ -168,22 +170,76 @@ namespace KioskApp
             _printMonitor = null;
             _usageReminder?.Stop();
             _usageReminder = null;
+            _usageBilling?.Dispose();
+            _usageBilling = null;
         }
 
-        // אחרי 10 דקות שימוש - תזכורת (פעם אחת בכל התחברות) לשים לב אם אחרים ממתינים לעמדה
+        private static UsageBillingService? _usageBilling;
+        private static bool _loggingOut;
+
+        /// <summary>
+        /// ניתוק מהחשבון - מכל מקום (הלשונית הצפה, ניתוק אוטומטי כשהיתרה נגמרת): סוגר את
+        /// התוכנות, מנקה את מה שהמשתמש השאיר, ומחזיר למסך הכניסה. message - הודעה אחרי הניתוק.
+        /// </summary>
+        public static async Task LogoutAsync(string? message = null)
+        {
+            if (_loggingOut || !Session.IsActive) return;
+            _loggingOut = true;
+            try
+            {
+                LogInfo("ניתוק מהחשבון" + (message != null ? " (אוטומטי)" : ""));
+                foreach (var overlay in System.Linq.Enumerable.OfType<OverlayWindow>(Current.Windows))
+                {
+                    overlay.StopGuard(); // שהשומר לא "יחזיר" חלונות של תוכנות שנסגרות
+                }
+                StopSessionServices();
+                await ProcessLauncher.CloseAllTrackedAsync();
+                await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
+                WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו + נתוני הדפדפן (נדרים פלוס)
+                WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
+                TextEditorWindow.EndSession();          // הטקסט בעורך נמחק
+                Session.End();
+                OverlayWindow.ResetPosition();
+
+                var login = new LoginWindow();
+                Current.MainWindow = login;
+                login.Show();
+                foreach (var w in System.Linq.Enumerable.ToList(System.Linq.Enumerable.OfType<Window>(Current.Windows)))
+                {
+                    if (w != login) w.Close();
+                }
+                if (message != null)
+                {
+                    KioskMessageDialog.ShowMessage(login, KioskMessageKind.Info, "החשבון נותק", message);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("כשל בניתוק מהחשבון", ex);
+            }
+            finally
+            {
+                _loggingOut = false;
+            }
+        }
+
+        // כל 10 דקות שימוש - תזכורת לשים לב אם אחרים ממתינים לעמדה
         private static readonly TimeSpan UsageReminderAfter = TimeSpan.FromMinutes(10);
         private static System.Windows.Threading.DispatcherTimer? _usageReminder;
+        private static bool _reminderOpen;
 
         private static void StartUsageReminder()
         {
+            _reminderOpen = false;
             _usageReminder = new System.Windows.Threading.DispatcherTimer { Interval = UsageReminderAfter };
             _usageReminder.Tick += (_, _) =>
             {
-                _usageReminder?.Stop();
-                if (!Session.IsActive) return;
+                if (!Session.IsActive || _reminderOpen) return;
+                _reminderOpen = true;
                 App.LogInfo("תזכורת 10 דקות שימוש");
                 Views.KioskMessageDialog.ShowMessage(ActiveWindow(), Views.KioskMessageKind.Info, "תזכורת",
                     "בבקשה שים לב אם אין סביבך משתמשים אחרים הזקוקים לעמדה.", "המשך");
+                _reminderOpen = false;
             };
             _usageReminder.Start();
         }

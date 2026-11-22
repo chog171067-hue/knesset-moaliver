@@ -134,6 +134,14 @@ namespace KioskApp.Views
                         ? $"{config.PricePerPage * 100:0} אג' לעמוד"
                         : $"{config.PricePerPage:0.##} ₪ לעמוד";
                 }
+                if (config.UsagePricePerMinute > 0)
+                {
+                    UsagePriceText.Text = $"{config.UsagePricePerMinute * 10:0.##} ₪ ל-10 דקות";
+                }
+                else
+                {
+                    UsagePriceText.Text = "חינם";
+                }
                 if (!string.IsNullOrWhiteSpace(config.PasswordResetPhone))
                 {
                     ForgotPasswordButton.Visibility = Visibility.Visible;
@@ -350,7 +358,19 @@ namespace KioskApp.Views
         {
             var config = await App.ApiClient.GetConfigAsync();
             App.Session.Start(user, config);
-            App.StartSessionServices(); // חיוב על הדפסה - לאורך כל ההתחברות
+            // חבר קהילה? (לתגית בלשונית, ולחיוב על זמן - חברי קהילה בחינם). תקלה כאן לא
+            // חוסמת את הכניסה: עד שזה נבדק (הלשונית מנסה שוב) - לא מחייבים על זמן.
+            try
+            {
+                var info = await App.ApiClient.GetAccountInfoAsync(user.Id);
+                App.Session.IsCommunityMember = info.IsCommunityMember;
+                App.Session.UpdateBalance(info.Balance);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("כניסה: כשל בבדיקת חבר קהילה", ex);
+            }
+            App.StartSessionServices(); // חיוב על הדפסה ועל זמן - לאורך כל ההתחברות
 
             var appPicker = new Views.AppPickerWindow();
             Application.Current.MainWindow = appPicker;

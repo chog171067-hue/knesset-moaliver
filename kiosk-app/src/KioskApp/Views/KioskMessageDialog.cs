@@ -25,7 +25,7 @@ namespace KioskApp.Views
         private const string IconClock = "M12,2 A10,10 0 1 1 11.99,2 Z M12,6 L12,12 L16,14";
 
         private KioskMessageDialog(Window? owner, KioskMessageKind kind, string title, string message, bool withButton,
-            string buttonText = "אישור")
+            string buttonText = "אישור", string? secondaryText = null)
         {
             Title = title;
             FlowDirection = FlowDirection.RightToLeft;
@@ -107,8 +107,34 @@ namespace KioskApp.Views
                     IsDefault = true,
                     IsCancel = true
                 };
-                ok.Click += (_, _) => Close();
-                panel.Children.Add(ok);
+                ok.Click += (_, _) => { PrimaryChosen = true; Close(); };
+                if (secondaryText == null)
+                {
+                    panel.Children.Add(ok);
+                }
+                else
+                {
+                    // שני כפתורים: ראשי (למשל "להטענה") ומשני (למשל "המשך" / "ניתוק")
+                    ok.IsCancel = false;
+                    ok.Margin = new Thickness(6, 22, 6, 0);
+                    var second = new Button
+                    {
+                        Content = secondaryText,
+                        Style = Res<Style>("KioskSecondaryButton"),
+                        MinHeight = 46,
+                        MinWidth = 140,
+                        FontSize = 17,
+                        Margin = new Thickness(6, 22, 6, 0),
+                        IsCancel = true
+                    };
+                    second.Click += (_, _) => Close();
+                    panel.Children.Add(new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Children = { ok, second }
+                    });
+                }
             }
 
             Content = new Border
@@ -140,6 +166,18 @@ namespace KioskApp.Views
         public static void ShowMessage(Window? owner, KioskMessageKind kind, string title, string message, string buttonText)
         {
             new KioskMessageDialog(owner, kind, title, message, withButton: true, buttonText).ShowDialog();
+        }
+
+        /// <summary>נלחץ הכפתור הראשי (ולא המשני / Esc)</summary>
+        public bool PrimaryChosen { get; private set; }
+
+        /// <summary>הודעה עם שני כפתורים. מחזירה true אם נבחר הכפתור הראשי</summary>
+        public static bool ShowChoice(Window? owner, KioskMessageKind kind, string title, string message,
+            string primaryText, string secondaryText)
+        {
+            var dialog = new KioskMessageDialog(owner, kind, title, message, withButton: true, primaryText, secondaryText);
+            dialog.ShowDialog();
+            return dialog.PrimaryChosen;
         }
 
         /// <summary>הודעה שנסגרת לבד אחרי כמה שניות</summary>
