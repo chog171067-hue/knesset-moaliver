@@ -92,6 +92,7 @@ namespace KioskApp.Services
                 _watcher = new ManagementEventWatcher(query);
                 _watcher.EventArrived += OnPrintJobCreated;
                 _watcher.Start();
+                WindowGuard.DriverProblemDetected += OnDriverProblem;
             }
             catch (Exception ex)
             {
@@ -105,6 +106,7 @@ namespace KioskApp.Services
         {
             // עבודות שעדיין במעקב יבצעו בדיקה אחרונה (ביטול+החזר אם הן תקועות בתקלה)
             _stopCts.Cancel();
+            WindowGuard.DriverProblemDetected -= OnDriverProblem;
 
             if (_watcher == null) return;
             _watcher.EventArrived -= OnPrintJobCreated;
@@ -150,7 +152,10 @@ namespace KioskApp.Services
 
                 try { App.LogInfo($"הדפסה: חלונות פתוחים לפני האישור:{WindowGuard.DescribeVisibleWindows()}"); }
                 catch { /* רק לאבחון */ }
-                if (!WaitForPrinterReady(printerName) || !ConfirmPrint(pages, cost))
+                // כמה שניות לחלון "מצב הדפסה" של הדרייבר לדווח על תקלה (אין נייר וכו')
+                await Task.Delay(2500);
+                if (!WaitForPrinterReady(printerName) || !ConfirmPrint(pages, cost)
+                    || (RecentDriverProblem() != null && !WaitForPrinterReady(printerName)))
                 {
                     App.LogInfo($"הדפסה: המשתמש ביטל את {jobKey}");
                     TryCancelPrintJob(printerName, jobId);
@@ -162,6 +167,11 @@ namespace KioskApp.Services
                     var result = await _apiClient.ChargePrintAsync(userId, pages);
                     Application.Current.Dispatcher.Invoke(() =>
                         PrintCharged?.Invoke(this, new PrintChargedEventArgs { Pages = pages, Cost = result.Cost, NewBalance = result.Balance }));
+                    if (!string.IsNullOrEmpty(result.Transaction?.Id))
+                    {
+                        _lastCharged = (printerName, jobId, userId, result.Transaction!.Id, DateTime.Now);
+                        _lastChargedRefunded = false;
+                    }
                     if (paused) TryResumeJob(printerName, jobId);
                     App.LogInfo($"הדפסה: {jobKey} חויבה ({result.Cost:0.00} ₪) ונשלחה למדפסת");
                     _ = Application.Current.Dispatcher.InvokeAsync(async () =>
@@ -341,29 +351,83 @@ namespace KioskApp.Services
         {
             var queueProblem = DescribeQueueProblem(queue);
             if (queueProblem != null) return queueProblem;
-            if (job.IsPaperOut) return PaperOutText;
-            if (job.IsOffline) return OfflineText;
-            if (job.IsInError || job.IsBlocked || job.IsUserInterventionRequired) return GeneralErrorText;
+            if (job.IsPaperOut) return PrinterProblems.PaperOut;
+            if (job.IsOffline) return PrinterProblems.Offline;
+            if (job.IsInError || job.IsBlocked || job.IsUserInterventionRequired) return PrinterProblems.General;
             return null;
         }
-
-        private const string PaperOutText = "אין נייר במדפסת.\nיש לטעון נייר במגש המדפסת, ואז ללחוץ \"טענתי - המשך\".";
-        private const string OfflineText = "המדפסת כבויה או מנותקת.\nיש לבדוק שהמדפסת דלוקה ומחוברת. אם זה לא עוזר - לפנות לגבאים.";
-        private const string GeneralErrorText = "יש תקלה במדפסת (ייתכן שנגמר הטונר, או תקלה אחרת).\nיש לפנות לגבאים.";
 
         /// <summary>תקלה במדפסת עצמה (לא בעבודה מסוימת) - עם הסבר מה לעשות. null = אין תקלה.</summary>
         private static string? DescribeQueueProblem(PrintQueue queue)
         {
-            if (queue.IsOutOfPaper) return PaperOutText;
-            if (queue.IsPaperJammed) return "נייר תקוע במדפסת.\nיש לפנות לגבאים לשחרור הנייר.";
-            if (queue.IsDoorOpened) return "מכסה המדפסת פתוח.\nיש לסגור את המכסה, ואז ללחוץ \"טענתי - המשך\".";
-            if (queue.IsManualFeedRequired) return "המדפסת ממתינה להזנת נייר ידנית.\nיש לטעון נייר במגש, ואז ללחוץ \"טענתי - המשך\".";
-            if (queue.IsOutputBinFull) return "מגש היציאה של המדפסת מלא.\nיש להוציא את הדפים מהמגש, ואז ללחוץ \"טענתי - המשך\".";
-            if (queue.IsOutOfMemory) return "זיכרון המדפסת מלא.\nיש לפנות לגבאים.";
-            if (queue.IsOffline || queue.IsNotAvailable) return OfflineText;
+            if (queue.IsOutOfPaper) return PrinterProblems.PaperOut;
+            if (queue.IsPaperJammed) return PrinterProblems.PaperJam;
+            if (queue.IsDoorOpened) return PrinterProblems.DoorOpen;
+            if (queue.IsManualFeedRequired) return PrinterProblems.ManualFeed;
+            if (queue.IsOutputBinFull) return PrinterProblems.OutputFull;
+            if (queue.IsOutOfMemory) return PrinterProblems.OutOfMemory;
+            if (queue.IsOffline || queue.IsNotAvailable) return PrinterProblems.Offline;
             if (queue.IsInError || queue.NeedUserIntervention)
-                return queue.IsTonerLow ? "נגמר הטונר (הדיו) במדפסת.\nיש לפנות לגבאים." : GeneralErrorText;
+                return queue.IsTonerLow ? PrinterProblems.Toner : PrinterProblems.General;
             return null;
+        }
+
+        // ===== תקלה שדווחה בחלון של הדרייבר (WindowGuard.DriverProblemDetected) =====
+        // Windows לא יודע על "אין נייר" - רק התוכנה של Samsung. הקיוסק קורא את החלון שלה,
+        // סוגר אותו, ומציג את החלון שלו: לפני האישור - לא מחייבים עד שהתקלה תוקנה; אחרי חיוב -
+        // "בטל הדפסה" מבטל ומחזיר את הכסף.
+        private string? _driverProblem;
+        private DateTime _driverProblemAt = DateTime.MinValue;
+        private static readonly TimeSpan DriverProblemValidFor = TimeSpan.FromSeconds(90);
+        private (string Printer, int JobId, string UserId, string TransactionId, DateTime At)? _lastCharged;
+        private bool _lastChargedRefunded;
+        private bool _problemDialogOpen;
+
+        private string? RecentDriverProblem()
+        {
+            var p = _driverProblem;
+            return p != null && DateTime.Now - _driverProblemAt < DriverProblemValidFor ? p : null;
+        }
+
+        private void OnDriverProblem(string problem)
+        {
+            _driverProblem = problem;
+            _driverProblemAt = DateTime.Now;
+
+            // הדפסה שכבר חויבה ונשלחה (בדקות האחרונות) - מציעים לבטל ולקבל את הכסף בחזרה
+            var charged = _lastCharged;
+            if (charged == null || _lastChargedRefunded || _problemDialogOpen) return;
+            if (DateTime.Now - charged.Value.At > TimeSpan.FromMinutes(5)) return;
+            _ = Task.Run(async () =>
+            {
+                var cancel = AskProblem(problem);
+                if (!cancel || _lastChargedRefunded) return;
+                _lastChargedRefunded = true;
+                TryCancelPrintJob(charged.Value.Printer, charged.Value.JobId);
+                await RefundAsync(charged.Value.UserId, charged.Value.TransactionId, notify: true);
+            });
+        }
+
+        /// <summary>חלון "בעיה במדפסת". מחזיר true = בטל הדפסה.</summary>
+        private bool AskProblem(string problem)
+        {
+            if (_problemDialogOpen) return false;
+            _problemDialogOpen = true;
+            try
+            {
+                return Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var dialog = new PrintProblemDialog(problem);
+                    var owner = App.ActiveWindow();
+                    if (owner != null && owner.IsVisible && owner != dialog) dialog.Owner = owner;
+                    dialog.ShowDialog();
+                    return dialog.CancelRequested;
+                });
+            }
+            finally
+            {
+                _problemDialogOpen = false;
+            }
         }
 
         /// <summary>מצב המדפסת כרגע (לפני אישור ההדפסה). null = אין תקלה / לא ידוע.</summary>
@@ -479,23 +543,19 @@ namespace KioskApp.Services
         /// לפני אישור ההדפסה: אם יש תקלה במדפסת (אין נייר, מכסה פתוח...) - חלון של הקיוסק עם
         /// הסבר מה לעשות: "טענתי - המשך" (בודקים שוב) או "בטל הדפסה". מחזיר false = לבטל.
         /// </summary>
-        private static bool WaitForPrinterReady(string printerName)
+        private bool WaitForPrinterReady(string printerName)
         {
             for (var round = 0; round < 20; round++)
             {
-                var problem = CheckPrinterProblem(printerName);
+                var problem = CheckPrinterProblem(printerName) ?? RecentDriverProblem();
                 if (problem == null) return true;
                 App.LogInfo($"הדפסה: תקלה במדפסת לפני אישור - {problem.Replace("\n", " ")}");
-                var cancel = Application.Current.Dispatcher.Invoke(() =>
-                {
-                    var dialog = new PrintProblemDialog(problem);
-                    var owner = App.ActiveWindow();
-                    if (owner != null && owner.IsVisible && owner != dialog) dialog.Owner = owner;
-                    dialog.ShowDialog();
-                    return dialog.CancelRequested;
-                });
+                var cancel = AskProblem(problem);
                 if (cancel || !App.Session.IsActive) return false;
-                Thread.Sleep(1500); // שהמדפסת תספיק לעדכן את המצב שלה
+                // "טענתי - המשך": שוכחים את התקלה הקודמת, ונותנים לדרייבר כמה שניות לדווח שוב אם
+                // היא עדיין קיימת
+                _driverProblem = null;
+                Thread.Sleep(3000);
             }
             return false;
         }

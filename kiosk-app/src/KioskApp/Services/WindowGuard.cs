@@ -397,6 +397,36 @@ namespace KioskApp.Services
         private static readonly HashSet<IntPtr> ClosedDriverPopups = new();
 
         /// <summary>
+        /// חלון של הדרייבר דיווח על תקלה (אין נייר וכו') - הטקסט המתורגם (PrinterProblems).
+        /// נורה על ה-UI thread, לפני שהחלון נסגר.
+        /// </summary>
+        public static event Action<string>? DriverProblemDetected;
+
+        /// <summary>כל הטקסט שבחלון (כותרת, תוויות, כפתורים) - דרך UI Automation</summary>
+        private static string ReadWindowText(IntPtr hWnd)
+        {
+            var sb = new StringBuilder();
+            try
+            {
+                var root = System.Windows.Automation.AutomationElement.FromHandle(hWnd);
+                sb.Append(root.Current.Name).Append(' ');
+                var all = root.FindAll(System.Windows.Automation.TreeScope.Descendants, System.Windows.Automation.Condition.TrueCondition);
+                var count = 0;
+                foreach (System.Windows.Automation.AutomationElement e in all)
+                {
+                    if (++count > 80) break;
+                    var name = e.Current.Name;
+                    if (!string.IsNullOrWhiteSpace(name)) sb.Append(name).Append(" | ");
+                }
+            }
+            catch
+            {
+                // החלון נסגר בינתיים / לא נגיש - מה שנאסף מספיק
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// סוגר חלונות "מצב הדפסה" של הדרייבר של המדפסת (Samsung): הם מציגים "שגיאה" כל עוד
         /// העבודה עצורה לאישור בחלון של הקיוסק, ומבלבלים. תקלה אמיתית בהדפסה מטופלת בחלון של
         /// הקיוסק (ביטול + החזר כסף).
@@ -419,8 +449,15 @@ namespace KioskApp.Services
                 // גם לפי מיקום התוכנה: תוכנות של הדרייבר (תיקיית Samsung / תיקיית הדרייברים של Windows)
                 if (!byTitle && !IsPrinterDriverProcess((int)pid)) return true;
                 if (!IsUserProcess((int)pid)) return true;
+                if (ClosedDriverPopups.Add(hWnd))
+                {
+                    // קודם קוראים מה כתוב בו - זה המקור היחיד ל"אין נייר" וכו' (Windows לא יודע)
+                    var text = ReadWindowText(hWnd);
+                    var problem = PrinterProblems.FromDriverText(t + " " + text);
+                    App.LogInfo($"נסגר חלון של דרייבר המדפסת: \"{t}\" | טקסט: {text} | תקלה: {(problem == null ? "אין" : problem.Split('\n')[0])}");
+                    if (problem != null) DriverProblemDetected?.Invoke(problem);
+                }
                 PostMessage(hWnd, WmClose, IntPtr.Zero, IntPtr.Zero);
-                if (ClosedDriverPopups.Add(hWnd)) App.LogInfo($"נסגר חלון של דרייבר המדפסת: \"{t}\"");
                 return true;
             }, IntPtr.Zero);
             if (ClosedDriverPopups.Count > 200) ClosedDriverPopups.Clear();
