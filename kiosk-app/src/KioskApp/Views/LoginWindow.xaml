@@ -85,7 +85,7 @@
         <!-- מרכז: לוגו הספרייה + הכרטיס (ת"ז / סיסמה / פתיחת חשבון / שחזור / סיסמה חדשה) -->
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,50">
             <!-- הלוגו נטען מ-Assets\library-logo.png. אם הקובץ לא קיים - לא מוצג כלום -->
-            <Image x:Name="LogoImage" MaxHeight="130" MaxWidth="420" Stretch="Uniform"
+            <Image x:Name="LogoImage" MaxHeight="170" MaxWidth="420" Stretch="Uniform"
                    HorizontalAlignment="Center" Margin="0,0,0,18" Visibility="Collapsed"
                    RenderOptions.BitmapScalingMode="HighQuality" />
 

@@ -389,7 +389,7 @@ namespace KioskApp.Views
                 p.Visibility = p == panel ? Visibility.Visible : Visibility.Collapsed;
             }
             // טופס פתיחת החשבון ארוך - הלוגו קטן יותר כדי שהכול ייכנס במסך
-            LogoImage.MaxHeight = panel == SignupPanel ? 80 : 130;
+            LogoImage.MaxHeight = panel == SignupPanel ? 95 : 170;
         }
 
         /// <summary>חזרה למסך הפתיחה (הקלדת ת"ז) - מוחק כל מה שהוקלד</summary>
