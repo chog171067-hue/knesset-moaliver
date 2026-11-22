@@ -3,61 +3,57 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using KioskApp.Services;
 
 namespace KioskApp.Views
 {
     /// <summary>
-    /// עורך טקסט פשוט בתוך הקיוסק: מדביקים טקסט (למשל מאוצריא) ושומרים אותו כקובץ Word
-    /// ישירות לדיסק-און-קי - בלי חלון "שמירה בשם" של Windows ובלי עותק על המחשב.
+    /// עורך טקסט בתוך הקיוסק: דף A4 לבן (כמו ב-Word) עם עיצוב פשוט - גודל גופן, מודגש, קו
+    /// תחתון ויישור. מדביקים טקסט (למשל מאוצריא) - הוא נכנס כטקסט נקי. אפשר להדפיס (מספר
+    /// העמודים מחושב מראש ומוצג בתחתית) או לשמור להתקן USB כ-PDF או Word.
     ///
-    /// חלון אחד לכל ההתחברות: "חזרה" רק מסתיר אותו (הטקסט נשמר בזיכרון, כדי שאפשר יהיה
-    /// להעתיק-להדביק הלוך ושוב), והוא נסגר ונמחק בניתוק (EndSession).
+    /// חלון אחד לכל ההתחברות: "סגירת העורך" רק מסתירה אותו (הטקסט נשמר בזיכרון, כדי שאפשר
+    /// יהיה להעתיק-להדביק הלוך ושוב), והוא נסגר ונמחק בניתוק (EndSession). הלשונית הצפה של
+    /// המשתמש מוצגת מעל העורך.
     /// </summary>
     public class TextEditorWindow : Window
     {
         private static TextEditorWindow? _instance;
 
-        private readonly TextBox _editor;
-        private readonly TextBox _fileName;
+        private const string DefaultFileName = "טקסט מהספרייה";
+        private const double DefaultFontPt = 14;
+        private static readonly double[] FontSizesPt = { 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36 };
+
+        private readonly RichTextBox _editor;
         private readonly TextBlock _status;
         private readonly TextBlock _counter;
-        private readonly TextBlock _balance;
-        private readonly Button _backButton;
+        private readonly TextBlock _sizeText;
+        private readonly ToggleButton _boldButton;
+        private readonly ToggleButton _underlineButton;
+        private readonly ToggleButton[] _alignButtons;
+        private readonly DispatcherTimer _countTimer = new() { Interval = TimeSpan.FromMilliseconds(800) };
         private bool _closingForSessionEnd;
+        private bool _updatingToolbar;
+        private string _lastFileName = DefaultFileName;
 
-        // קבצים שנשמרו בהתחברות הנוכחית, לפי סיומת (".docx"/".pdf"): שם הקובץ שהמשתמש הקליד והנתיב
-        // בפועל. שמירה חוזרת באותו שם מעדכנת את אותו קובץ במקום ליצור "(2)", "(3)"... הקיוסק דורס
-        // רק קובץ שהוא עצמו יצר בהתחברות הזו - לעולם לא קובץ אחר של המשתמש. נמחק עם החלון בניתוק.
+        // קבצים שנשמרו בהתחברות הנוכחית, לפי סיומת (".docx"/".pdf"): שם הקובץ והנתיב בפועל. שמירה
+        // חוזרת באותו שם מעדכנת את אותו קובץ במקום ליצור "(2)", "(3)"... הקיוסק דורס רק קובץ שהוא
+        // עצמו יצר בהתחברות הזו - לעולם לא קובץ אחר של המשתמש. נמחק עם החלון בניתוק.
         private readonly System.Collections.Generic.Dictionary<string, (string Name, string Path)> _savedThisSession = new();
 
-        /// <summary>
-        /// לאן לשמור: אם באותה התחברות כבר נשמר קובץ מאותו סוג ובאותו שם, והוא עדיין בדיסק-און-קי -
-        /// אותו נתיב (עדכון). אחרת - נתיב חדש שלא דורס שום קובץ קיים.
-        /// </summary>
-        private (string Path, bool IsUpdate) TargetPath(string usb, string name, string extension)
-        {
-            if (_savedThisSession.TryGetValue(extension, out var prev)
-                && prev.Name == name
-                && prev.Path.StartsWith(usb, StringComparison.OrdinalIgnoreCase)
-                && File.Exists(prev.Path))
-            {
-                return (prev.Path, true);
-            }
-            return (FileDialogAssistant.UniquePath(usb, name + extension), false);
-        }
-
         /// <summary>פותח את העורך (או מציג אותו שוב עם הטקסט שהיה בו).</summary>
-        /// <param name="backLabel">טקסט כפתור החזרה, למשל "חזרה לתוכנה" או "חזרה לבחירת תוכנה"</param>
+        /// <param name="backLabel">לא בשימוש (נשמר לתאימות) - היציאה היא "סגירת העורך"</param>
         public static void ShowEditor(string backLabel)
         {
             _instance ??= new TextEditorWindow();
-            _instance._backButton.Content = backLabel;
             _instance.Show();
             App.BringToFront(_instance);
             _instance._editor.Focus();
+            OverlayWindow.RaiseAllTabs(); // הלשונית הצפה - מעל העורך
         }
 
         /// <summary>בניתוק: סוגר את העורך ומוחק את הטקסט - המשתמש הבא מתחיל בעמוד ריק.</summary>
@@ -65,8 +61,8 @@ namespace KioskApp.Views
         {
             if (_instance == null) return;
             _instance._closingForSessionEnd = true;
-            App.Session.BalanceChanged -= _instance.OnBalanceChanged;
-            _instance._editor.Clear();
+            _instance._countTimer.Stop();
+            _instance._editor.Document.Blocks.Clear();
             _instance.Close();
             _instance = null;
         }
@@ -85,67 +81,43 @@ namespace KioskApp.Views
             Foreground = Res<Brush>("KioskTextBrush");
             App.KeepFullScreen(this);
 
-            // --- סרגל עליון (כרטיס שמנת). מימין: כותרת ושם הקובץ; משמאל: פעולות, יתרה וחזרה.
-            //     WrapPanel - במסך צר הכפתורים יורדים שורה, במקום לעלות על הטקסט.
-            var right = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
-            right.Children.Add(new TextBlock
+            // ===== סרגל עליון: מימין הכותרת, משמאל הפעולות (מקובצות) וסגירה =====
+            var title = new TextBlock
             {
                 Text = "עורך טקסט",
                 Style = Res<Style>("KioskHeading"),
-                FontSize = 22,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 0)
-            });
-            right.Children.Add(new TextBlock
-            {
-                Text = "שם הקובץ",
-                Foreground = Res<Brush>("KioskMutedBrush"),
-                FontSize = 15,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(24, 0, 8, 0)
-            });
-            _fileName = new TextBox
-            {
-                Text = "טקסט מהספרייה",
-                Style = Res<Style>("KioskTextBox"),
-                FontSize = 15,
-                MinHeight = 40,
-                Width = 200,
-                VerticalAlignment = VerticalAlignment.Center,
-                ToolTip = "שם הקובץ שיישמר בדיסק-און-קי"
-            };
-            right.Children.Add(_fileName);
-
-            var left = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
-            left.Children.Add(MakeButton("שמירה כ-Word", "KioskPrimaryButton", OnSaveClick));
-            left.Children.Add(MakeButton("שמירה כ-PDF", "KioskPrimaryButton", OnSavePdfClick));
-            left.Children.Add(MakeButton("הדפסה", "KioskSecondaryButton", OnPrintClick));
-            left.Children.Add(MakeButton("ניקוי", "KioskSecondaryButton", OnClearClick));
-            left.Children.Add(new Border
-            {
-                Width = 1,
-                Height = 28,
-                Background = Res<Brush>("KioskBorderBrush"),
-                Margin = new Thickness(6, 0, 14, 0),
+                FontSize = 24,
                 VerticalAlignment = VerticalAlignment.Center
-            });
-            _balance = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold };
-            left.Children.Add(new Border
+            };
+
+            var actions = new Border
             {
-                Style = Res<Style>("KioskPill"),
-                Child = _balance,
-                Margin = new Thickness(0, 0, 12, 0)
-            });
-            _backButton = MakeButton("חזרה", "KioskSoftButton", OnBackClick);
-            _backButton.Margin = new Thickness(0);
-            left.Children.Add(_backButton);
-            UpdateBalance(App.Session.CurrentUser?.Balance ?? 0);
-            App.Session.BalanceChanged += OnBalanceChanged;
+                Background = Res<Brush>("KioskSoftBrush"),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(8, 4, 8, 4),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children =
+                    {
+                        MakeButton("הדפסה", "KioskPrimaryButton", OnPrintClick),
+                        MakeButton("שמירה להתקן USB", "KioskPrimaryButton", OnSaveClick),
+                        MakeButton("ניקוי", "KioskSecondaryButton", OnClearClick)
+                    }
+                }
+            };
+            var close = MakeButton("סגירת העורך", "KioskSoftButton", (_, _) => Hide());
+            close.Margin = new Thickness(16, 0, 0, 0);
+
+            var left = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            left.Children.Add(actions);
+            left.Children.Add(close);
 
             var barContent = new DockPanel { LastChildFill = false };
-            DockPanel.SetDock(right, Dock.Left);
-            DockPanel.SetDock(left, Dock.Right);
-            barContent.Children.Add(right);
+            DockPanel.SetDock(title, Dock.Left);   // ב-RTL: ימין
+            DockPanel.SetDock(left, Dock.Right);   // ב-RTL: שמאל
+            barContent.Children.Add(title);
             barContent.Children.Add(left);
 
             var bar = new Border
@@ -153,67 +125,144 @@ namespace KioskApp.Views
                 Background = Res<Brush>("KioskCardBrush"),
                 BorderBrush = Res<Brush>("KioskAccentBrush"),
                 BorderThickness = new Thickness(0, 0, 0, 4),
-                Padding = new Thickness(20, 12, 20, 12),
+                Padding = new Thickness(24, 10, 24, 10),
                 Child = barContent
             };
 
-            // --- שורת מצב ---
-            _status = new TextBlock
+            // ===== סרגל עיצוב (מעל הדף, במרכז) =====
+            _sizeText = new TextBlock { Width = 34, TextAlignment = TextAlignment.Center, FontSize = 16, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            _boldButton = MakeToggle(new TextBlock { Text = "B", FontWeight = FontWeights.Bold, FontSize = 18 }, "מודגש (Ctrl+B)",
+                () => EditingCommands.ToggleBold.Execute(null, _editor));
+            _underlineButton = MakeToggle(new TextBlock { Text = "U", TextDecorations = TextDecorations.Underline, FontSize = 18 }, "קו תחתון (Ctrl+U)",
+                () => EditingCommands.ToggleUnderline.Execute(null, _editor));
+            // ב-RTL: TextAlignment.Left = צמוד לימין (תחילת השורה), Right = צמוד לשמאל
+            _alignButtons = new[]
             {
-                Text = "הקלידו או הדביקו כאן טקסט (Ctrl+V). אפשר להדפיס, או לשמור כ-Word / PDF לדיסק-און-קי. הטקסט נמחק בניתוק.",
-                Foreground = Res<Brush>("KioskMutedBrush"),
-                FontSize = 15,
-                Margin = new Thickness(24, 12, 24, 10),
-                TextWrapping = TextWrapping.Wrap
+                MakeAlignToggle(AlignIcon(right: true), "יישור לימין", TextAlignment.Left),
+                MakeAlignToggle(AlignIcon(center: true), "מרכוז", TextAlignment.Center),
+                MakeAlignToggle(AlignIcon(right: false), "יישור לשמאל", TextAlignment.Right),
+                MakeAlignToggle(AlignIcon(justify: true), "הצדדה (יישור לשני הצדדים)", TextAlignment.Justify)
             };
 
-            // --- אזור הכתיבה: דף לבן ---
-            _editor = new TextBox
+            var formatBar = new StackPanel { Orientation = Orientation.Horizontal };
+            formatBar.Children.Add(new TextBlock { Text = "גודל:", FontSize = 15, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+            formatBar.Children.Add(MakeToolButton(new TextBlock { Text = "A−", FontSize = 15, FontWeight = FontWeights.Bold }, "הקטנת הגופן", () => ChangeFontSize(-1)));
+            formatBar.Children.Add(_sizeText);
+            formatBar.Children.Add(MakeToolButton(new TextBlock { Text = "A+", FontSize = 18, FontWeight = FontWeights.Bold }, "הגדלת הגופן", () => ChangeFontSize(+1)));
+            formatBar.Children.Add(Separator());
+            formatBar.Children.Add(_boldButton);
+            formatBar.Children.Add(_underlineButton);
+            formatBar.Children.Add(Separator());
+            foreach (var b in _alignButtons) formatBar.Children.Add(b);
+
+            var formatCard = new Border
+            {
+                Background = Res<Brush>("KioskCardBrush"),
+                BorderBrush = Res<Brush>("KioskTanBrush"),
+                BorderThickness = new Thickness(1.5),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(12, 6, 12, 6),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 12, 0, 0),
+                Child = formatBar
+            };
+
+            _status = new TextBlock
+            {
+                Text = "הקלידו או הדביקו כאן טקסט (Ctrl+V). אפשר לעצב, להדפיס, או לשמור להתקן USB. הטקסט נמחק בניתוק.",
+                Foreground = Res<Brush>("KioskMutedBrush"),
+                FontSize = 14,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(24, 8, 24, 8)
+            };
+
+            // ===== הדף: A4 לבן במרכז, עם שוליים של 2.5 ס"מ - כמו בהדפסה =====
+            _editor = new RichTextBox
             {
                 AcceptsReturn = true,
                 AcceptsTab = true,
-                TextWrapping = TextWrapping.Wrap,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                FontSize = 22,
-                FontFamily = Res<FontFamily>("KioskHeadingFont"),
-                Foreground = new SolidColorBrush(Color.FromRgb(0x2E, 0x24, 0x1B)),
+                AllowDrop = false,
+                IsDocumentEnabled = false,
                 Background = Brushes.White,
-                Padding = new Thickness(28, 20, 28, 20),
-                FlowDirection = FlowDirection.RightToLeft,
-                BorderThickness = new Thickness(0)
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(TextPrinter.PageMargin),
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, // הדף גדל, והגלילה בחלון
+                Foreground = Brushes.Black,
+                FlowDirection = FlowDirection.RightToLeft
             };
             SpellCheck.SetIsEnabled(_editor, false);
+            ResetDocument();
+            // הדבקה - כטקסט נקי (בלי צבעים/גופנים/טבלאות מהתוכנה שממנה העתיקו)
+            DataObject.AddPastingHandler(_editor, OnPasting);
+            _editor.SelectionChanged += (_, _) => UpdateToolbar();
+            _editor.TextChanged += (_, _) => { _countTimer.Stop(); _countTimer.Start(); UpdateWordCount(); };
+            _countTimer.Tick += (_, _) => { _countTimer.Stop(); UpdatePageCount(); };
 
             var page = new Border
             {
+                Width = TextPrinter.PageWidth,
+                MinHeight = TextPrinter.PageHeight,
                 Background = Brushes.White,
                 BorderBrush = Res<Brush>("KioskBorderBrush"),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(8),
-                Margin = new Thickness(24, 0, 24, 0),
-                Child = _editor
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 4, 0, 30),
+                Child = _editor,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    BlurRadius = 18,
+                    ShadowDepth = 3,
+                    Opacity = 0.18,
+                    Color = Color.FromRgb(0x5B, 0x46, 0x36)
+                }
+            };
+            // לחיצה על השטח הריק של הדף - מעבירה את הסמן לסוף הטקסט
+            page.MouseLeftButtonDown += (_, _) => { _editor.Focus(); };
+
+            var scroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = page
             };
 
-            // --- מונה מילים בתחתית ---
+            // ===== תחתית: מילים ועמודים =====
             _counter = new TextBlock
             {
-                Foreground = Res<Brush>("KioskMutedBrush"),
-                FontSize = 14,
-                Margin = new Thickness(24, 10, 24, 14)
+                Foreground = Res<Brush>("KioskSecondaryTextBrush"),
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center
             };
-            _editor.TextChanged += (_, _) => UpdateCounter();
-            UpdateCounter();
+            var footer = new Border
+            {
+                Background = Res<Brush>("KioskCardBrush"),
+                BorderBrush = Res<Brush>("KioskBorderBrush"),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Padding = new Thickness(0, 8, 0, 8),
+                Child = _counter
+            };
 
             var layout = new DockPanel();
             DockPanel.SetDock(bar, Dock.Top);
+            DockPanel.SetDock(formatCard, Dock.Top);
             DockPanel.SetDock(_status, Dock.Top);
-            DockPanel.SetDock(_counter, Dock.Bottom);
+            DockPanel.SetDock(footer, Dock.Bottom);
             layout.Children.Add(bar);
+            layout.Children.Add(formatCard);
             layout.Children.Add(_status);
-            layout.Children.Add(_counter);
-            layout.Children.Add(page);
+            layout.Children.Add(footer);
+            layout.Children.Add(scroll);
             Content = layout;
+
+            UpdateToolbar();
+            UpdateWordCount();
+            UpdatePageCount();
+
+            // הלשונית הצפה - תמיד מעל העורך (גם כשלוחצים על העורך)
+            Activated += (_, _) => OverlayWindow.RaiseAllTabs();
 
             // Alt+F4 / סגירה אחרת - רק מסתיר (הטקסט נשמר עד הניתוק)
             Closing += (_, e) =>
@@ -226,6 +275,166 @@ namespace KioskApp.Views
 
         private static T Res<T>(string key) => (T)Application.Current.Resources[key];
 
+        /// <summary>מסמך ריק בגופן ובגודל ברירת המחדל (David 14), מימין לשמאל, צמוד לימין</summary>
+        private void ResetDocument()
+        {
+            var doc = new FlowDocument(new Paragraph())
+            {
+                FontFamily = new FontFamily("David, Arial"),
+                FontSize = PtToDip(DefaultFontPt),
+                FlowDirection = FlowDirection.RightToLeft,
+                TextAlignment = TextAlignment.Left, // ב-RTL: צמוד לימין
+                PagePadding = new Thickness(0),
+                Foreground = Brushes.Black
+            };
+            _editor.Document = doc;
+        }
+
+        private string PlainText => new TextRange(_editor.Document.ContentStart, _editor.Document.ContentEnd).Text;
+
+        private bool IsEmpty => string.IsNullOrWhiteSpace(PlainText);
+
+        private static double PtToDip(double pt) => pt * 96.0 / 72.0;
+        private static double DipToPt(double dip) => Math.Round(dip * 72.0 / 96.0, 1);
+
+        // ===================== סרגל העיצוב =====================
+
+        private void OnPasting(object sender, DataObjectPastingEventArgs e)
+        {
+            var text = e.DataObject.GetData(DataFormats.UnicodeText) as string
+                       ?? e.DataObject.GetData(DataFormats.Text) as string;
+            if (text == null)
+            {
+                e.CancelCommand(); // תמונות וכו' - לא מדביקים
+                return;
+            }
+            var plain = new DataObject();
+            plain.SetData(DataFormats.UnicodeText, text);
+            e.DataObject = plain;
+        }
+
+        private void ChangeFontSize(int direction)
+        {
+            var current = CurrentFontPt() ?? DefaultFontPt;
+            double next;
+            if (direction > 0)
+                next = FontSizesPt.FirstOrDefault(s => s > current + 0.1, FontSizesPt[^1]);
+            else
+                next = FontSizesPt.LastOrDefault(s => s < current - 0.1, FontSizesPt[0]);
+            _editor.Selection.ApplyPropertyValue(TextElement.FontSizeProperty, PtToDip(next));
+            _editor.Focus();
+            UpdateToolbar();
+        }
+
+        private double? CurrentFontPt()
+        {
+            var value = _editor.Selection.GetPropertyValue(TextElement.FontSizeProperty);
+            return value is double d ? DipToPt(d) : null;
+        }
+
+        private void SetAlignment(TextAlignment alignment)
+        {
+            _editor.Selection.ApplyPropertyValue(Paragraph.TextAlignmentProperty, alignment);
+            _editor.Focus();
+            UpdateToolbar();
+        }
+
+        /// <summary>מצב הכפתורים לפי הטקסט שנבחר (מודגש? גודל? יישור?)</summary>
+        private void UpdateToolbar()
+        {
+            if (_updatingToolbar) return;
+            _updatingToolbar = true;
+            try
+            {
+                var size = CurrentFontPt();
+                _sizeText.Text = size.HasValue ? size.Value.ToString("0.#") : "—";
+
+                var weight = _editor.Selection.GetPropertyValue(TextElement.FontWeightProperty);
+                _boldButton.IsChecked = weight is FontWeight w && w.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
+
+                var decorations = _editor.Selection.GetPropertyValue(Inline.TextDecorationsProperty);
+                _underlineButton.IsChecked = decorations is TextDecorationCollection tdc && tdc.Count > 0;
+
+                var align = _editor.Selection.GetPropertyValue(Paragraph.TextAlignmentProperty);
+                var alignments = new[] { TextAlignment.Left, TextAlignment.Center, TextAlignment.Right, TextAlignment.Justify };
+                for (var i = 0; i < _alignButtons.Length; i++)
+                {
+                    _alignButtons[i].IsChecked = align is TextAlignment a && a == alignments[i];
+                }
+            }
+            finally
+            {
+                _updatingToolbar = false;
+            }
+        }
+
+        private Button MakeToolButton(UIElement content, string tooltip, Action onClick)
+        {
+            var b = new Button
+            {
+                Content = content,
+                ToolTip = tooltip,
+                Style = Res<Style>("KioskSecondaryButton"),
+                MinHeight = 38,
+                MinWidth = 42,
+                Padding = new Thickness(8, 0, 8, 0),
+                Margin = new Thickness(3, 0, 3, 0),
+                Focusable = false // שהסימון בטקסט לא יאבד
+            };
+            b.Click += (_, _) => onClick();
+            return b;
+        }
+
+        private ToggleButton MakeToggle(UIElement content, string tooltip, Action onClick)
+        {
+            var b = new ToggleButton(content, tooltip, Res<Brush>("KioskAccentBrush"), Res<Brush>("KioskOutlineBrush"), Res<Brush>("KioskTextBrush"));
+            b.Click += (_, _) =>
+            {
+                if (_updatingToolbar) return;
+                onClick();
+                _editor.Focus();
+                UpdateToolbar();
+            };
+            return b;
+        }
+
+        private ToggleButton MakeAlignToggle(UIElement icon, string tooltip, TextAlignment alignment) =>
+            MakeToggle(icon, tooltip, () => SetAlignment(alignment));
+
+        /// <summary>סמל יישור: ארבעה קווים</summary>
+        private static UIElement AlignIcon(bool right = false, bool center = false, bool justify = false)
+        {
+            var lines = new[] { 18.0, 12.0, 18.0, 10.0 };
+            var geometry = new GeometryGroup();
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var len = justify ? 18.0 : lines[i];
+                var x0 = justify ? 3 : center ? 12 - len / 2 : right ? 21 - len : 3;
+                var y = 5 + i * 5;
+                geometry.Children.Add(new LineGeometry(new Point(x0, y), new Point(x0 + len, y)));
+            }
+            return new System.Windows.Shapes.Path
+            {
+                Data = geometry,
+                Width = 24,
+                Height = 24,
+                StrokeThickness = 2,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                FlowDirection = FlowDirection.LeftToRight, // הסמל עצמו לא מתהפך
+                Stroke = (Brush)Application.Current.Resources["KioskTextBrush"]
+            };
+        }
+
+        private Border Separator() => new()
+        {
+            Width = 1,
+            Height = 26,
+            Background = Res<Brush>("KioskBorderBrush"),
+            Margin = new Thickness(8, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
         private Button MakeButton(string text, string styleKey, RoutedEventHandler onClick)
         {
             var b = new Button
@@ -235,34 +444,43 @@ namespace KioskApp.Views
                 FontSize = 15,
                 MinHeight = 40,
                 Padding = new Thickness(14, 0, 14, 0),
-                Margin = new Thickness(0, 4, 8, 4)
+                Margin = new Thickness(4, 0, 4, 0)
             };
             b.Click += onClick;
             return b;
         }
 
-        // הערכה: כ-400 מילים בעמוד Word (גופן David בגודל 14, כמו בקובץ שנשמר)
-        private const int WordsPerPage = 400;
+        // ===================== מונה מילים ועמודים =====================
 
-        private void UpdateCounter()
+        private int _pages = 1;
+
+        private void UpdateWordCount()
         {
-            var words = _editor.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-            if (words == 0)
-            {
-                _counter.Text = "";
-                return;
-            }
-            var pages = Math.Max(1, (int)Math.Ceiling(words / (double)WordsPerPage));
-            _counter.Text = $"{words:N0} מילים · בערך {pages} {(pages == 1 ? "עמוד" : "עמודים")}";
+            var words = PlainText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+            _counter.Text = words == 0
+                ? "דף ריק"
+                : $"{words:N0} מילים · {_pages} {(_pages == 1 ? "עמוד" : "עמודים")} בהדפסה";
         }
 
-        private void OnBalanceChanged(object? sender, decimal balance) => Dispatcher.Invoke(() => UpdateBalance(balance));
+        /// <summary>מספר העמודים המדויק בהדפסה (A4) - מחושב שנייה אחרי שמפסיקים להקליד</summary>
+        private void UpdatePageCount()
+        {
+            try
+            {
+                _pages = IsEmpty ? 1 : TextPrinter.CountPages(_editor.Document);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: כשל בחישוב מספר העמודים", ex);
+            }
+            UpdateWordCount();
+        }
 
-        private void UpdateBalance(decimal balance) => _balance.Text = $"יתרה: {balance:0.00} ₪";
+        // ===================== פעולות =====================
 
         private void OnPrintClick(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(_editor.Text))
+            if (IsEmpty)
             {
                 ShowStatus("אין טקסט להדפסה.", isError: true);
                 return;
@@ -277,9 +495,8 @@ namespace KioskApp.Views
 
             try
             {
-                var pages = TextPrinter.CountPages(_editor.Text, printer);
                 // האישור (עמודים + סכום לחיוב) והחיוב - בחלון האישור של מעקב ההדפסות, כמו בכל תוכנה
-                TextPrinter.Print(_editor.Text, printer);
+                var pages = TextPrinter.Print(_editor.Document, printer);
                 App.LogInfo($"עורך טקסט: נשלחו להדפסה {pages} עמודים ({printer})");
                 ShowStatus($"נשלח להדפסה: {pages} {(pages == 1 ? "עמוד" : "עמודים")} - יש לאשר בחלון שנפתח.", isError: false);
             }
@@ -290,95 +507,103 @@ namespace KioskApp.Views
             }
         }
 
-        private void OnSavePdfClick(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(_editor.Text))
-            {
-                ShowStatus("אין טקסט לשמירה.", isError: true);
-                return;
-            }
-
-            var usb = FileDialogAssistant.FindUsbDrive();
-            if (usb == null)
-            {
-                ShowStatus("לא נמצא דיסק-און-קי. חברו דיסק-און-קי לעמדה ונסו שוב.", isError: true);
-                return;
-            }
-            if (!TextPrinter.PdfPrinterAvailable())
-            {
-                ShowStatus("שמירה כ-PDF לא זמינה בעמדה זו (חסר \"Microsoft Print to PDF\"). אפשר לשמור כ-Word.", isError: true);
-                return;
-            }
-
-            try
-            {
-                var name = SafeFileName(_fileName.Text);
-                var (path, isUpdate) = TargetPath(usb, name, ".pdf");
-                // "Microsoft Print to PDF" כותב את הקובץ ברקע - לעדכון מוחקים קודם את הגרסה הקודמת
-                if (isUpdate) File.Delete(path);
-                TextPrinter.Print(_editor.Text, TextPrinter.PdfPrinterName, path);
-                _savedThisSession[".pdf"] = (name, path);
-                App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} PDF בדיסק-און-קי ({path})");
-                ShowStatus($"{(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
-            }
-            catch (Exception ex)
-            {
-                App.LogError("עורך טקסט: שמירת PDF נכשלה", ex);
-                ShowStatus("השמירה נכשלה: " + ex.Message, isError: true);
-            }
-        }
-
-        private void OnBackClick(object sender, RoutedEventArgs e) => Hide();
-
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(_editor.Text)) return;
-            var answer = MessageBox.Show(this, "למחוק את כל הטקסט?", "ניקוי", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (answer == MessageBoxResult.Yes) _editor.Clear();
+            if (IsEmpty) return;
+            if (KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "ניקוי", "למחוק את כל הטקסט?", "מחיקה", "ביטול"))
+            {
+                ResetDocument();
+                UpdateToolbar();
+                UpdatePageCount();
+            }
             _editor.Focus();
         }
 
         private void OnSaveClick(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(_editor.Text))
+            if (IsEmpty)
             {
                 ShowStatus("אין טקסט לשמירה.", isError: true);
                 return;
             }
+            if (FileDialogAssistant.FindUsbDrive() == null)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא נמצא התקן USB",
+                    "יש לחבר דיסק-און-קי לעמדה, ולנסות שוב.");
+                return;
+            }
+
+            var dialog = new SaveToUsbDialog(_lastFileName) { Owner = this };
+            dialog.ShowDialog();
+            if (dialog.Result == null) return;
 
             var usb = FileDialogAssistant.FindUsbDrive();
             if (usb == null)
             {
-                ShowStatus("לא נמצא דיסק-און-קי. חברו דיסק-און-קי לעמדה ונסו שוב.", isError: true);
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא נמצא התקן USB",
+                    "יש לחבר דיסק-און-קי לעמדה, ולנסות שוב.");
+                return;
+            }
+            var extension = dialog.Result;
+            if (extension == ".pdf" && !TextPrinter.PdfPrinterAvailable())
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "שמירה כ-PDF לא זמינה",
+                    "בעמדה זו חסר \"Microsoft Print to PDF\". אפשר לשמור כ-Word.");
                 return;
             }
 
-            var name = SafeFileName(_fileName.Text);
+            var name = SafeFileName(dialog.FileName);
+            _lastFileName = name;
             try
             {
-                var (path, isUpdate) = TargetPath(usb, name, ".docx");
-                if (isUpdate)
+                var (path, isUpdate) = TargetPath(usb, name, extension);
+                if (extension == ".pdf")
                 {
-                    // קודם כותבים לקובץ זמני, ורק אם הצליח מחליפים - כדי שתקלה באמצע לא תמחק את הקודם
+                    // "Microsoft Print to PDF" כותב את הקובץ ברקע - לעדכון מוחקים קודם את הגרסה הקודמת
+                    if (isUpdate) File.Delete(path);
+                    TextPrinter.SavePdf(_editor.Document, path);
+                }
+                else if (isUpdate)
+                {
+                    // קודם לקובץ זמני, ורק אם הצליח מחליפים - שתקלה באמצע לא תמחק את הקודם
                     var temp = path + ".tmp";
                     if (File.Exists(temp)) File.Delete(temp);
-                    SimpleDocxWriter.Write(temp, _editor.Text);
+                    SimpleDocxWriter.Write(temp, _editor.Document);
                     File.Copy(temp, path, overwrite: true);
                     File.Delete(temp);
                 }
                 else
                 {
-                    SimpleDocxWriter.Write(path, _editor.Text);
+                    SimpleDocxWriter.Write(path, _editor.Document);
                 }
-                _savedThisSession[".docx"] = (name, path);
-                App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} קובץ בדיסק-און-קי ({path})");
-                ShowStatus($"{(isUpdate ? "הקובץ עודכן" : "נשמר")} בדיסק-און-קי: {path}", isError: false);
+                _savedThisSession[extension] = (name, path);
+                App.LogInfo($"עורך טקסט: {(isUpdate ? "עודכן" : "נשמר")} קובץ בהתקן USB ({path})");
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Success,
+                    isUpdate ? "הקובץ עודכן בהצלחה בהתקן" : "הקובץ נשמר בהצלחה בהתקן",
+                    $"בשם: {Path.GetFileName(path)}");
             }
             catch (Exception ex)
             {
-                App.LogError("עורך טקסט: שמירה לדיסק-און-קי נכשלה", ex);
-                ShowStatus("השמירה נכשלה: " + ex.Message, isError: true);
+                App.LogError("עורך טקסט: שמירה להתקן USB נכשלה", ex);
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "השמירה נכשלה", ex.Message);
             }
+            _editor.Focus();
+        }
+
+        /// <summary>
+        /// לאן לשמור: אם באותה התחברות כבר נשמר קובץ מאותו סוג ובאותו שם, והוא עדיין בהתקן -
+        /// אותו נתיב (עדכון). אחרת - נתיב חדש שלא דורס שום קובץ קיים.
+        /// </summary>
+        private (string Path, bool IsUpdate) TargetPath(string usb, string name, string extension)
+        {
+            if (_savedThisSession.TryGetValue(extension, out var prev)
+                && prev.Name == name
+                && prev.Path.StartsWith(usb, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(prev.Path))
+            {
+                return (prev.Path, true);
+            }
+            return (FileDialogAssistant.UniquePath(usb, name + extension), false);
         }
 
         /// <summary>שם קובץ חוקי: בלי תווים אסורים, לא ריק, לא ארוך מדי</summary>
@@ -386,7 +611,7 @@ namespace KioskApp.Views
         {
             var invalid = Path.GetInvalidFileNameChars();
             var cleaned = new string((input ?? "").Where(c => !invalid.Contains(c)).ToArray()).Trim().TrimEnd('.');
-            if (string.IsNullOrEmpty(cleaned)) cleaned = "טקסט מהספרייה";
+            if (string.IsNullOrEmpty(cleaned)) cleaned = DefaultFileName;
             return cleaned.Length > 80 ? cleaned.Substring(0, 80) : cleaned;
         }
 
@@ -395,6 +620,47 @@ namespace KioskApp.Views
             _status.Text = text;
             _status.Foreground = isError ? Res<Brush>("KioskDangerBrush") : Res<Brush>("KioskSuccessBrush");
             _status.FontWeight = FontWeights.SemiBold;
+        }
+
+        /// <summary>כפתור עיצוב עם מצב "פעיל" (מודגש פעיל, יישור נוכחי)</summary>
+        private class ToggleButton : Button
+        {
+            private readonly Brush _activeBrush;
+            private readonly Brush _outlineBrush;
+            private readonly Brush _textBrush;
+            private bool _checked;
+
+            public ToggleButton(UIElement content, string tooltip, Brush active, Brush outline, Brush text)
+            {
+                _activeBrush = active;
+                _outlineBrush = outline;
+                _textBrush = text;
+                Content = content;
+                ToolTip = tooltip;
+                Style = (Style)Application.Current.Resources["KioskSecondaryButton"];
+                MinHeight = 38;
+                MinWidth = 42;
+                Padding = new Thickness(8, 0, 8, 0);
+                Margin = new Thickness(3, 0, 3, 0);
+                Focusable = false;
+                Apply();
+            }
+
+            public bool IsChecked
+            {
+                get => _checked;
+                set { _checked = value; Apply(); }
+            }
+
+            private void Apply()
+            {
+                Background = _checked ? _activeBrush : Brushes.Transparent;
+                BorderBrush = _checked ? _activeBrush : _outlineBrush;
+                var fg = _checked ? Brushes.White : _textBrush;
+                Foreground = fg;
+                if (Content is System.Windows.Shapes.Path path) path.Stroke = fg;
+                if (Content is TextBlock tb) tb.Foreground = fg;
+            }
         }
     }
 }
