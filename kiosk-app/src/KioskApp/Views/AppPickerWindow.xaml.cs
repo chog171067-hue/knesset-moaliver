@@ -58,7 +58,8 @@ namespace KioskApp.Views
 
             foreach (var app in SortApps(apps))
             {
-                var button = MakeTile(app.DisplayName, "IconBook");
+                var subtitle = string.IsNullOrWhiteSpace(app.Description) ? null : app.Description.Trim();
+                var button = MakeTile(app.DisplayName, "IconBook", subtitle, AppIconLoader.Load(app.IconPath, app.ExePath));
                 button.Tag = app;
                 button.Click += OnAppButtonClick;
                 AppsPanel.Children.Add(button);
@@ -73,17 +74,21 @@ namespace KioskApp.Views
         }
 
         /// <summary>אריח בעיצוב הקיוסק: סמל בריבוע רך, שם, ושורת הסבר אופציונלית</summary>
-        private Button MakeTile(string title, string iconKey, string? subtitle = null)
+        /// <summary>image: האייקון של התוכנה (אם אין - הסמל iconKey)</summary>
+        private Button MakeTile(string title, string iconKey, string? subtitle = null, System.Windows.Media.ImageSource? image = null)
         {
-            var icon = new System.Windows.Shapes.Path
-            {
-                Data = (System.Windows.Media.Geometry)FindResource(iconKey),
-                Style = (Style)FindResource("KioskIcon"),
-                Width = 38,
-                Height = 38,
-                Stroke = (System.Windows.Media.Brush)FindResource("KioskAccentBrush"),
-                StrokeThickness = 1.6
-            };
+            FrameworkElement icon = image != null
+                ? new Image { Source = image, Width = 48, Height = 48, Stretch = System.Windows.Media.Stretch.Uniform }
+                : new System.Windows.Shapes.Path
+                {
+                    Data = (System.Windows.Media.Geometry)FindResource(iconKey),
+                    Style = (Style)FindResource("KioskIcon"),
+                    Width = 38,
+                    Height = 38,
+                    Stroke = (System.Windows.Media.Brush)FindResource("KioskAccentBrush"),
+                    StrokeThickness = 1.6
+                };
+            if (image != null) System.Windows.Media.RenderOptions.SetBitmapScalingMode(icon, System.Windows.Media.BitmapScalingMode.HighQuality);
             var iconBox = new Border
             {
                 Width = 72,
@@ -116,6 +121,8 @@ namespace KioskApp.Views
                     Foreground = (System.Windows.Media.Brush)FindResource("KioskMutedBrush"),
                     TextAlignment = TextAlignment.Center,
                     TextWrapping = TextWrapping.Wrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxHeight = 40,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 4, 0, 0)
                 });

@@ -42,7 +42,10 @@ namespace KioskApp.Core.Models
         public string Id { get; set; } = "";
         public string DisplayName { get; set; } = "";
         public string ExePath { get; set; } = "";
+        /// <summary>נתיב לתמונה במחשב העמדה (PNG/ICO). ריק = האייקון של קובץ ההרצה</summary>
         public string IconPath { get; set; } = "";
+        /// <summary>תיאור קצר - מוצג מתחת לשם באריח</summary>
+        public string Description { get; set; } = "";
         public int SortOrder { get; set; }
     }
 
