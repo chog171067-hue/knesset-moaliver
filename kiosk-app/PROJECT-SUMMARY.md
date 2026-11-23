@@ -228,7 +228,12 @@
 - **תוכנות מאושרות (בדף הניהול):**
   - אוצריא: `C:\Program Files\Otzaria\otzaria.exe` (התקנה "לכל המשתמשים"). ספריית הספרים:
     `C:\ProgramData\otzaria` (משותפת). הגדרות אוצריא נשמרות **לכל משתמש** - מצב הקיוסק המוגן של
-    אוצריא הופעל ב-user1, **וצריך להפעיל שוב בחשבון הקיוסק**.
+    אוצריא הופעל ב-user1. **ב-23/11 הועתקו ההגדרות** של אוצריא מ-user1 לחשבון הקיוסק
+    (`robocopy C:\Users\user1\AppData\Roaming\otzaria C:\Users\kiosk-user\AppData\Roaming\otzaria /E /XD logs /XF *.lock`,
+    עם אוצריא סגורה; הקודם נשמר כ-`otzaria.backup-<תאריך>`) - כולל מצב הקיוסק ותוסף "המשיב".
+    רשימת התוספים (`plugins_host.db`) שומרת **נתיב קבוע** לתיקיית התוספים של user1 - לכן ניתנה
+    לחשבון הקיוסק קריאה בלבד: `icacls "C:\Users\user1\AppData\Roaming\otzaria\plugins" /grant "kiosk-user:(OI)(CI)RX"`.
+    תוסף חדש: להתקין ב-user1 ולהריץ שוב את ההעתקה.
   - אוצר החכמה: `C:\OtzarApp\OtzarLocal\launcher\bin\x64\app\otzar.exe` - נפתח תקין.
     המאגר והנתונים של אוצר החכמה על **D:** (books, data, tmp...), ונתוני הדפדפן הפנימי שלו
     ב-`C:\OtzarApp\otzar` (משותף לכל המשתמשים). הוא מרשה עותק אחד בלבד - עותק תקוע ברקע גורם
