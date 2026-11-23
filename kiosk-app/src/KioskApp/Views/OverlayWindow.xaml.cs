@@ -31,6 +31,10 @@ namespace KioskApp.Views
         private DateTime? _noWindowSince;
         private DateTime _lastProcessCheck = DateTime.MinValue;
         private bool _appStillRunning;
+        // התוכנה כבר הציגה חלון (אחרי זה - חלון שנעלם = המשתמש סגר אותה)
+        private bool _sawAppWindow;
+        // בדקה הראשונה אחרי הפעלה תוכנה עוד יכולה "להחליף" חלונות (מסך פתיחה ← התוכנה) - מחכים בזהירות
+        private static readonly TimeSpan LoadingPeriod = TimeSpan.FromSeconds(60);
 
         public OverlayWindow()
         {
@@ -202,24 +206,37 @@ namespace KioskApp.Views
                     }
                 }
 
-                if (_launchedProcessExited
-                    && DateTime.Now - _launchedAt > LaunchGracePeriod
-                    && WindowGuard.FindUserWindows().Count == 0)
+                var hasWindow = WindowGuard.FindUserWindows().Count > 0 || WindowGuard.AnyVisibleWindowFrom(_appFolder);
+                if (hasWindow)
+                {
+                    _sawAppWindow = true;
+                    _noWindowSince = null;
+                }
+                else if ((_launchedProcessExited || _sawAppWindow) && DateTime.Now - _launchedAt > LaunchGracePeriod)
                 {
                     _noWindowSince ??= DateTime.Now;
-                    // פעם ב-2 שניות: האם עדיין רץ תהליך מהתיקייה של התוכנה (= היא עוד נטענת)
-                    if (DateTime.Now - _lastProcessCheck > TimeSpan.FromSeconds(2))
+                    var waited = DateTime.Now - _noWindowSince.Value;
+
+                    // התוכנה כבר הייתה פתוחה (לא בטעינה) והחלון שלה נעלם - המשתמש סגר אותה: חוזרים מיד
+                    if (_sawAppWindow && DateTime.Now - _launchedAt > LoadingPeriod && waited > TimeSpan.FromSeconds(0.7))
+                    {
+                        App.LogInfo($"התוכנה נסגרה ({_appFolder})");
+                        ReturnToPickerAndCleanUp();
+                        return;
+                    }
+
+                    // בזמן טעינה: האם עדיין רץ תהליך מהתיקייה של התוכנה (= היא עוד נטענת)
+                    if (DateTime.Now - _lastProcessCheck > TimeSpan.FromSeconds(1))
                     {
                         _lastProcessCheck = DateTime.Now;
                         _appStillRunning = WindowGuard.AnyProcessRunningFrom(_appFolder);
                     }
-                    var waited = DateTime.Now - _noWindowSince.Value;
                     if (!_appStillRunning || waited > MaxWaitForAppWindow)
                     {
                         App.LogInfo(_appStillRunning
                             ? $"התוכנה לא הציגה חלון תוך {MaxWaitForAppWindow.TotalMinutes:0} דקות ({_appFolder})"
                             : $"התוכנה נסגרה - אין חלון ואין תהליך פעיל ({_appFolder})");
-                        ReturnToPicker();
+                        ReturnToPickerAndCleanUp();
                     }
                 }
                 else
@@ -376,18 +393,42 @@ namespace KioskApp.Views
 
         private async void OnSwitchAppClick(object sender, RoutedEventArgs e) => await CloseAppAndReturnAsync();
 
+        /// <summary>
+        /// יציאה יזומה (הלשונית / חלון המזעור): מסך הבחירה מוצג **מיד**, והתוכנה נסגרת ברקע
+        /// (סגירה מסודרת, ואז סגירה בכוח של מה שנשאר) - בלי שהמשתמש יחכה לה.
+        /// </summary>
         private async System.Threading.Tasks.Task CloseAppAndReturnAsync()
         {
             _guardTimer?.Stop(); // סוגרים בכוונה - שהשומר לא "יחזיר" חלונות בזמן הסגירה
-            if (_process != null)
-            {
-                _process.Exited -= OnLaunchedProcessExited; // סגירה יזומה - לא רוצים שגם OnLaunchedProcessExited יופעל
-                await ProcessLauncher.CloseGracefullyAsync(_process);
-            }
-            await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
-            // תהליכים של התוכנה שנשארו בלי חלון (למשל אוצר החכמה) - שלא יחסמו הפעלה חוזרת
-            try { WindowGuard.KillProcessesFrom(_appFolder); } catch (Exception ex) { App.LogError("סגירת תהליכי התוכנה", ex); }
+            var process = _process;
+            var folder = _appFolder;
+            var closedAt = DateTime.Now;
+            if (process != null) process.Exited -= OnLaunchedProcessExited;
             ReturnToPicker();
+            try
+            {
+                if (process != null) await ProcessLauncher.CloseGracefullyAsync(process, TimeSpan.FromSeconds(2));
+                await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
+                // תהליכים של התוכנה שנשארו בלי חלון (למשל אוצר החכמה) - שלא יחסמו הפעלה חוזרת
+                await System.Threading.Tasks.Task.Run(() => WindowGuard.KillProcessesFrom(folder, closedAt));
+            }
+            catch (Exception ex)
+            {
+                App.LogError("סגירת התוכנה ברקע", ex);
+            }
+        }
+
+        /// <summary>התוכנה נסגרה (X): חוזרים מיד, ותהליכים שנשארו ממנה נסגרים ברקע</summary>
+        private void ReturnToPickerAndCleanUp()
+        {
+            var folder = _appFolder;
+            var closedAt = DateTime.Now;
+            ReturnToPicker();
+            _ = System.Threading.Tasks.Task.Run(() =>
+            {
+                try { WindowGuard.KillProcessesFrom(folder, closedAt); }
+                catch (Exception ex) { App.LogError("סגירת תהליכים שנשארו מהתוכנה", ex); }
+            });
         }
 
         private async void OnLogoutClick(object sender, RoutedEventArgs e)

@@ -87,8 +87,7 @@ namespace KioskApp.Services
             var result = false;
             try
             {
-                using var p = Process.GetProcessById(pid);
-                var path = p.MainModule?.FileName;
+                var path = GetProcessPath(pid);
                 result = path != null && path.StartsWith(folder, StringComparison.OrdinalIgnoreCase);
             }
             catch
@@ -381,7 +380,7 @@ namespace KioskApp.Services
                 {
                     if (p.Id != OwnPid && !IgnoredProcessNames.Contains(p.ProcessName))
                     {
-                        var path = p.MainModule?.FileName;
+                        var path = GetProcessPath(p.Id);
                         keep = path != null && path.StartsWith(folder!, StringComparison.OrdinalIgnoreCase);
                     }
                 }
@@ -478,8 +477,7 @@ namespace KioskApp.Services
                 var cls = new StringBuilder(128);
                 GetClassName(hWnd, cls, cls.Capacity);
                 string path;
-                try { using var p = Process.GetProcessById((int)pid); path = p.MainModule?.FileName ?? "?"; }
-                catch { path = "?"; }
+                path = GetProcessPath((int)pid) ?? "?";
                 sb.Append($" [\"{title}\"|{cls}|{path}]");
                 return true;
             }, IntPtr.Zero);
@@ -494,8 +492,7 @@ namespace KioskApp.Services
             var result = false;
             try
             {
-                using var p = Process.GetProcessById(pid);
-                var path = (p.MainModule?.FileName ?? "").ToLowerInvariant();
+                var path = (GetProcessPath(pid) ?? "").ToLowerInvariant();
                 result = path.Contains("\\samsung") || path.Contains("\\spool\\drivers\\") || path.Contains("\\hp\\");
             }
             catch
@@ -505,6 +502,50 @@ namespace KioskApp.Services
             if (DriverPidCache.Count > 500) DriverPidCache.Clear();
             DriverPidCache[pid] = result;
             return result;
+        }
+
+        /// <summary>
+        /// הנתיב של קובץ ההרצה של תהליך - מהיר (בלי לטעון את רשימת המודולים שלו, כמו MainModule).
+        /// null = אין גישה / התהליך נסגר.
+        /// </summary>
+        public static string? GetProcessPath(int pid)
+        {
+            var handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+            if (handle == IntPtr.Zero) return null;
+            try
+            {
+                var sb = new StringBuilder(1024);
+                var size = sb.Capacity;
+                return QueryFullProcessImageName(handle, 0, sb, ref size) ? sb.ToString() : null;
+            }
+            finally
+            {
+                CloseHandle(handle);
+            }
+        }
+
+        /// <summary>
+        /// האם לתוכנה (תהליך כלשהו מהתיקייה שלה) יש חלון גלוי בגודל של ממש - גם חלון שלא זוהה
+        /// כ"חלון ראשי" (אוצר החכמה). בלי תיקייה ידועה - false.
+        /// </summary>
+        public static bool AnyVisibleWindowFrom(string? appFolder)
+        {
+            if (!IsTrackableFolder(appFolder)) return false;
+            var found = false;
+            EnumWindows((hWnd, _) =>
+            {
+                if (!IsWindowVisible(hWnd) || IsIconic(hWnd)) return true;
+                var owner = GetWindow(hWnd, GwOwner);
+                if (owner != IntPtr.Zero && IsWindowVisible(owner)) return true;
+                if (DwmGetWindowAttribute(hWnd, DwmwaCloaked, out int cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
+                GetWindowRect(hWnd, out var r);
+                if (r.Right - r.Left < 200 || r.Bottom - r.Top < 150) return true;
+                GetWindowThreadProcessId(hWnd, out var pid);
+                if (!IsFromFolder((int)pid, appFolder!)) return true;
+                found = true;
+                return false;
+            }, IntPtr.Zero);
+            return found;
         }
 
         /// <summary>
@@ -582,7 +623,7 @@ namespace KioskApp.Services
         /// מרשות רק עותק אחד: עותק תקוע גורם לכל הפעלה חדשה "להיתקע" במסך הפתיחה.
         /// מחזיר כמה תהליכים נסגרו.
         /// </summary>
-        public static int KillProcessesFrom(string? folder)
+        public static int KillProcessesFrom(string? folder, DateTime? startedBefore = null)
         {
             var killed = 0;
             foreach (var p in ProcessesFrom(folder))
@@ -591,6 +632,8 @@ namespace KioskApp.Services
                 {
                     try
                     {
+                        // סגירה ברקע: לא נוגעים בעותק חדש שהמשתמש כבר פתח מחדש
+                        if (startedBefore.HasValue && p.StartTime >= startedBefore.Value) continue;
                         p.Kill(entireProcessTree: true);
                         killed++;
                     }
@@ -665,6 +708,11 @@ namespace KioskApp.Services
         [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
         [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+        private const uint ProcessQueryLimitedInformation = 0x1000;
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr OpenProcess(uint access, bool inheritHandle, int processId);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool QueryFullProcessImageName(IntPtr hProcess, int flags, StringBuilder exeName, ref int size);
+        [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
         [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
         private const uint WmClose = 0x0010;
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
