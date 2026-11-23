@@ -6,9 +6,9 @@
 // דרך הקיוסק אחרי העלאת הקובץ האחרון (ראו getKioskMembership ב-lib/community.js).
 //
 // גוף הבקשה: { tz, displayName, phone, password }
-// תשובה: { success, isCommunityMember, signupAmount, communityJoinUrl }
+// תשובה: { success, isCommunityMember, signupAmount, communityJoinUrl, prepaidAmount, prepaid }
 const { requireStation } = require('./lib/station-auth');
-const { validateSignupDetails, assertTzAvailable, getConfig } = require('./lib/kiosk-store');
+const { validateSignupDetails, assertTzAvailable, getConfig, getWaitingCreditTotal } = require('./lib/kiosk-store');
 const { getKioskMembership, isTzBlocked } = require('./lib/community');
 
 exports.handler = async function (event) {
@@ -36,6 +36,12 @@ exports.handler = async function (event) {
 
   try {
     const config = await getConfig(event);
+    let prepaidAmount = 0;
+    try {
+      prepaidAmount = await getWaitingCreditTotal(event, details.username);
+    } catch (e) {
+      console.error('[signup-check] כשל בבדיקת תשלומים ממתינים:', e.message);
+    }
     let isCommunityMember = false;
     try {
       const membership = await getKioskMembership(event, details.username);
@@ -51,7 +57,10 @@ exports.handler = async function (event) {
         success: true,
         isCommunityMember,
         signupAmount: config.signupAmount,
-        communityJoinUrl: config.communityJoinUrl || ''
+        communityJoinUrl: config.communityJoinUrl || '',
+        // תשלום מנדרים פלוס שחיכה לת"ז הזו - אם הוא לפחות סכום פתיחת החשבון, אין צורך לשלם שוב
+        prepaidAmount,
+        prepaid: prepaidAmount >= Number(config.signupAmount || 0) && prepaidAmount > 0
       })
     };
   } catch (error) {

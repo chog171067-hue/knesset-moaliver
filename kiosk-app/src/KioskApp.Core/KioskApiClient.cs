@@ -139,8 +139,24 @@ namespace KioskApp.Core
             {
                 IsCommunityMember = response.IsCommunityMember,
                 SignupAmount = response.SignupAmount,
-                CommunityJoinUrl = response.CommunityJoinUrl ?? ""
+                CommunityJoinUrl = response.CommunityJoinUrl ?? "",
+                PrepaidAmount = response.PrepaidAmount,
+                Prepaid = response.Prepaid
             };
+        }
+
+        /// <summary>
+        /// פתיחת חשבון על חשבון תשלום ממתין מנדרים פלוס (לפחות סכום פתיחת החשבון). מחזיר כמה נטען.
+        /// </summary>
+        public async Task<decimal> SignupPrepaidAsync(SignupDetails details, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<PrepaidSignupResponse>(
+                "/.netlify/functions/library-station-signup-prepaid", ToPayload(details), ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "פתיחת החשבון נכשלה", statusCode);
+            }
+            return response.Loaded;
         }
 
         /// <summary>
@@ -468,6 +484,13 @@ namespace KioskApp.Core
             public bool IsCommunityMember { get; set; }
             public decimal SignupAmount { get; set; }
             public string? CommunityJoinUrl { get; set; }
+            public decimal PrepaidAmount { get; set; }
+            public bool Prepaid { get; set; }
+        }
+
+        private class PrepaidSignupResponse : ApiEnvelope
+        {
+            public decimal Loaded { get; set; }
         }
 
         private class OnlinePaymentResponse : ApiEnvelope
