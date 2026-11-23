@@ -370,12 +370,47 @@ namespace KioskApp.Views
             {
                 App.LogError("כניסה: כשל בבדיקת חבר קהילה", ex);
             }
+            await OfferLegacyBalanceAsync(user);
             App.StartSessionServices(); // חיוב על הדפסה ועל זמן - לאורך כל ההתחברות
 
             var appPicker = new Views.AppPickerWindow();
             Application.Current.MainWindow = appPicker;
             appPicker.Show();
             Close();
+        }
+
+        /// <summary>
+        /// יתרה מהמערכת הישנה (סייפר): אם יש ברשימה יתרה שלא מומשה עם אותו שם - "יש לך יתרה
+        /// מהמערכת הישנה" + "מימוש היתרה". תקלה כאן לא מעכבת את הכניסה.
+        /// </summary>
+        private async Task OfferLegacyBalanceAsync(KioskUser user)
+        {
+            var claiming = false;
+            try
+            {
+                var legacy = await App.ApiClient.CheckLegacyBalanceAsync(user.Id);
+                if (legacy == null) return;
+                var (legacyId, amount) = legacy.Value;
+                App.LogInfo($"יתרה מהמערכת הישנה נמצאה: {amount:0.00} ₪");
+                var claim = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Success, "יש לך יתרה מהמערכת הישנה",
+                    $"בסך: {amount:0.00} ₪\nאפשר להעביר אותה עכשיו לארנק האישי שלך.",
+                    "מימוש היתרה", "לא עכשיו");
+                if (!claim) return;
+                claiming = true;
+                var balance = await App.ApiClient.ClaimLegacyBalanceAsync(user.Id, legacyId);
+                App.Session.UpdateBalance(balance);
+                App.LogInfo($"יתרה מהמערכת הישנה מומשה: {amount:0.00} ₪, יתרה חדשה {balance:0.00}");
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Success, "היתרה נוספה לארנק שלך",
+                    $"נוספו {amount:0.00} ₪. היתרה שלך עכשיו: {balance:0.00} ₪");
+            }
+            catch (Exception ex)
+            {
+                App.LogError("יתרה מהמערכת הישנה", ex);
+                if (claiming)
+                {
+                    KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן לממש את היתרה כרגע", ex.Message);
+                }
+            }
         }
 
         private void ShowChangePasswordPanel(string username, string tempPassword)
