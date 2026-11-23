@@ -141,6 +141,7 @@ namespace KioskApp
         {
             StopSessionServices();
             StartUsageReminder();
+            PrinterDefaults.Ensure(); // מדפסת ברירת המחדל - Samsung (לא PDF), אחרת אוצר החכמה לא מדפיס
             // כל רבע שנייה: חלון ההדפסה של Windows מאושר, חלונות שמירה נשמרים לדיסק-און-קי,
             // וחלונות "מצב הדפסה" של הדרייבר נסגרים - בכל מסך (גם בעורך הטקסט)
             _dialogTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
