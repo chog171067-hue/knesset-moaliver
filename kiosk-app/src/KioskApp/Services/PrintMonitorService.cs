@@ -161,13 +161,30 @@ namespace KioskApp.Services
                 pages = await WaitForSpoolingAsync(printerName, jobId, pages);
                 var price = App.Session.Config?.PricePerPage ?? 0;
                 var cost = Math.Round(pages * price, 2);
-                App.LogInfo($"הדפסה: עבודה חדשה {jobKey}, {pages} עמודים, {cost:0.00} ₪ - ממתין לאישור (נעצרה: {paused})");
+                var source = App.CurrentAppName ?? "הדפסה";
+                var docTitle = CleanTitle(document);
+                App.LogInfo($"הדפסה: עבודה חדשה {jobKey} \"{docTitle}\" ({source}), {pages} עמודים, {cost:0.00} ₪ - ממתין לאישור (נעצרה: {paused})");
 
-                try { App.LogInfo($"הדפסה: חלונות פתוחים לפני האישור:{WindowGuard.DescribeVisibleWindows()}"); }
-                catch { /* רק לאבחון */ }
-                // כמה שניות לחלון "מצב הדפסה" של הדרייבר לדווח על תקלה (אין נייר וכו')
-                await Task.Delay(2500);
-                if (!WaitForPrinterReady(printerName) || !ConfirmPrint(pages, cost)
+                // סיכום הדפסה: הדפסה מיידית / הוספה לאזור ההדפסות (רק אם העבודה נעצרה) / ביטול
+                var choice = AskChoice(docTitle.Length > 0 ? $"{source} · {docTitle}" : source, pages, cost, allowArea: paused);
+                if (choice == PrintChoice.AddToArea)
+                {
+                    PrintArea.Add(new PrintAreaItem
+                    {
+                        Kind = PrintAreaItemKind.SpoolJob,
+                        Title = docTitle,
+                        Source = source,
+                        Pages = pages,
+                        PrinterName = printerName,
+                        JobId = jobId
+                    });
+                    _ = Application.Current.Dispatcher.InvokeAsync(async () =>
+                        await KioskMessageDialog.ShowTimedAsync(App.ActiveWindow(), KioskMessageKind.Success,
+                            "נוסף לאזור ההדפסות", "אפשר להדפיס אותו מתי שרוצים - מהלשונית ← \"אזור הדפסות\"", 2.5));
+                    return;
+                }
+                if (choice != PrintChoice.PrintNow
+                    || !WaitForPrinterReady(printerName)
                     || (RecentDriverProblem() != null && !WaitForPrinterReady(printerName)))
                 {
                     App.LogInfo($"הדפסה: המשתמש ביטל את {jobKey}");
@@ -177,7 +194,7 @@ namespace KioskApp.Services
 
                 try
                 {
-                    var result = await _apiClient.ChargePrintAsync(userId, pages);
+                    var result = await _apiClient.ChargePrintAsync(userId, pages, docTitle.Length > 0 ? $"{source} - {docTitle}" : source);
                     Application.Current.Dispatcher.Invoke(() =>
                         PrintCharged?.Invoke(this, new PrintChargedEventArgs { Pages = pages, Cost = result.Cost, NewBalance = result.Balance }));
                     if (!string.IsNullOrEmpty(result.Transaction?.Id))
@@ -536,21 +553,28 @@ namespace KioskApp.Services
         /// מחזיר שם מסמך ייחודי לעבודה (להעביר להדפסה), או null אם בוטל / לא חויב.
         /// נקרא על ה-UI thread.
         /// </summary>
-        public async Task<string?> PrepayAsync(string printerName, int pages)
+        public async Task<(string? DocumentName, bool AddedToArea)> PrepayAsync(string printerName, int pages, string title, bool allowArea = true)
         {
             var userId = _getCurrentUserId();
-            if (string.IsNullOrEmpty(userId)) return null;
+            if (string.IsNullOrEmpty(userId)) return (null, false);
             var price = App.Session.Config?.PricePerPage ?? 0;
             var cost = Math.Round(pages * price, 2);
 
-            if (!WaitForPrinterReady(printerName) || !ConfirmPrint(pages, cost)) return null;
+            var choice = AskChoice(title, pages, cost, allowArea);
+            if (choice == PrintChoice.AddToArea) return (null, true);
+            if (choice != PrintChoice.PrintNow || !WaitForPrinterReady(printerName)) return (null, false);
+            return (await ChargePrepaidAsync(printerName, userId, pages, title), false);
+        }
 
+        /// <summary>חיוב מראש להדפסה שהקיוסק עצמו שולח (עורך טקסט / אזור ההדפסות) - שם מסמך ייחודי, או null</summary>
+        private async Task<string?> ChargePrepaidAsync(string printerName, string userId, int pages, string title)
+        {
             try
             {
-                var result = await _apiClient.ChargePrintAsync(userId, pages);
+                var result = await _apiClient.ChargePrintAsync(userId, pages, title);
                 PrintCharged?.Invoke(this, new PrintChargedEventArgs { Pages = pages, Cost = result.Cost, NewBalance = result.Balance });
                 var transactionId = result.Transaction?.Id ?? "";
-                var documentName = $"עורך טקסט - {Guid.NewGuid():N}";
+                var documentName = $"קיוסק - {Guid.NewGuid():N}";
                 if (transactionId.Length > 0)
                 {
                     PrepaidJobs[documentName] = (userId, transactionId);
@@ -558,7 +582,7 @@ namespace KioskApp.Services
                     _lastCharged = (printerName, -1, userId, transactionId, DateTime.Now);
                     _lastChargedRefunded = false;
                 }
-                App.LogInfo($"הדפסה מעורך הטקסט: {pages} עמודים, חויבו {result.Cost:0.00} ₪");
+                App.LogInfo($"הדפסה ששולחת העמדה: \"{title}\" {pages} עמודים, חויבו {result.Cost:0.00} ₪");
                 return documentName;
             }
             catch (InsufficientFundsException ex)
@@ -568,14 +592,113 @@ namespace KioskApp.Services
             }
             catch (Exception ex)
             {
-                App.LogError("הדפסה מעורך הטקסט: החיוב נכשל", ex);
+                App.LogError("הדפסה ששולחת העמדה: החיוב נכשל", ex);
                 KioskMessageDialog.ShowMessage(App.ActiveWindow(), KioskMessageKind.Error, "ההדפסה בוטלה",
                     "לא ניתן היה לחייב את ההדפסה כרגע (אין חיבור לשרת). לא חויבתם. אפשר לנסות שוב בעוד רגע.");
                 return null;
             }
         }
 
-        /// <summary>עורך הטקסט: ההדפסה נכשלה אחרי החיוב (לא נשלחה) - מחזירים את הכסף</summary>
+        /// <summary>
+        /// "הדפסת הנבחרות" באזור ההדפסות: סיכום אחד לכולן (עמודים + סכום), בדיקת תקלה במדפסת, ואז
+        /// כל הדפסה בנפרד - חיוב ושליחה (עבודה שעצורה בתור משתחררת; מסמך מהעורך נשלח). נקרא על
+        /// ה-UI thread. מחזיר כמה הודפסו.
+        /// </summary>
+        public async Task<int> PrintFromAreaAsync(IReadOnlyList<PrintAreaItem> items)
+        {
+            var userId = _getCurrentUserId();
+            if (string.IsNullOrEmpty(userId) || items.Count == 0) return 0;
+
+            // עבודות שכבר לא בתור (למשל שירות ההדפסה הופעל מחדש) - יוצאות מהרשימה
+            var valid = new List<PrintAreaItem>();
+            foreach (var item in items)
+            {
+                if (item.Kind == PrintAreaItemKind.SpoolJob && ReadJobState(item.PrinterName, item.JobId).State == JobState.Gone)
+                {
+                    App.LogInfo($"אזור הדפסות: \"{item.ChargeTitle}\" כבר לא בתור - הוסר");
+                    PrintArea.Remove(item);
+                    continue;
+                }
+                valid.Add(item);
+            }
+            if (valid.Count == 0)
+            {
+                KioskMessageDialog.ShowMessage(App.ActiveWindow(), KioskMessageKind.Error, "לא נמצאו הדפסות",
+                    "ההדפסות שנבחרו כבר לא זמינות. אפשר להדפיס אותן שוב מהתוכנה.");
+                return 0;
+            }
+
+            var pages = valid.Sum(i => i.Pages);
+            var price = App.Session.Config?.PricePerPage ?? 0;
+            var cost = Math.Round(pages * price, 2);
+            var what = valid.Count == 1 ? valid[0].ChargeTitle : $"{valid.Count} הדפסות מאזור ההדפסות";
+            if (AskChoice(what, pages, cost, allowArea: false) != PrintChoice.PrintNow) return 0;
+
+            var printer = valid.FirstOrDefault(i => i.Kind == PrintAreaItemKind.SpoolJob)?.PrinterName
+                          ?? TextPrinter.DefaultPhysicalPrinter() ?? "";
+            if (printer.Length == 0 || !WaitForPrinterReady(printer)) return 0;
+
+            var printed = 0;
+            foreach (var item in valid)
+            {
+                if (item.Kind == PrintAreaItemKind.SpoolJob)
+                {
+                    try
+                    {
+                        var result = await _apiClient.ChargePrintAsync(userId, item.Pages, item.ChargeTitle);
+                        PrintCharged?.Invoke(this, new PrintChargedEventArgs { Pages = item.Pages, Cost = result.Cost, NewBalance = result.Balance });
+                        var transactionId = result.Transaction?.Id ?? "";
+                        if (transactionId.Length > 0)
+                        {
+                            _lastCharged = (item.PrinterName, item.JobId, userId, transactionId, DateTime.Now);
+                            _lastChargedRefunded = false;
+                        }
+                        TryResumeJob(item.PrinterName, item.JobId);
+                        if (transactionId.Length > 0) _ = WatchChargedJobAsync(item.PrinterName, item.JobId, userId, transactionId, _stopCts.Token);
+                        PrintArea.Remove(item);
+                        printed++;
+                    }
+                    catch (InsufficientFundsException ex)
+                    {
+                        PrintBlocked?.Invoke(this, new PrintBlockedEventArgs { Balance = ex.Balance, Cost = ex.Cost });
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        App.LogError($"אזור הדפסות: חיוב \"{item.ChargeTitle}\" נכשל", ex);
+                        KioskMessageDialog.ShowMessage(App.ActiveWindow(), KioskMessageKind.Error, "ההדפסה נעצרה",
+                            "לא ניתן היה לחייב את ההדפסה כרגע (אין חיבור לשרת). ההדפסות שנשארו נשמרו באזור ההדפסות.");
+                        break;
+                    }
+                }
+                else
+                {
+                    var documentName = await ChargePrepaidAsync(printer, userId, item.Pages, item.ChargeTitle);
+                    if (documentName == null) break;
+                    try
+                    {
+                        TextPrinter.Print(TextPrinter.LoadDocument(item.DocumentData!), printer, documentName);
+                        PrintArea.Remove(item);
+                        printed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        App.LogError($"אזור הדפסות: שליחת \"{item.ChargeTitle}\" נכשלה", ex);
+                        await RefundPrepaidAsync(documentName);
+                        break;
+                    }
+                }
+            }
+            if (printed > 0)
+            {
+                App.LogInfo($"אזור הדפסות: הודפסו {printed} הדפסות");
+                _ = KioskMessageDialog.ShowTimedAsync(App.ActiveWindow(), KioskMessageKind.Success, "נשלח להדפסה",
+                    $"{printed} {(printed == 1 ? "הדפסה" : "הדפסות")}", 2.5);
+            }
+            return printed;
+        }
+
+        /// <summary>הדפסה ששולחת העמדה נכשלה אחרי החיוב (לא נשלחה) - מחזירים את הכסף</summary>
         public async Task RefundPrepaidAsync(string documentName)
         {
             if (PrepaidJobs.TryRemove(documentName, out var prepaid))
@@ -585,32 +708,36 @@ namespace KioskApp.Services
             }
         }
 
-        private static bool ConfirmPrint(int pages, decimal cost)
+        /// <summary>
+        /// חלון "סיכום הדפסה" (PrintChoiceDialog). "להטענה" פותח את חלון ההטענה ושואל שוב.
+        /// נקרא מכל thread (מציג על ה-UI thread).
+        /// </summary>
+        private static PrintChoice AskChoice(string what, int pages, decimal cost, bool allowArea)
         {
             return Application.Current.Dispatcher.Invoke(() =>
             {
                 while (App.Session.IsActive)
                 {
                     var balance = App.Session.CurrentUser?.Balance ?? 0;
-                    var pagesText = pages == 1 ? "עמוד אחד" : $"{pages} עמודים";
-                    if (balance < cost)
-                    {
-                        var topup = KioskMessageDialog.ShowChoice(App.ActiveWindow(), KioskMessageKind.Info, "אין מספיק יתרה להדפסה",
-                            $"הדפסה של {pagesText} עולה {cost:0.00} ₪, והיתרה בארנק היא {balance:0.00} ₪.",
-                            "להטענה", "ביטול ההדפסה");
-                        if (!topup) return false;
-                        var owner = App.ActiveWindow();
-                        var window = new TopupWindow();
-                        if (owner != null && owner.IsVisible) window.Owner = owner;
-                        window.ShowDialog();
-                        continue; // בודקים שוב אחרי ההטענה
-                    }
-                    return KioskMessageDialog.ShowChoice(App.ActiveWindow(), KioskMessageKind.Info, "אישור הדפסה",
-                        $"הינך עומד להדפיס {pagesText}\nשחור-לבן · צד אחד בלבד\n\nסכום לחיוב: {cost:0.00} ₪",
-                        "אישור והדפסה", "ביטול");
+                    var dialog = new PrintChoiceDialog(what, pages, cost, balance, allowArea);
+                    var owner = App.ActiveWindow();
+                    if (owner != null && owner.IsVisible && owner != dialog) dialog.Owner = owner;
+                    dialog.ShowDialog();
+                    if (dialog.Choice != PrintChoice.Topup) return dialog.Choice;
+                    var topupOwner = App.ActiveWindow();
+                    var window = new TopupWindow();
+                    if (topupOwner != null && topupOwner.IsVisible) window.Owner = topupOwner;
+                    window.ShowDialog();
                 }
-                return false;
+                return PrintChoice.Cancel;
             });
+        }
+
+        private static string CleanTitle(string? title)
+        {
+            var t = System.Text.RegularExpressions.Regex.Replace(title ?? "", @"\s+", " ").Trim();
+            if (t.StartsWith("קיוסק - ")) return "";
+            return t.Length > 80 ? t.Substring(0, 80) : t;
         }
 
         /// <summary>
@@ -704,7 +831,10 @@ namespace KioskApp.Services
         }
 
         /// <summary>ראו הערת המגבלה בראש הקובץ - ניסיון ביטול מיידי, בלי ערבות שיצליח בזמן.</summary>
-        private void TryCancelPrintJob(string printerName, int jobId)
+        /// <summary>ביטול עבודה בתור (מחיקה מאזור ההדפסות / ניתוק)</summary>
+        public static void CancelJob(string printerName, int jobId) => TryCancelPrintJob(printerName, jobId);
+
+        private static void TryCancelPrintJob(string printerName, int jobId)
         {
             try
             {

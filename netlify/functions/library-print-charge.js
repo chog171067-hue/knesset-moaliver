@@ -18,12 +18,12 @@ exports.handler = async function (event) {
   }
 
   try {
-    const { userId, pages } = JSON.parse(event.body || '{}');
+    const { userId, pages, title } = JSON.parse(event.body || '{}');
     if (!userId || !pages) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'חסרים פרטי חיוב (userId/pages)' }) };
     }
 
-    const result = await chargeForPrint(event, { userId, pages });
+    const result = await chargeForPrint(event, { userId, pages, title });
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, ...result }) };
   } catch (error) {
     if (error.insufficientFunds) {

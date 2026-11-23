@@ -15,7 +15,7 @@
     <!--
         לשונית צפה מעל התוכנה (במקום הסרגל העליון). אפשר לגרור אותה לכל מקום במסך.
         סגורה: שם המשתמש + זמן החיבור + חץ לפתיחה. פתוחה: חבר קהילה, יתרה, היסטוריה,
-        סל הדפסות (בקרוב), עורך טקסט, חזרה לבחירת התוכנות, ניתוק.
+        אזור הדפסות, עורך טקסט, חזרה לבחירת התוכנות, ניתוק.
     -->
     <Window.Resources>
         <Style x:Key="TabMenuButton" TargetType="Button" BasedOn="{StaticResource KioskSecondaryButton}">
@@ -119,8 +119,14 @@
                     </StackPanel>
                 </Button>
 
-                <Button Style="{StaticResource TabMenuButton}" IsEnabled="False">
-                    <TextBlock Text="סל הדפסות (בקרוב)" HorizontalAlignment="Center" />
+                <Button Style="{StaticResource TabMenuButton}" Click="OnPrintAreaClick">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="אזור הדפסות" />
+                        <Border x:Name="PrintAreaBadge" Background="{StaticResource KioskAccentBrush}" CornerRadius="9" Padding="8,1"
+                                Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                            <TextBlock x:Name="PrintAreaCount" FontSize="12" Foreground="White" FontWeight="Bold" />
+                        </Border>
+                    </StackPanel>
                 </Button>
 
                 <Button x:Name="TextEditorButton" Style="{StaticResource TabMenuButton}" Click="OnTextEditorClick"
