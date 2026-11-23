@@ -26,6 +26,8 @@ const MAX_PASSWORD_RESET_LOG = 3000;
 const WEBHOOK_PROCESSED_KEY = 'nedarim-webhook-processed.json';
 // תשלומים בקטגוריית הקיוסק שלא נמצא להם חשבון - ממתינים לפתיחת חשבון עם אותה ת"ז או לשיוך ידני
 const WAITING_CREDITS_KEY = 'waiting-credits.json';
+// יתרות מהמערכת הישנה (סייפר) - רשימה שהמנהל מעלה פעם אחת; כל יתרה ממומשת פעם אחת
+const LEGACY_BALANCES_KEY = 'legacy-balances.json';
 const MAX_WRITE_ATTEMPTS = 8;
 
 // passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
@@ -1243,7 +1245,119 @@ async function assignWaitingCredit(event, { transactionId, username, performedBy
   }
 }
 
+// ===================== יתרות מהמערכת הישנה (סייפר) =====================
+//
+// בסייפר לא נשמרו תעודות זהות - לכן ההתאמה לפי שם פרטי + שם משפחה (בכל סדר, בלי
+// גרשיים/מקפים/רווחים כפולים). כשמשתמש נכנס לקיוסק ויש ברשימה יתרה שלא מומשה עם אותו שם
+// בדיוק (ורק אחת כזו) - הקיוסק מציע לו לממש אותה, והיא נכנסת ליתרה שלו פעם אחת בלבד.
+
+function legacyNameKey(fullName) {
+  return String(fullName || '')
+    .replace(/["'`\u05F3\u05F4.,()\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+async function listLegacyBalances(event) {
+  const store = getKioskStore(event);
+  return (await store.get(LEGACY_BALANCES_KEY, { type: 'json' })) || [];
+}
+
+// העלאה (או העלאה חוזרת) של הרשימה. שורה שכבר מומשה (לפי המזהה מסייפר) נשארת ממומשת.
+async function saveLegacyBalances(event, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error('הרשימה ריקה');
+  if (rows.length > 2000) throw new Error('הרשימה ארוכה מדי');
+  const clean = rows.map((r, i) => {
+    const amount = Math.round(Number(r.balance) * 100) / 100;
+    return {
+      legacyId: String(r.legacyId || `row-${i + 1}`).trim().slice(0, 40),
+      firstName: String(r.firstName || '').trim().slice(0, 40),
+      lastName: String(r.lastName || '').trim().slice(0, 40),
+      userName: String(r.userName || '').trim().slice(0, 40),
+      balance: Number.isFinite(amount) ? amount : 0,
+      lastUse: String(r.lastUse || '').trim().slice(0, 30)
+    };
+  }).filter(r => r.balance > 0 && (r.firstName || r.lastName));
+  if (clean.length === 0) throw new Error('לא נמצאו ברשימה שורות עם שם ויתרה גדולה מ-0');
+
+  const store = getKioskStore(event);
+  return writeWithRetry(store, LEGACY_BALANCES_KEY, [], (list) => {
+    const claimedById = new Map(list.filter(e => e.claimed).map(e => [e.legacyId, e.claimed]));
+    const next = clean.map(r => ({ ...r, claimed: claimedById.get(r.legacyId) || null }));
+    list.splice(0, list.length, ...next);
+    return { count: next.length, total: Math.round(next.reduce((sum, e) => sum + e.balance, 0) * 100) / 100 };
+  });
+}
+
+function legacyMatchesFor(list, user) {
+  const key = legacyNameKey(user.displayName);
+  if (!key) return [];
+  return list.filter(e => !e.claimed && e.balance > 0 && legacyNameKey(`${e.firstName} ${e.lastName}`) === key);
+}
+
+// לעמדה: האם יש למשתמש יתרה ישנה שלא מומשה. שני אנשים עם אותו שם ברשימה - לא מציעים
+// (הגבאי מטפל ידנית), כדי שאף אחד לא יקבל יתרה של מישהו אחר.
+async function findLegacyBalanceForUser(event, userId) {
+  const user = await getUserById(event, userId);
+  if (!user || !user.isActive) return null;
+  const matches = legacyMatchesFor(await listLegacyBalances(event), user);
+  if (matches.length !== 1) return null;
+  return { legacyId: matches[0].legacyId, amount: matches[0].balance };
+}
+
+async function claimLegacyBalance(event, { userId, legacyId }) {
+  const store = getKioskStore(event);
+  const user = await getUserById(event, userId);
+  if (!user || !user.isActive) throw new Error('החשבון לא נמצא');
+
+  // קודם מסמנים כממומש (מונע מימוש כפול), ורק אז מוסיפים ליתרה
+  const entry = await writeWithRetry(store, LEGACY_BALANCES_KEY, [], (list) => {
+    const matches = legacyMatchesFor(list, user);
+    const match = matches.length === 1 ? matches[0] : null;
+    if (!match || match.legacyId !== String(legacyId)) {
+      throw new Error('היתרה כבר מומשה, או שאינה תואמת לחשבון הזה. יש לפנות לגבאים.');
+    }
+    match.claimed = { userId: user.id, username: user.username, displayName: user.displayName || '', at: new Date().toISOString() };
+    return { ...match };
+  });
+
+  try {
+    const updated = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+      const u = users[userId];
+      if (!u) throw new Error('משתמש לא נמצא');
+      u.balance = Number((u.balance + entry.balance).toFixed(2));
+      u.updatedAt = new Date().toISOString();
+      return toPublicUser(u);
+    });
+    await appendTransaction(event, {
+      userId,
+      type: 'topup',
+      source: 'legacy',
+      amount: entry.balance,
+      description: 'העברת יתרה מהמערכת הישנה (סייפר)',
+      legacyId: entry.legacyId
+    });
+    return { balance: updated.balance, amount: entry.balance };
+  } catch (error) {
+    // ההוספה ליתרה נכשלה - מחזירים את היתרה הישנה למצב "לא מומש"
+    await writeWithRetry(store, LEGACY_BALANCES_KEY, [], (list) => {
+      const e = list.find(x => x.legacyId === entry.legacyId);
+      if (e) e.claimed = null;
+      return null;
+    });
+    throw error;
+  }
+}
+
 module.exports = {
+  listLegacyBalances,
+  saveLegacyBalances,
+  findLegacyBalanceForUser,
+  claimLegacyBalance,
   getStoreMode,
   hashPassword,
   verifyPassword,

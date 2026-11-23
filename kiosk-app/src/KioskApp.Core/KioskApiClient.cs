@@ -253,6 +253,34 @@ namespace KioskApp.Core
             return response.Balance;
         }
 
+        /// <summary>
+        /// יתרה מהמערכת הישנה (סייפר) לפי שם פרטי + משפחה. null = אין יתרה שלא מומשה.
+        /// </summary>
+        public async Task<(string LegacyId, decimal Amount)?> CheckLegacyBalanceAsync(string userId, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<LegacyResponse>(
+                "/.netlify/functions/library-station-legacy-balance", new { userId, action = "check" }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "כשל בבדיקת יתרה מהמערכת הישנה", statusCode);
+            }
+            return response.Found && !string.IsNullOrEmpty(response.LegacyId)
+                ? (response.LegacyId!, response.Amount)
+                : null;
+        }
+
+        /// <summary>מימוש היתרה מהמערכת הישנה - נוספת ליתרה. מחזיר את היתרה החדשה.</summary>
+        public async Task<decimal> ClaimLegacyBalanceAsync(string userId, string legacyId, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<LegacyResponse>(
+                "/.netlify/functions/library-station-legacy-balance", new { userId, action = "claim", legacyId }, ct);
+            if (!response.Success)
+            {
+                throw new KioskApiException(response.Error ?? "מימוש היתרה נכשל", statusCode);
+            }
+            return response.Balance;
+        }
+
         /// <summary>השיחה עם הגבאי (markRead: סימון תשובות הגבאי כנקראו)</summary>
         public async Task<GabaiThread> GetGabaiThreadAsync(string userId, bool markRead, CancellationToken ct = default)
         {
@@ -394,6 +422,14 @@ namespace KioskApp.Core
             public string? ResetPhone { get; set; }
             public bool Found { get; set; }
             public string? MaskedPhone { get; set; }
+        }
+
+        private class LegacyResponse : ApiEnvelope
+        {
+            public bool Found { get; set; }
+            public string? LegacyId { get; set; }
+            public decimal Amount { get; set; }
+            public decimal Balance { get; set; }
         }
 
         private class GabaiThreadResponse : ApiEnvelope

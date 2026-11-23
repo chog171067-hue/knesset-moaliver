@@ -594,6 +594,19 @@
                     <div class="form-error" id="libSignupError"></div>
                     <div class="success-box" id="libSignupSuccess"></div>
 
+                    <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">יתרות מהמערכת הישנה (סייפר)</h3>
+                    <p class="panel-desc">מעלים כאן פעם אחת את קובץ האקסל עם היתרות שהופק ממסד הנתונים של סייפר (עמודות: id, FirstName, LastName, UserName, balance, last_use). כשמשתמש נכנס לעמדה, והשם הפרטי ושם המשפחה שלו זהים לשם ברשימה, העמדה מציעה לו "מימוש היתרה" - והיתרה נוספת לארנק שלו פעם אחת בלבד. שם שמופיע ברשימה יותר מפעם אחת - לא מוצע אוטומטית (לטיפול ידני ב"הוספת יתרה"). העלאה חוזרת לא מבטלת יתרות שכבר מומשו.</p>
+                    <input type="file" id="legacyFile" accept=".xlsx,.xls,.csv" onchange="handleLegacyFile(this)">
+                    <div class="form-error" id="legacyError"></div>
+                    <div class="success-box" id="legacySuccess"></div>
+                    <div id="legacySummary" style="margin-top:10px; font-weight:bold; color:#2d3748;"></div>
+                    <div class="table-scroll" style="margin-top:8px;">
+                        <table class="history-table">
+                            <thead><tr><th>שם</th><th>מספר בסייפר</th><th>יתרה</th><th>שימוש אחרון</th><th>מצב</th></tr></thead>
+                            <tbody id="legacyTableBody"><tr><td colspan="5" style="color:#718096;">טוען...</td></tr></tbody>
+                        </table>
+                    </div>
+
                     <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">שחזור סיסמה בטלפון</h3>
                     <p class="panel-desc">מספר הטלפון של שלוחת שחזור הסיסמה בימות המשיח. בעמדה, משתמש שמקליד תעודת זהות ולוחץ "שכחתי סיסמה" יראה את המספר הזה, ואת הטלפון הרשום בחשבונו בצורה מוסתרת (למשל 050-•••••67). כשהשדה ריק, הכפתור "שכחתי סיסמה" לא מוצג בעמדה.</p>
                     <div class="form-grid">
@@ -912,7 +925,7 @@
         if (tabId === 'tab-email-requests' && !emailReqLoaded) fetchEmailRequests();
         if (tabId === 'tab-eligible' && !eligibleLoaded) { fetchEligibleList(); fetchCommunity(); }
         if (tabId === 'tab-visits' && !visitsLoaded) fetchVisitStats();
-        if (tabId === 'tab-library' && !libraryUsersLoaded) { libraryUsersLoaded = true; fetchLibraryUsers(); }
+        if (tabId === 'tab-library' && !libraryUsersLoaded) { libraryUsersLoaded = true; fetchLibraryUsers(); fetchLegacyBalances(); }
         if (tabId === 'tab-donation' && !donationLoaded) { donationLoaded = true; fetchDonationProfiles(); }
         if (tabId === 'tab-news' && !newsLoaded) { newsLoaded = true; resetNewsForm(); fetchNewsEvents(); }
         if (tabId === 'tab-prayers' && !prayersLoaded) { prayersLoaded = true; fetchPrayerConfig(); }
@@ -1872,6 +1885,103 @@
             errorDiv.style.display = 'block';
         } finally {
             loadingDiv.style.display = 'none';
+        }
+    }
+
+    // ===== יתרות מהמערכת הישנה (סייפר) =====
+    function legacyNameKey(name) {
+        return String(name || '').replace(/["'`\u05F3\u05F4.,()\-]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean).sort().join(' ');
+    }
+
+    async function fetchLegacyBalances() {
+        const tbody = document.getElementById('legacyTableBody');
+        try {
+            const result = await authedFetch('/.netlify/functions/library-admin-legacy-balances', { method: 'GET' });
+            renderLegacyBalances(result.entries || []);
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" style="color:#c53030;">${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+
+    function renderLegacyBalances(entries) {
+        const tbody = document.getElementById('legacyTableBody');
+        const summary = document.getElementById('legacySummary');
+        if (entries.length === 0) {
+            summary.innerText = '';
+            tbody.innerHTML = '<tr><td colspan="5" style="color:#718096;">לא הועלתה רשימה עדיין.</td></tr>';
+            return;
+        }
+        const counts = {};
+        entries.forEach(e => { const k = legacyNameKey(e.firstName + ' ' + e.lastName); counts[k] = (counts[k] || 0) + 1; });
+        const claimed = entries.filter(e => e.claimed);
+        const open = entries.filter(e => !e.claimed);
+        const sum = list => list.reduce((s, e) => s + Number(e.balance || 0), 0).toFixed(2);
+        summary.innerText = `${entries.length} יתרות (${sum(entries)} ₪) · מומשו: ${claimed.length} (${sum(claimed)} ₪) · ממתינות: ${open.length} (${sum(open)} ₪)`;
+        const sorted = entries.slice().sort((a, b) => (a.claimed ? 1 : 0) - (b.claimed ? 1 : 0) || b.balance - a.balance);
+        tbody.innerHTML = sorted.map(e => {
+            const dup = counts[legacyNameKey(e.firstName + ' ' + e.lastName)] > 1;
+            const status = e.claimed
+                ? `<span style="color:#276749;">✓ מומש ע"י ${escapeHtml(e.claimed.displayName || e.claimed.username || '')} (${escapeHtml(e.claimed.username || '')}) · ${new Date(e.claimed.at).toLocaleDateString('he-IL')}</span>`
+                : (dup ? '<span style="color:#c05621;">⚠ שם כפול - לטיפול ידני</span>' : '<span style="color:#718096;">ממתין</span>');
+            return `<tr><td>${escapeHtml(e.firstName)} ${escapeHtml(e.lastName)}</td><td>${escapeHtml(e.userName || '')}</td>` +
+                `<td>${Number(e.balance).toFixed(2)} ₪</td><td>${escapeHtml(e.lastUse || '')}</td><td>${status}</td></tr>`;
+        }).join('');
+    }
+
+    async function handleLegacyFile(input) {
+        const file = input.files && input.files[0];
+        const errorDiv = document.getElementById('legacyError');
+        const successDiv = document.getElementById('legacySuccess');
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        if (!file) return;
+        try {
+            await loadXlsxLib();
+            const buffer = await file.arrayBuffer();
+            let workbook;
+            if (/\.csv$/i.test(file.name)) {
+                let text = new TextDecoder('utf-8').decode(buffer);
+                if (text.includes('\uFFFD')) text = new TextDecoder('windows-1255').decode(buffer);
+                workbook = XLSX.read(text.replace(/^\uFEFF/, ''), { type: 'string', raw: true });
+            } else {
+                workbook = XLSX.read(buffer, { type: 'array' });
+            }
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const table = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' })
+                .map(row => row.map(c => String(c == null ? '' : c).trim()));
+            const headerIdx = table.slice(0, 10).findIndex(row => row.some(c => /^balance$/i.test(c)));
+            if (headerIdx === -1) throw new Error('לא נמצאה בקובץ עמודת "balance". ודאו שזה הקובץ שהופק ממסד הנתונים של סייפר.');
+            const header = table[headerIdx].map(c => c.toLowerCase());
+            const col = name => header.indexOf(name.toLowerCase());
+            const iId = col('id'), iFirst = col('firstname'), iLast = col('lastname'), iUser = col('username'), iBal = col('balance'), iUse = col('last_use');
+            if (iFirst === -1 || iLast === -1) throw new Error('חסרות בקובץ העמודות FirstName / LastName');
+            const rows = table.slice(headerIdx + 1)
+                .filter(r => r.some(c => c))
+                .map(r => ({
+                    legacyId: iId >= 0 ? r[iId] : '',
+                    firstName: r[iFirst],
+                    lastName: r[iLast],
+                    userName: iUser >= 0 ? r[iUser] : '',
+                    balance: Number(String(r[iBal]).replace(/[^\d.\-]/g, '')),
+                    lastUse: iUse >= 0 ? r[iUse] : ''
+                }))
+                .filter(r => r.balance > 0 && (r.firstName || r.lastName));
+            if (rows.length === 0) throw new Error('לא נמצאו בקובץ שורות עם יתרה גדולה מ-0');
+            const total = rows.reduce((s, r) => s + r.balance, 0).toFixed(2);
+            if (!confirm(`נמצאו ${rows.length} משתמשים עם יתרה, בסך ${total} ₪. להעלות את הרשימה?`)) return;
+            const result = await authedFetch('/.netlify/functions/library-admin-legacy-balances', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows })
+            });
+            successDiv.innerText = `✅ הרשימה הועלתה: ${result.count} יתרות, ${result.total} ₪.`;
+            successDiv.style.display = 'block';
+            fetchLegacyBalances();
+        } catch (err) {
+            errorDiv.innerText = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            input.value = '';
         }
     }
 
