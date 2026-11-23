@@ -131,10 +131,11 @@ namespace KioskApp.Services
                         if (!IsFromFolder((int)wpid, onlyFolder)) continue; // חלון של דרייבר / תוכנה אחרת
                     }
 
-                    if (IsIconic(hWnd) || IsZoomed(hWnd))
+                    // ממוזער - לא מחזירים כאן: הלשונית שואלת את המשתמש "לצאת מהתוכנה?" (FindMinimizedAppWindow)
+                    if (IsIconic(hWnd)) continue;
+                    if (IsZoomed(hWnd))
                     {
-                        // ממוזער - מחזירים. "מוגדל" של Windows מכסה גם את אזור ה-Overlay,
-                        // לכן גם אותו מחזירים למצב רגיל וממקמים ידנית.
+                        // "מוגדל" של Windows - מחזירים למצב רגיל וממקמים ידנית במסך מלא
                         ShowWindow(hWnd, SwRestore);
                     }
 
@@ -506,6 +507,35 @@ namespace KioskApp.Services
             return result;
         }
 
+        /// <summary>
+        /// חלון ממוזער של התוכנה שהופעלה: כל חלון גלוי וממוזער של תהליך מתיקיית התוכנה (גם חלון
+        /// שהקיוסק לא מזהה כ"חלון ראשי", כמו של אוצר החכמה). כשהתיקייה לא ידועה / היא תיקיית
+        /// Windows - מבין חלונות התוכנות הרגילים. IntPtr.Zero = אין.
+        /// </summary>
+        public static IntPtr FindMinimizedAppWindow(string? appFolder)
+        {
+            var folder = IsTrackableFolder(appFolder) ? appFolder : null;
+            var found = IntPtr.Zero;
+            EnumWindows((hWnd, _) =>
+            {
+                if (!IsWindowVisible(hWnd) || !IsIconic(hWnd) || IsStandardDialog(hWnd)) return true;
+                GetWindowThreadProcessId(hWnd, out var pid);
+                var mine = folder != null ? IsFromFolder((int)pid, folder) : IsUserAppWindow(hWnd);
+                if (!mine) return true;
+                found = hWnd;
+                return false;
+            }, IntPtr.Zero);
+            return found;
+        }
+
+        /// <summary>מחזיר חלון ממוזער למצב רגיל ומביא אותו לחזית (השומר ימתח אותו למסך מלא)</summary>
+        public static void RestoreWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return;
+            ShowWindow(hWnd, SwRestore);
+            SetForegroundWindow(hWnd);
+        }
+
         private static bool IsStandardDialog(IntPtr hWnd)
         {
             var cls = new StringBuilder(64);
@@ -634,6 +664,7 @@ namespace KioskApp.Services
 
         [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
         [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
         private const uint WmClose = 0x0010;
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);

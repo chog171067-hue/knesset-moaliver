@@ -191,6 +191,17 @@ namespace KioskApp.Views
                 WindowGuard.Enforce(0, _appFolder); // מסך מלא (רק חלונות התוכנה) - הלשונית צפה מעליה
                 // חלונות "שמירה" / "הדפסה" / דרייבר המדפסת - בטיימר המהיר של App (StartSessionServices)
 
+                // התוכנה מוזערה - שואלים: לצאת למסך בחירת התוכנות, או לחזור אליה
+                if (!_minimizePromptOpen)
+                {
+                    var minimized = WindowGuard.FindMinimizedAppWindow(_appFolder);
+                    if (minimized != IntPtr.Zero)
+                    {
+                        _minimizePromptOpen = true;
+                        Dispatcher.BeginInvoke(new Action(() => AskLeaveAfterMinimize(minimized)));
+                    }
+                }
+
                 if (_launchedProcessExited
                     && DateTime.Now - _launchedAt > LaunchGracePeriod
                     && WindowGuard.FindUserWindows().Count == 0)
@@ -335,7 +346,37 @@ namespace KioskApp.Views
             topupWindow.ShowDialog();
         }
 
-        private async void OnSwitchAppClick(object sender, RoutedEventArgs e)
+        private bool _minimizePromptOpen;
+
+        /// <summary>
+        /// התוכנה מוזערה: "הינך עומד לצאת מהתוכנה למסך בחירת התוכנות" - יציאה (סוגרים את התוכנה)
+        /// או ביטול (התוכנה חוזרת למסך מלא).
+        /// </summary>
+        private async void AskLeaveAfterMinimize(IntPtr minimized)
+        {
+            try
+            {
+                if (_returningToPicker || !IsVisible) return;
+                App.LogInfo("התוכנה מוזערה - שואלים אם לצאת למסך בחירת התוכנות");
+                var leave = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "יציאה מהתוכנה",
+                    "הינך עומד לצאת מהתוכנה למסך בחירת התוכנות.", "יציאה", "ביטול");
+                if (leave)
+                {
+                    await CloseAppAndReturnAsync();
+                    return;
+                }
+                WindowGuard.RestoreWindow(minimized);
+                RaiseAllTabs();
+            }
+            finally
+            {
+                _minimizePromptOpen = false;
+            }
+        }
+
+        private async void OnSwitchAppClick(object sender, RoutedEventArgs e) => await CloseAppAndReturnAsync();
+
+        private async System.Threading.Tasks.Task CloseAppAndReturnAsync()
         {
             _guardTimer?.Stop(); // סוגרים בכוונה - שהשומר לא "יחזיר" חלונות בזמן הסגירה
             if (_process != null)
@@ -344,6 +385,8 @@ namespace KioskApp.Views
                 await ProcessLauncher.CloseGracefullyAsync(_process);
             }
             await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
+            // תהליכים של התוכנה שנשארו בלי חלון (למשל אוצר החכמה) - שלא יחסמו הפעלה חוזרת
+            try { WindowGuard.KillProcessesFrom(_appFolder); } catch (Exception ex) { App.LogError("סגירת תהליכי התוכנה", ex); }
             ReturnToPicker();
         }
 
