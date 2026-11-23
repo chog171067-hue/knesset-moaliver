@@ -33,8 +33,10 @@ namespace KioskApp.Services
         {
             var settings = new PrinterSettings();
             var name = settings.PrinterName;
-            if (string.IsNullOrEmpty(name) || !settings.IsValid || PrintMonitorService.IsVirtualPrinter(name)) return null;
-            return name;
+            if (!string.IsNullOrEmpty(name) && settings.IsValid && !PrintMonitorService.IsVirtualPrinter(name)) return name;
+            // ברירת המחדל היא PDF / לא תקינה - מתקנים, ובינתיים משתמשים במדפסת האמיתית הראשונה
+            PrinterDefaults.Ensure();
+            return PrinterSettings.InstalledPrinters.Cast<string>().FirstOrDefault(p => !PrintMonitorService.IsVirtualPrinter(p));
         }
 
         public static bool PdfPrinterAvailable() =>
@@ -127,6 +129,8 @@ namespace KioskApp.Services
                     e.HasMorePages = index < images.Count;
                 };
                 doc.Print();
+                // שמירה ל-PDF לא תהפוך את "Microsoft Print to PDF" למדפסת ברירת המחדל
+                PrinterDefaults.Ensure();
             }
             finally
             {

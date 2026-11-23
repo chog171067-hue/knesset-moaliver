@@ -502,11 +502,14 @@ namespace KioskApp.Services
 
         private static readonly string[] VirtualPrinterNames =
         {
-            "Microsoft Print to PDF", "Microsoft XPS Document Writer", "OneNote", "Fax", "Send To OneNote"
+            "Microsoft Print to PDF", "Microsoft XPS Document Writer", "OneNote", "Fax", "Send To OneNote", "Adobe PDF"
         };
 
         public static bool IsVirtualPrinter(string printerName)
         {
+            // כל "מדפסת" ששומרת לקובץ (PDF / XPS) - לא מדפסת אמיתית
+            if (printerName.IndexOf("PDF", StringComparison.OrdinalIgnoreCase) >= 0
+                || printerName.IndexOf("XPS", StringComparison.OrdinalIgnoreCase) >= 0) return true;
             foreach (var v in VirtualPrinterNames)
             {
                 if (printerName.StartsWith(v, StringComparison.OrdinalIgnoreCase)) return true;
