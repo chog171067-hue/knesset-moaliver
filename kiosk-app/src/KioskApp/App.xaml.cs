@@ -252,6 +252,9 @@ namespace KioskApp
                         LogError($"ניתוק: כשל בסגירת תהליכים של {allowed.DisplayName}", ex);
                     }
                 }
+                // "תמונה נקייה": תיקיות המצב של התוכנות חוזרות לעותק הנקי (היסטוריה, כרטיסיות, הערות)
+                var appsToReset = Session.Config?.AllowedApps;
+                await Task.Run(() => AppStateReset.ResetAll(appsToReset));
                 WindowGuard.ClearAppSessionState();     // טקסט שתוכנות שמרו + נתוני הדפדפן (נדרים פלוס)
                 WindowGuard.ClearUserFiles();           // קבצים שנשמרו בתיקיות של משתמש הקיוסק (רק במחשב נעול)
                 TextEditorWindow.EndSession();          // הטקסט בעורך נמחק

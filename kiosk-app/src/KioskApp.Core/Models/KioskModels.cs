@@ -46,6 +46,8 @@ namespace KioskApp.Core.Models
         public string IconPath { get; set; } = "";
         /// <summary>תיאור קצר - מוצג מתחת לשם באריח</summary>
         public string Description { get; set; } = "";
+        /// <summary>תיקיות מצב שמתאפסות בניתוק לעותק הנקי (מופרדות ב-;), למשל %APPDATA%\otzaria</summary>
+        public string ResetFolders { get; set; } = "";
         public int SortOrder { get; set; }
     }
 

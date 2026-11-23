@@ -24,6 +24,7 @@ namespace KioskApp.Views
 
         // אחרי כמה דקות בלי שימוש - חזרה למסך הפתיחה, כדי שפרטים שהוקלדו לא יישארו על המסך
         private static readonly TimeSpan IdleReset = TimeSpan.FromMinutes(3);
+        private static bool _appsResetAtStartup;
         private DateTime _lastActivity = DateTime.Now;
         private bool _paymentOpen;
 
@@ -127,6 +128,13 @@ namespace KioskApp.Views
             try
             {
                 var config = await App.ApiClient.GetConfigAsync();
+                // פעם אחת כשהקיוסק עולה: "תמונה נקייה" לתוכנות (למקרה שלא היה ניתוק רגיל -
+                // הפסקת חשמל, יציאה למחשב)
+                if (!_appsResetAtStartup)
+                {
+                    _appsResetAtStartup = true;
+                    KioskApp.Services.AppStateReset.StartInBackground(config.AllowedApps);
+                }
                 // מחיר ההדפסה בתעריפים - לפי ההגדרה בדף הניהול
                 if (config.PricePerPage > 0)
                 {

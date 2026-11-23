@@ -29,6 +29,9 @@ namespace KioskApp.Services
                     $"קובץ ההרצה לא נמצא בעמדה זו:\n{exePath}\n\nיש לוודא מול הצוות הטכני שהתוכנה מותקנת ושהנתיב בהגדרות (פאנל הניהול) נכון.");
             }
 
+            // איפוס "תמונה נקייה" שעוד רץ ברקע (כשהקיוסק עלה) - מחכים שיסתיים
+            AppStateReset.WaitForPending();
+
             // עותק ישן של אותה תוכנה שנתקע ברקע (למשל מניתוק באמצע טעינה) - סוגרים לפני
             // ההפעלה, אחרת תוכנות שמרשות עותק אחד (אוצר החכמה) נתקעות במסך הפתיחה
             var leftovers = WindowGuard.KillProcessesFrom(WindowGuard.AppFolderRoot(exePath));
