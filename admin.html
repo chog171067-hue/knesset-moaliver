@@ -624,10 +624,10 @@
                     <div class="form-error" id="libTextEditorError"></div>
 
                     <h3 style="font-size:15px; color:#1a365d; margin-top:30px;">תוכנות מאושרות</h3>
-                    <p class="panel-desc">הרשימה שתוצג במסך בחירת התוכנה בעמדה, לפי סדר העמודה "סדר". "תיאור קצר" מוצג מתחת לשם התוכנה. אייקון: אם השדה ריק - מוצג האייקון של התוכנה עצמה; אפשר לכתוב נתיב לתמונה במחשב העמדה (PNG / ICO), למשל <span dir="ltr">C:\KioskApp\icons\otzar.png</span>.</p>
+                    <p class="panel-desc">הרשימה שתוצג במסך בחירת התוכנה בעמדה, לפי סדר העמודה "סדר". "תיאור קצר" מוצג מתחת לשם התוכנה. אייקון: אם השדה ריק - מוצג האייקון של התוכנה עצמה; אפשר לכתוב נתיב לתמונה במחשב העמדה (PNG / ICO), למשל <span dir="ltr">C:\KioskApp\icons\otzar.png</span>.<br>"תיקיות לאיפוס בניתוק": תיקיות שבהן התוכנה שומרת היסטוריה / כרטיסיות פתוחות / הערות (כמה תיקיות - מופרדות ב-;), למשל <span dir="ltr">%APPDATA%\otzaria</span>. בכל ניתוק (וכשהעמדה עולה) הן חוזרות ל"תמונה הנקייה" ששמורה במחשב העמדה (נשמרת בסקריפט <span dir="ltr">Save-AppSnapshot.ps1</span>). בלי תמונה נקייה שמורה - התיקייה לא משתנה.</p>
                     <div class="table-scroll">
                         <table class="history-table">
-                            <thead><tr><th>שם תצוגה</th><th>תיאור קצר</th><th>נתיב הרצה (exe)</th><th>אייקון (לא חובה)</th><th>סדר</th><th></th></tr></thead>
+                            <thead><tr><th>שם תצוגה</th><th>תיאור קצר</th><th>נתיב הרצה (exe)</th><th>אייקון (לא חובה)</th><th>תיקיות לאיפוס בניתוק</th><th>סדר</th><th></th></tr></thead>
                             <tbody id="libAppsTableBody"></tbody>
                         </table>
                     </div>
@@ -2414,7 +2414,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     function renderLibraryAppsTable() {
         const tbody = document.getElementById('libAppsTableBody');
         if (libraryAppsDraft.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="color:#718096;">לא הוגדרו תוכנות עדיין.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="color:#718096;">לא הוגדרו תוכנות עדיין.</td></tr>';
             return;
         }
         tbody.innerHTML = libraryAppsDraft.map((app, idx) => `
@@ -2423,6 +2423,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
                 <td><input type="text" value="${escapeHtml(app.description || '')}" maxlength="60" placeholder="למשל: מאגר ספרי קודש" oninput="libraryAppsDraft[${idx}].description=this.value" style="width:100%;"></td>
                 <td><input type="text" value="${escapeHtml(app.exePath || '')}" oninput="setLibraryAppPath(${idx}, this.value)" style="width:100%;"></td>
                 <td><input type="text" value="${escapeHtml(app.iconPath || '')}" placeholder="ריק = האייקון של התוכנה" oninput="setLibraryAppIcon(${idx}, this.value)" style="width:100%;" dir="ltr"></td>
+                <td><input type="text" value="${escapeHtml(app.resetFolders || '')}" placeholder="%APPDATA%\\otzaria" oninput="libraryAppsDraft[${idx}].resetFolders=this.value" style="width:100%;" dir="ltr"></td>
                 <td><input type="number" value="${app.sortOrder != null ? app.sortOrder : idx}" oninput="libraryAppsDraft[${idx}].sortOrder=Number(this.value)" style="width:70px;"></td>
                 <td><button class="remove-btn" onclick="removeLibraryAppRow(${idx})">הסרה</button></td>
             </tr>
@@ -2440,7 +2441,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
     }
 
     function addLibraryAppRow() {
-        libraryAppsDraft.push({ id: 'app-' + Date.now().toString(36), displayName: '', description: '', exePath: '', iconPath: '', sortOrder: libraryAppsDraft.length });
+        libraryAppsDraft.push({ id: 'app-' + Date.now().toString(36), displayName: '', description: '', exePath: '', iconPath: '', resetFolders: '', sortOrder: libraryAppsDraft.length });
         renderLibraryAppsTable();
     }
 
