@@ -1206,6 +1206,60 @@ async function applyWaitingCredits(event, user) {
   return claimed;
 }
 
+// ===================== פתיחת חשבון על חשבון תשלום ממתין =====================
+//
+// מי ששילם בנדרים פלוס (קטגוריית הקיוסק, עם הת"ז שלו) לפני שהיה לו חשבון - התשלום מחכה
+// ב-waiting-credits.json. אם סך התשלומים הממתינים לת"ז הוא לפחות סכום פתיחת החשבון (10 ₪),
+// פותחים את החשבון בלי תשלום נוסף, והתשלומים נטענים ליתרה. כל תשלום מסומן "applied" עם
+// החשבון שקיבל אותו - נטען פעם אחת בלבד.
+
+async function getWaitingCreditTotal(event, username) {
+  const tz = normalizeTz(username);
+  if (!tz) return 0;
+  const store = getKioskStore(event);
+  const list = (await store.get(WAITING_CREDITS_KEY, { type: 'json' })) || [];
+  const total = list
+    .filter(c => c.status === 'waiting' && !c.manualOnly && normalizeTz(c.tz) === tz)
+    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  return Math.round(total * 100) / 100;
+}
+
+async function createPrepaidSignup(event, details) {
+  const config = await getConfig(event);
+  const required = Number(config.signupAmount) || 0;
+  const available = await getWaitingCreditTotal(event, details.username);
+  if (required <= 0 || available < required) {
+    throw new Error(`לא נמצא תשלום ממתין של לפחות ${required} ₪ לתעודת הזהות הזו`);
+  }
+
+  const store = getKioskStore(event);
+  const { salt, hash } = hashPassword(details.password);
+  const user = await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    if (isTzTaken(users, details.username)) throw new Error(TZ_TAKEN_MESSAGE);
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    users[id] = {
+      id,
+      username: details.username,
+      displayName: details.displayName,
+      phone: details.phone,
+      passwordSalt: salt,
+      passwordHash: hash,
+      balance: 0,
+      isActive: true,
+      createdVia: 'kiosk-signup-prepaid',
+      createdAt: now,
+      updatedAt: now
+    };
+    return toPublicUser(users[id]);
+  });
+
+  const applied = await applyWaitingCredits(event, user);
+  const total = Math.round(applied.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) * 100) / 100;
+  const fresh = await getUserById(event, user.id);
+  return { user: fresh || user, loaded: total };
+}
+
 async function listWaitingCredits(event) {
   const store = getKioskStore(event);
   const list = (await store.get(WAITING_CREDITS_KEY, { type: 'json' })) || [];
@@ -1392,6 +1446,8 @@ module.exports = {
   validateSignupDetails,
   assertTzAvailable,
   accountExists,
+  getWaitingCreditTotal,
+  createPrepaidSignup,
   chargeForUsage,
   createPendingSignup,
   confirmPendingTopup,

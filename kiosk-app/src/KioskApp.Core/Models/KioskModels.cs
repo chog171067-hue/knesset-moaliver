@@ -139,6 +139,10 @@ namespace KioskApp.Core.Models
         public decimal SignupAmount { get; set; }
         /// <summary>דף נדרים פלוס להצטרפות כחבר קהילה (הוראת קבע). ריק = בלי כפתור הצטרפות</summary>
         public string CommunityJoinUrl { get; set; } = "";
+        /// <summary>סך התשלומים מנדרים פלוס שמחכים לת"ז הזו (לפני שהיה לה חשבון)</summary>
+        public decimal PrepaidAmount { get; set; }
+        /// <summary>התשלומים הממתינים מכסים את פתיחת החשבון - אין צורך לשלם שוב</summary>
+        public bool Prepaid { get; set; }
     }
 
     public class SignupInitResult

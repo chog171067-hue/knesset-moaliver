@@ -592,6 +592,20 @@ namespace KioskApp.Views
                 _signupAmount = check.SignupAmount;
                 _communityJoinUrl = check.CommunityJoinUrl;
                 _kevaIdsBeforeJoin = null;
+                // כבר שילם בנדרים פלוס (לפחות סכום פתיחת החשבון) לפני שהיה לו חשבון - בלי תשלום נוסף
+                if (check.Prepaid)
+                {
+                    App.LogInfo($"פתיחת חשבון: נמצא תשלום ממתין {check.PrepaidAmount:0.##} ₪ - בלי תשלום נוסף");
+                    var open = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Success, "נמצא תשלום שלך מנדרים פלוס",
+                        $"בסך {check.PrepaidAmount:0.##} ₪.\nהחשבון ייפתח בלי תשלום נוסף, והסכום ייטען ליתרה שלך.",
+                        "פתיחת החשבון", "ביטול");
+                    if (!open) return;
+                    SignupContinueButton.Content = "פותח חשבון...";
+                    var loaded = await App.ApiClient.SignupPrepaidAsync(details);
+                    App.LogInfo($"פתיחת חשבון על חשבון תשלום ממתין: נטענו {loaded:0.##} ₪");
+                    await LoginAfterSignupAsync(details);
+                    return;
+                }
                 SetMemberView(check.IsCommunityMember);
                 JoinStatusText.Visibility = Visibility.Collapsed;
                     SignupAmountText.Text = $"כדי ליצור את החשבון יש להטעין {check.SignupAmount:0.##} ₪";
@@ -696,6 +710,12 @@ namespace KioskApp.Views
             if (!payment.SignupCompleted) return; // ביטול או תשלום שלא אושר - נשארים בחלון ההטענה
 
             App.LogInfo("פתיחת חשבון: התשלום אושר והחשבון נפתח");
+            await LoginAfterSignupAsync(details);
+        }
+
+        /// <summary>אחרי שהחשבון נוצר בשרת: כניסה אוטומטית (כמה ניסיונות), או הודעה להיכנס ידנית</summary>
+        private async Task LoginAfterSignupAsync(SignupDetails details)
+        {
             SignupOfferOverlay.Visibility = Visibility.Collapsed;
             SignupContinueButton.IsEnabled = false;
             SignupContinueButton.Content = "נכנס לחשבון...";
