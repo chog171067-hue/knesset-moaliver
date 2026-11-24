@@ -169,6 +169,8 @@ namespace KioskApp.Core.Models
         public decimal MaxPerCharge { get; set; }
         public decimal MaxPerDay { get; set; }
         public decimal ChargedToday { get; set; }
+        /// <summary>בפתיחת חשבון: סכום הפתיחה שיחויב</summary>
+        public decimal Amount { get; set; }
     }
 
     public class KevaChargeResult

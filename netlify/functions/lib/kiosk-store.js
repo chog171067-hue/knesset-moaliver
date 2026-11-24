@@ -965,6 +965,7 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
           passwordHash: s.passwordHash,
           balance: Number(creditAmount.toFixed(2)),
           isActive: true,
+          ...(s.kevaChargeConsent ? { kevaChargeConsentAt: now } : {}),
           createdVia: 'kiosk-signup',
           createdAt: now,
           updatedAt: now
@@ -1451,20 +1452,24 @@ async function setKevaChargeCache(event, userId, keva) {
 }
 
 // סך החיובים מהוראת הקבע היום (כולל חיוב שעוד בתהליך; חיוב שנדחה לא נספר)
-function kevaChargedToday(pending, userId, today) {
+// (לפי החשבון, או לפי הוראת הקבע - כך נספרים גם חיובים של פתיחת חשבון, שעוד אין להם חשבון)
+function kevaChargedToday(pending, userId, today, kevaId) {
   return Object.values(pending)
-    .filter(p => p.channel === 'keva' && p.userId === userId && p.status !== 'failed' && israelDate(p.createdAt) === today)
+    .filter(p => p.channel === 'keva' && p.status !== 'failed' && israelDate(p.createdAt) === today &&
+      ((userId && p.userId === userId) || (kevaId && p.kevaId === String(kevaId))))
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 }
 
-async function getKevaChargeTodayTotal(event, userId) {
+async function getKevaChargeTodayTotal(event, userId, kevaId) {
   const store = getKioskStore(event);
   const pending = (await store.get(PENDING_TOPUPS_KEY, { type: 'json' })) || {};
-  return Math.round(kevaChargedToday(pending, userId, israelDate(new Date().toISOString())) * 100) / 100;
+  return Math.round(kevaChargedToday(pending, userId, israelDate(new Date().toISOString()), kevaId) * 100) / 100;
 }
 
 // בדיקת ההגבלות ושמירת החיוב כ"ממתין" - באותה כתיבה, כך ששני חיובים במקביל לא יעברו את התקרה
-async function reserveKevaCharge(event, { userId, amount, kevaId }) {
+// userId - הטענה לחשבון קיים. signupDetails (במקום userId) - פתיחת חשבון: החשבון נוצר
+// אחרי שהחיוב מצליח (confirmPendingTopup), עם ההסכמה שניתנה בחלון התשלום.
+async function reserveKevaCharge(event, { userId, signupDetails, amount, kevaId }) {
   const numericAmount = Math.round(Number(amount) * 100) / 100;
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new Error('סכום לא תקין');
   if (numericAmount > KEVA_CHARGE_MAX_PER_CHARGE) {
@@ -1473,21 +1478,33 @@ async function reserveKevaCharge(event, { userId, amount, kevaId }) {
 
   const store = getKioskStore(event);
   const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
-  const user = users[userId];
-  if (!user) throw new Error('משתמש לא נמצא');
-  if (!user.kevaChargeConsentAt) throw new Error('נדרש אישור חד-פעמי לפני חיוב מכרטיס הוראת הקבע');
+  let signup = null;
+  if (signupDetails) {
+    if (isTzTaken(users, signupDetails.username)) throw new Error(TZ_TAKEN_MESSAGE);
+    const { salt, hash } = hashPassword(signupDetails.password);
+    signup = {
+      username: signupDetails.username, displayName: signupDetails.displayName, phone: signupDetails.phone,
+      passwordSalt: salt, passwordHash: hash, kevaChargeConsent: true
+    };
+  } else {
+    const user = users[userId];
+    if (!user) throw new Error('משתמש לא נמצא');
+    if (!user.kevaChargeConsentAt) throw new Error('נדרש אישור חד-פעמי לפני חיוב מכרטיס הוראת הקבע');
+  }
 
   const token = crypto.randomUUID();
   const now = new Date().toISOString();
   return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
-    const today = kevaChargedToday(pending, userId, israelDate(now));
+    const today = kevaChargedToday(pending, userId, israelDate(now), kevaId);
     if (today + numericAmount > KEVA_CHARGE_MAX_PER_DAY + 0.001) {
       const left = Math.max(0, KEVA_CHARGE_MAX_PER_DAY - today);
       throw new Error(left > 0
         ? `אפשר לחייב עד ${KEVA_CHARGE_MAX_PER_DAY} ₪ ביום. היום נשאר עוד ${left} ₪.`
         : `הגעת לתקרה היומית (${KEVA_CHARGE_MAX_PER_DAY} ₪). אפשר לחייב שוב מחר.`);
     }
-    pending[token] = { token, userId, amount: numericAmount, channel: 'keva', kevaId: String(kevaId), status: 'pending', createdAt: now };
+    pending[token] = signup
+      ? { token, type: 'signup', userId: null, signup, amount: numericAmount, channel: 'keva', kevaId: String(kevaId), status: 'pending', createdAt: now }
+      : { token, userId, amount: numericAmount, channel: 'keva', kevaId: String(kevaId), status: 'pending', createdAt: now };
     return { token, amount: numericAmount };
   });
 }
@@ -1514,7 +1531,8 @@ async function completeKevaCharge(event, { token, nedarimAmount, nedarimTransact
 }
 
 async function failKevaCharge(event, token, reason) {
-  await markPendingTopupOutcome(event, token, { status: 'failed', failReason: String(reason || '').slice(0, 300) });
+  // בפתיחת חשבון שנכשלה לא משאירים את הסיסמה המגובבת ברשומה
+  await markPendingTopupOutcome(event, token, { status: 'failed', failReason: String(reason || '').slice(0, 300), signup: undefined });
 }
 
 module.exports = {
