@@ -159,4 +159,25 @@ namespace KioskApp.Core.Models
         public string Url { get; set; } = "";
         public decimal Amount { get; set; }
     }
+
+    /// <summary>חיוב מכרטיס הוראת הקבע - הזכאות והמגבלות (ראו library-station-keva-charge)</summary>
+    public class KevaChargeInfo
+    {
+        public bool Eligible { get; set; }
+        public string Last4 { get; set; } = "";
+        public bool Consented { get; set; }
+        public decimal MaxPerCharge { get; set; }
+        public decimal MaxPerDay { get; set; }
+        public decimal ChargedToday { get; set; }
+    }
+
+    public class KevaChargeResult
+    {
+        public bool Success { get; set; }
+        /// <summary>לא התקבלה תשובה מנדרים - לא ידוע אם חויב (אם כן, היתרה תתעדכן לבד)</summary>
+        public bool Uncertain { get; set; }
+        public string? Error { get; set; }
+        public decimal Amount { get; set; }
+        public decimal? Balance { get; set; }
+    }
 }

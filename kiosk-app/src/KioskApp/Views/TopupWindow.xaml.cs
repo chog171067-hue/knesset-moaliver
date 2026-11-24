@@ -31,6 +31,7 @@ namespace KioskApp.Views
         {
             InitializeComponent();
             Closed += (_, _) => CloseProgress();
+            Loaded += async (_, _) => await LoadKevaChargeAsync();
         }
 
         /// <summary>תשלום פתיחת חשבון - סכום קבוע, נפתח ישר לטופס האשראי</summary>
@@ -377,6 +378,131 @@ namespace KioskApp.Views
 
             if (finalStatus == "confirmed") await ShowConfirmedAndCloseAsync(finalAmount);
             else if (finalStatus == "failed") ShowServerFailed(payment.Token);
+        }
+
+        // ===== חיוב מכרטיס הוראת הקבע =====
+
+        private KevaChargeInfo? _keva;
+
+        /// <summary>מציג את כפתור "חיוב מכרטיס הוראת הקבע" רק למי שיש לו הוראה פעילה עם כרטיס בתוקף</summary>
+        private async Task LoadKevaChargeAsync()
+        {
+            if (_signup != null) return;
+            var userId = App.Session.CurrentUser?.Id;
+            if (string.IsNullOrEmpty(userId)) return;
+            try
+            {
+                var info = await App.ApiClient.CheckKevaChargeAsync(userId);
+                if (!info.Eligible || !IsLoaded) return;
+                _keva = info;
+                KevaPayTitle.Text = $"חיוב מכרטיס הוראת הקבע (מסתיים ב-{info.Last4})";
+                KevaPaySubtitle.Text = $"חיוב בודד, בלי להקליד כרטיס. עד {info.MaxPerCharge:0.##} ₪ בכל פעם, עד {info.MaxPerDay:0.##} ₪ ביום";
+                KevaPayButton.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                App.LogError("חיוב מהוראת קבע: בדיקת זכאות נכשלה", ex);
+            }
+        }
+
+        private async void OnKevaPayClick(object sender, RoutedEventArgs e)
+        {
+            HideError();
+            if (_keva == null || !TryGetAmount(out var amount)) return;
+            var userId = App.Session.CurrentUser!.Id;
+
+            if (amount > _keva.MaxPerCharge)
+            {
+                ShowError($"מכרטיס הוראת הקבע אפשר לחייב עד {_keva.MaxPerCharge:0.##} ₪ בכל פעם");
+                return;
+            }
+            var leftToday = _keva.MaxPerDay - _keva.ChargedToday;
+            if (amount > leftToday)
+            {
+                ShowError(leftToday > 0
+                    ? $"מכרטיס הוראת הקבע אפשר לחייב עד {_keva.MaxPerDay:0.##} ₪ ביום. היום נשאר עוד {leftToday:0.##} ₪."
+                    : $"הגעת לתקרה היומית ({_keva.MaxPerDay:0.##} ₪) של חיוב מכרטיס הוראת הקבע. אפשר לחייב שוב מחר.");
+                return;
+            }
+
+            // הסכמה חד-פעמית (נשמרת בחשבון)
+            if (!_keva.Consented)
+            {
+                var agree = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "אישור חד-פעמי",
+                    $"אני מאשר לחייב את כרטיס האשראי של הוראת הקבע שלי בנדרים פלוס (מסתיים ב-{_keva.Last4}) " +
+                    "בחיובים בודדים להטענת יתרה בעמדה - רק כשאני מבקש, ואחרי אישור נפרד בכל פעם.\n\n" +
+                    $"עד {_keva.MaxPerCharge:0.##} ₪ בכל חיוב ועד {_keva.MaxPerDay:0.##} ₪ ביום. " +
+                    "החיוב הוא בנוסף להוראת הקבע, וההוראה עצמה לא משתנה.",
+                    "אני מאשר", "ביטול");
+                if (!agree) return;
+                try
+                {
+                    await App.ApiClient.SaveKevaChargeConsentAsync(userId);
+                    _keva.Consented = true;
+                }
+                catch (Exception ex)
+                {
+                    App.LogError("חיוב מהוראת קבע: שמירת ההסכמה נכשלה", ex);
+                    ShowError("לא ניתן לשמור את האישור כרגע. נסו שוב בעוד רגע.");
+                    return;
+                }
+            }
+
+            // אישור לכל חיוב
+            var confirm = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "אישור חיוב",
+                $"לחייב {amount:0.##} ₪ בכרטיס המסתיים ב-{_keva.Last4}?\nהסכום ייטען ליתרה שלך בעמדה.",
+                $"חיוב {amount:0.##} ₪", "ביטול");
+            if (!confirm) return;
+
+            KevaPayButton.IsEnabled = false;
+            ContinueButton.IsEnabled = false;
+            OnlinePayButton.IsEnabled = false;
+            _progress = KioskMessageDialog.ShowProgress(this, "מחייבים את הכרטיס", "נא להמתין מספר שניות...");
+            KevaChargeResult result;
+            try
+            {
+                result = await App.ApiClient.ChargeKevaAsync(userId, amount);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("חיוב מהוראת קבע: אין תשובה מהשרת", ex);
+                result = new KevaChargeResult { Uncertain = true };
+            }
+            finally
+            {
+                CloseProgress();
+                KevaPayButton.IsEnabled = true;
+                ContinueButton.IsEnabled = true;
+                OnlinePayButton.IsEnabled = true;
+            }
+
+            if (result.Success)
+            {
+                _keva.ChargedToday += result.Amount;
+                var newBalance = result.Balance ?? App.Session.CurrentUser!.Balance + result.Amount;
+                App.Session.UpdateBalance(newBalance);
+                App.LogInfo($"חיוב מהוראת קבע: {result.Amount} ₪ נטענו");
+                await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success,
+                    "החיוב בוצע!", $"{result.Amount:0.##} ₪ נוספו ליתרה. היתרה עכשיו: {newBalance:0.##} ₪", 2.5);
+                Close();
+                return;
+            }
+
+            if (result.Uncertain)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Info, "לא התקבלה תשובה",
+                    "לא התקבלה תשובה מנדרים פלוס. אם החיוב בוצע - היתרה תתעדכן לבד תוך כמה דקות " +
+                    "(אפשר להתנתק ולהתחבר מחדש כדי לראות). אין לנסות שוב לפני שבודקים.");
+                Close();
+                return;
+            }
+
+            var message = result.Error ?? "החיוב לא בוצע";
+            if (message.Contains("אותו סכום"))
+            {
+                message = "כבר בוצע היום חיוב באותו סכום בכרטיס הזה, ונדרים פלוס לא מאפשרים חיוב כפול. אפשר לבחור סכום אחר.";
+            }
+            KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "החיוב לא בוצע", message);
         }
 
         private void ShowError(string message)

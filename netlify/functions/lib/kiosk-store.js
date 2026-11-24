@@ -984,7 +984,8 @@ async function confirmPendingTopup(event, { token, nedarimAmount, nedarimTransac
       source: 'nedarim',
       amount: creditAmount,
       description: (isSignup ? 'פתיחת חשבון בעמדה - הטענה ראשונה' : 'הטענת כסף') +
-        (claim.entry.channel === 'online' ? ' מהאזור האישי בנדרים פלוס' : ' באשראי דרך נדרים פלוס'),
+        (claim.entry.channel === 'online' ? ' מהאזור האישי בנדרים פלוס'
+          : claim.entry.channel === 'keva' ? ' מכרטיס הוראת הקבע' : ' באשראי דרך נדרים פלוס'),
       nedarimTransactionId: nedarimTransactionId || null,
       confirmation: confirmation || null,
       nedarimRaw: raw || null
@@ -1412,7 +1413,121 @@ async function claimLegacyBalance(event, { userId, legacyId }) {
   }
 }
 
+// ===================== חיוב בודד מכרטיס הוראת הקבע =====================
+//
+// מי שיש לו הוראת קבע פעילה במוסד הראשי (אותה ת"ז ואותו טלפון כמו בחשבון) יכול להטעין
+// יתרה בחיוב בודד מהכרטיס השמור בהוראה (TashlumBodedNew) - בלי להקליד כרטיס.
+// הגבלות: עד KEVA_CHARGE_MAX_PER_CHARGE לחיוב ועד KEVA_CHARGE_MAX_PER_DAY ביום, ורק אחרי
+// הסכמה חד-פעמית שנשמרת בחשבון (kevaChargeConsentAt). כל חיוב שמור כ"תשלום ממתין" עם
+// channel 'keva' - כך הסכום היומי נספר, וה-Webhook מזהה את האסימון שבהערות ולא מזכה פעמיים.
+
+const KEVA_CHARGE_MAX_PER_CHARGE = 50;
+const KEVA_CHARGE_MAX_PER_DAY = 100;
+
+// התאריך בישראל (YYYY-MM-DD) - "יום" לצורך ההגבלה היומית
+function israelDate(iso) {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+}
+
+async function setKevaChargeConsent(event, userId) {
+  const store = getKioskStore(event);
+  return writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[userId];
+    if (!u) throw new Error('משתמש לא נמצא');
+    if (!u.kevaChargeConsentAt) u.kevaChargeConsentAt = new Date().toISOString();
+    return u.kevaChargeConsentAt;
+  });
+}
+
+// הוראת הקבע שנמצאה בבדיקה האחרונה (כדי שהחיוב עצמו לא יחכה לשליפה נוספת מנדרים)
+async function setKevaChargeCache(event, userId, keva) {
+  const store = getKioskStore(event);
+  await writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[userId];
+    if (!u) return null;
+    u.kevaChargeCache = keva ? { kevaId: keva.kevaId, last4: keva.last4, checkedAt: new Date().toISOString() } : null;
+    return null;
+  });
+}
+
+// סך החיובים מהוראת הקבע היום (כולל חיוב שעוד בתהליך; חיוב שנדחה לא נספר)
+function kevaChargedToday(pending, userId, today) {
+  return Object.values(pending)
+    .filter(p => p.channel === 'keva' && p.userId === userId && p.status !== 'failed' && israelDate(p.createdAt) === today)
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+}
+
+async function getKevaChargeTodayTotal(event, userId) {
+  const store = getKioskStore(event);
+  const pending = (await store.get(PENDING_TOPUPS_KEY, { type: 'json' })) || {};
+  return Math.round(kevaChargedToday(pending, userId, israelDate(new Date().toISOString())) * 100) / 100;
+}
+
+// בדיקת ההגבלות ושמירת החיוב כ"ממתין" - באותה כתיבה, כך ששני חיובים במקביל לא יעברו את התקרה
+async function reserveKevaCharge(event, { userId, amount, kevaId }) {
+  const numericAmount = Math.round(Number(amount) * 100) / 100;
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new Error('סכום לא תקין');
+  if (numericAmount > KEVA_CHARGE_MAX_PER_CHARGE) {
+    throw new Error(`אפשר לחייב עד ${KEVA_CHARGE_MAX_PER_CHARGE} ₪ בכל פעם`);
+  }
+
+  const store = getKioskStore(event);
+  const users = (await store.get(USERS_KEY, { type: 'json' })) || {};
+  const user = users[userId];
+  if (!user) throw new Error('משתמש לא נמצא');
+  if (!user.kevaChargeConsentAt) throw new Error('נדרש אישור חד-פעמי לפני חיוב מכרטיס הוראת הקבע');
+
+  const token = crypto.randomUUID();
+  const now = new Date().toISOString();
+  return writeWithRetry(store, PENDING_TOPUPS_KEY, {}, (pending) => {
+    const today = kevaChargedToday(pending, userId, israelDate(now));
+    if (today + numericAmount > KEVA_CHARGE_MAX_PER_DAY + 0.001) {
+      const left = Math.max(0, KEVA_CHARGE_MAX_PER_DAY - today);
+      throw new Error(left > 0
+        ? `אפשר לחייב עד ${KEVA_CHARGE_MAX_PER_DAY} ₪ ביום. היום נשאר עוד ${left} ₪.`
+        : `הגעת לתקרה היומית (${KEVA_CHARGE_MAX_PER_DAY} ₪). אפשר לחייב שוב מחר.`);
+    }
+    pending[token] = { token, userId, amount: numericAmount, channel: 'keva', kevaId: String(kevaId), status: 'pending', createdAt: now };
+    return { token, amount: numericAmount };
+  });
+}
+
+// החיוב בנדרים הצליח: מזכים פעם אחת בלבד. אם ה-Webhook של אותה עסקה כבר הגיע וזיכה
+// (לפי האסימון או לפי ת"ז) - רק מסמנים את החיוב כמאושר, בלי זיכוי נוסף.
+async function completeKevaCharge(event, { token, nedarimAmount, nedarimTransactionId, confirmation, lastNum, raw }) {
+  const txId = String(nedarimTransactionId || '').trim();
+  if (txId && !(await claimWebhookTransaction(event, txId))) {
+    await markPendingTopupOutcome(event, token, {
+      status: 'confirmed', confirmedAt: new Date().toISOString(), creditedBy: 'webhook',
+      nedarimTransactionId: txId, confirmation: confirmation || null, lastNum: lastNum || null
+    }).catch(() => {});
+    return { duplicate: true };
+  }
+  try {
+    const result = await confirmPendingTopup(event, { token, nedarimAmount, nedarimTransactionId: txId, confirmation, lastNum, raw });
+    if (txId) await markWebhookOutcome(event, txId, 'keva-charge').catch(() => {});
+    return result;
+  } catch (err) {
+    if (txId) await markWebhookOutcome(event, txId, 'keva-charge failed: ' + err.message).catch(() => {});
+    throw err;
+  }
+}
+
+async function failKevaCharge(event, token, reason) {
+  await markPendingTopupOutcome(event, token, { status: 'failed', failReason: String(reason || '').slice(0, 300) });
+}
+
 module.exports = {
+  KEVA_CHARGE_MAX_PER_CHARGE,
+  KEVA_CHARGE_MAX_PER_DAY,
+  setKevaChargeConsent,
+  setKevaChargeCache,
+  getKevaChargeTodayTotal,
+  reserveKevaCharge,
+  completeKevaCharge,
+  failKevaCharge,
+  normalizeTz,
+  normalizePhone,
   listLegacyBalances,
   saveLegacyBalances,
   findLegacyBalanceForUser,
