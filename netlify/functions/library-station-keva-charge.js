@@ -40,10 +40,10 @@ function tokefValid(tokef) {
 }
 
 // הוראת הקבע הפעילה של בעל החשבון במוסד הראשי, עם כרטיס בתוקף (או null)
-async function findUserKeva(user, timeoutMs = 7000) {
+async function findUserKeva(user, timeoutMs = 7000, diag = {}) {
   // לפי תעודת זהות בלבד (החלטת הגבאים). ההגנה: תקרה נמוכה לחיוב וליום, והסכמה + אישור בכל חיוב.
   const tz = normalizeTz(user.username);
-  if (!tz) return null;
+  if (!tz) { diag.reason = 'שם המשתמש של החשבון אינו מספר תעודת זהות'; return null; }
 
   const params = new URLSearchParams({ Action: 'GetKevaNew', MosadId: MOSAD_1, ApiPassword: getApiPasswordForMosad(MOSAD_1) });
   const res = await fetchWithTimeout(`${MANAGE_URL}?${params}`, {}, timeoutMs);
@@ -51,11 +51,17 @@ async function findUserKeva(user, timeoutMs = 7000) {
   const json = await res.json();
   const list = Array.isArray(json && json.data) ? json.data : [];
 
-  const mine = list.filter(k =>
-    normalizeTz(String(k.Zeout || '').replace(/\D/g, '')) === tz &&
-    /^\d{4}$/.test(String(k['11'] || '').trim()) &&
-    tokefValid(k['12']));
-  if (mine.length === 0) return null;
+  const byTz = list.filter(k => normalizeTz(String(k.Zeout || '').replace(/\D/g, '')) === tz);
+  if (byTz.length === 0) {
+    diag.reason = list.length === 0
+      ? `נדרים פלוס החזירו רשימת הוראות ריקה${json && json.Message ? ': ' + json.Message : ''}`
+      : 'אין הוראת קבע פעילה עם תעודת הזהות הזאת במוסד הראשי';
+    return null;
+  }
+  const withCard = byTz.filter(k => /^\d{4}$/.test(String(k['11'] || '').trim()));
+  if (withCard.length === 0) { diag.reason = 'בהוראת הקבע אין כרטיס אשראי (אולי הוראה בנקאית)'; return null; }
+  const mine = withCard.filter(k => tokefValid(k['12']));
+  if (mine.length === 0) { diag.reason = 'תוקף הכרטיס בהוראת הקבע עבר'; return null; }
   const keva = mine[0];
   return { kevaId: String(keva.DT_RowId || '').replace(/\D/g, ''), last4: String(keva['11']).trim() };
 }
@@ -127,12 +133,15 @@ async function handleSignup(event, body, reply) {
 
   if (body.action === 'check') {
     let keva = null;
+    const diag = {};
     try {
-      if (amount > 0 && amount <= KEVA_CHARGE_MAX_PER_CHARGE) keva = await findUserKeva(person);
+      if (amount > 0 && amount <= KEVA_CHARGE_MAX_PER_CHARGE) keva = await findUserKeva(person, 7000, diag);
+      else diag.reason = `סכום פתיחת החשבון (${amount} ₪) גבוה מהתקרה לחיוב (${KEVA_CHARGE_MAX_PER_CHARGE} ₪)`;
     } catch (err) {
+      diag.reason = 'שגיאה בבדיקה: ' + err.message;
       console.error('[keva-charge] signup check:', err.message);
     }
-    return reply(200, { success: true, eligible: !!keva, last4: keva ? keva.last4 : null, amount,
+    return reply(200, { success: true, eligible: !!keva, reason: keva ? null : diag.reason || null, last4: keva ? keva.last4 : null, amount,
       chargedToday: keva ? await getKevaChargeTodayTotal(event, null, keva.kevaId) : 0,
       maxPerCharge: KEVA_CHARGE_MAX_PER_CHARGE, maxPerDay: KEVA_CHARGE_MAX_PER_DAY });
   }
@@ -167,15 +176,18 @@ exports.handler = async function (event) {
 
     if (action === 'check') {
       let keva = null;
+      const diag = {};
       try {
-        keva = await findUserKeva(user);
+        keva = await findUserKeva(user, 7000, diag);
         await setKevaChargeCache(event, userId, keva);
       } catch (err) {
+        diag.reason = 'שגיאה בבדיקה: ' + err.message;
         console.error('[keva-charge] check:', err.message);
       }
       return reply(200, {
         success: true,
         eligible: !!keva,
+        reason: keva ? null : diag.reason || null,
         last4: keva ? keva.last4 : null,
         consented: !!user.kevaChargeConsentAt,
         maxPerCharge: KEVA_CHARGE_MAX_PER_CHARGE,

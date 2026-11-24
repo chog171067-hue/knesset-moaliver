@@ -171,6 +171,8 @@ namespace KioskApp.Core.Models
         public decimal ChargedToday { get; set; }
         /// <summary>בפתיחת חשבון: סכום הפתיחה שיחויב</summary>
         public decimal Amount { get; set; }
+        /// <summary>למה הכפתור לא מוצג (נרשם ביומן העמדה, לבירור)</summary>
+        public string? Reason { get; set; }
     }
 
     public class KevaChargeResult
