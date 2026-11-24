@@ -1,6 +1,6 @@
 // עמדת הקיוסק - הטענת יתרה בחיוב בודד מכרטיס האשראי של הוראת קבע פעילה במוסד הראשי.
 // החיוב נעשה בשרת (TashlumBodedNew) - העמדה לא רואה שום פרט של הכרטיס מלבד 4 הספרות האחרונות.
-// הוראת הקבע נמצאת בשרת לפי הת"ז והטלפון של החשבון (לא לפי מה שהעמדה שולחת).
+// הוראת הקבע נמצאת בשרת לפי הת"ז של החשבון (לא לפי מזהה הוראה שהעמדה שולחת).
 //
 // גוף הבקשה: { action, userId, amount? } - או בפתיחת חשבון: { action, signup: { tz, displayName, phone, password } }
 //   (בפתיחת חשבון הסכום הוא סכום הפתיחה מההגדרות, וההסכמה ניתנת בחלון התשלום עצמו)
@@ -9,7 +9,7 @@
 //   action 'charge'  ← { success, amount, balance } / { success:false, error, uncertain? }
 const { requireStation } = require('./lib/station-auth');
 const {
-  getUserById, normalizeTz, normalizePhone, setKevaChargeConsent, setKevaChargeCache, getKevaChargeTodayTotal,
+  getUserById, normalizeTz, setKevaChargeConsent, setKevaChargeCache, getKevaChargeTodayTotal,
   reserveKevaCharge, completeKevaCharge, failKevaCharge, validateSignupDetails, assertTzAvailable, getConfig,
   KEVA_CHARGE_MAX_PER_CHARGE, KEVA_CHARGE_MAX_PER_DAY
 } = require('./lib/kiosk-store');
@@ -41,9 +41,9 @@ function tokefValid(tokef) {
 
 // הוראת הקבע הפעילה של בעל החשבון במוסד הראשי, עם כרטיס בתוקף (או null)
 async function findUserKeva(user, timeoutMs = 7000) {
+  // לפי תעודת זהות בלבד (החלטת הגבאים). ההגנה: תקרה נמוכה לחיוב וליום, והסכמה + אישור בכל חיוב.
   const tz = normalizeTz(user.username);
-  const phone = normalizePhone(user.phone);
-  if (!tz || !phone) return null;
+  if (!tz) return null;
 
   const params = new URLSearchParams({ Action: 'GetKevaNew', MosadId: MOSAD_1, ApiPassword: getApiPasswordForMosad(MOSAD_1) });
   const res = await fetchWithTimeout(`${MANAGE_URL}?${params}`, {}, timeoutMs);
@@ -53,7 +53,6 @@ async function findUserKeva(user, timeoutMs = 7000) {
 
   const mine = list.filter(k =>
     normalizeTz(String(k.Zeout || '').replace(/\D/g, '')) === tz &&
-    normalizePhone(String(k.Phone || '').replace(/\D/g, '')) === phone &&
     /^\d{4}$/.test(String(k['11'] || '').trim()) &&
     tokefValid(k['12']));
   if (mine.length === 0) return null;
