@@ -1416,13 +1416,13 @@ async function claimLegacyBalance(event, { userId, legacyId }) {
 
 // ===================== חיוב בודד מכרטיס הוראת הקבע =====================
 //
-// מי שיש לו הוראת קבע פעילה במוסד הראשי (אותה ת"ז ואותו טלפון כמו בחשבון) יכול להטעין
+// מי שיש לו הוראת קבע פעילה במוסד הראשי (אותה ת"ז כמו בחשבון) יכול להטעין
 // יתרה בחיוב בודד מהכרטיס השמור בהוראה (TashlumBodedNew) - בלי להקליד כרטיס.
 // הגבלות: עד KEVA_CHARGE_MAX_PER_CHARGE לחיוב ועד KEVA_CHARGE_MAX_PER_DAY ביום, ורק אחרי
 // הסכמה חד-פעמית שנשמרת בחשבון (kevaChargeConsentAt). כל חיוב שמור כ"תשלום ממתין" עם
 // channel 'keva' - כך הסכום היומי נספר, וה-Webhook מזהה את האסימון שבהערות ולא מזכה פעמיים.
 
-const KEVA_CHARGE_MAX_PER_CHARGE = 50;
+const KEVA_CHARGE_MAX_PER_CHARGE = 20;
 const KEVA_CHARGE_MAX_PER_DAY = 100;
 
 // התאריך בישראל (YYYY-MM-DD) - "יום" לצורך ההגבלה היומית

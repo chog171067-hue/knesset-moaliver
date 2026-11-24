@@ -394,7 +394,12 @@ namespace KioskApp.Views
                 var info = _signup != null
                     ? await App.ApiClient.CheckKevaChargeForSignupAsync(_signup)
                     : await App.ApiClient.CheckKevaChargeAsync(userId!);
-                if (!info.Eligible || !IsLoaded) return;
+                if (!info.Eligible)
+                {
+                    App.LogInfo($"חיוב מהוראת קבע: הכפתור לא מוצג - {info.Reason ?? "סיבה לא ידועה"}");
+                    return;
+                }
+                if (!IsLoaded) return;
                 _keva = info;
                 KevaPayTitle.Text = $"חיוב מכרטיס הוראת הקבע (מסתיים ב-{info.Last4})";
                 KevaPaySubtitle.Text = _signup != null

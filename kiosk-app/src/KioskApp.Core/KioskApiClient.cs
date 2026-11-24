@@ -241,7 +241,8 @@ namespace KioskApp.Core
                 MaxPerCharge = response.MaxPerCharge,
                 MaxPerDay = response.MaxPerDay,
                 ChargedToday = response.ChargedToday,
-                Amount = response.Amount
+                Amount = response.Amount,
+                Reason = response.Success ? response.Reason : response.Error
             };
         }
 
@@ -566,6 +567,7 @@ namespace KioskApp.Core
             public decimal MaxPerDay { get; set; }
             public decimal ChargedToday { get; set; }
             public decimal Amount { get; set; }
+            public string? Reason { get; set; }
         }
 
         private class KevaChargeResponse : ApiEnvelope
