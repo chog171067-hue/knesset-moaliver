@@ -44,6 +44,7 @@ namespace KioskApp.Services
         private readonly KioskApiClient _apiClient;
         private readonly Func<string> _getCurrentUserId;
         private ManagementEventWatcher? _watcher;
+        private SpoolerWatcher? _spooler;
         private CancellationTokenSource _stopCts = new();
 
         // עבודות שכבר חויבו (לפי "מדפסת|מספר עבודה"). Windows מדווח לפעמים על אותה עבודה
@@ -92,6 +93,9 @@ namespace KioskApp.Services
                 _watcher = new ManagementEventWatcher(query);
                 _watcher.EventArrived += OnPrintJobCreated;
                 _watcher.Start();
+                _spooler = new SpoolerWatcher(doc => PrepaidJobs.ContainsKey(doc));
+                _spooler.JobAdded += OnSpoolerJobAdded;
+                _spooler.Start();
                 WindowGuard.DriverProblemDetected += OnDriverProblem;
             }
             catch (Exception ex)
@@ -107,6 +111,12 @@ namespace KioskApp.Services
             // עבודות שעדיין במעקב יבצעו בדיקה אחרונה (ביטול+החזר אם הן תקועות בתקלה)
             _stopCts.Cancel();
             WindowGuard.DriverProblemDetected -= OnDriverProblem;
+            if (_spooler != null)
+            {
+                _spooler.JobAdded -= OnSpoolerJobAdded;
+                _spooler.Dispose();
+                _spooler = null;
+            }
 
             if (_watcher == null) return;
             _watcher.EventArrived -= OnPrintJobCreated;
@@ -125,14 +135,42 @@ namespace KioskApp.Services
                 var printerName = ExtractPrinterName(Convert.ToString(targetInstance["Name"]) ?? "");
                 var totalPagesRaw = targetInstance["TotalPages"];
                 var pages = totalPagesRaw != null ? Convert.ToInt32(totalPagesRaw) : 0;
+                var document = Convert.ToString(targetInstance["Document"]) ?? "";
+                // רשת ביטחון בלבד: בדרך כלל המעקב המיידי (SpoolerWatcher) כבר עצר וטיפל בעבודה הזו
+                await HandleNewJobAsync(printerName, jobId, document, pages, alreadyPaused: false);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("שגיאה בטיפול באירוע הדפסה", ex);
+            }
+        }
+
+        // עבודה חדשה מהמעקב המיידי (SpoolerWatcher) - כבר נעצרה בתור
+        private void OnSpoolerJobAdded(string printerName, int jobId, string document, int pages, bool paused)
+        {
+            _ = Task.Run(async () =>
+            {
+                try { await HandleNewJobAsync(printerName, jobId, document, pages, paused); }
+                catch (Exception ex) { App.LogError("שגיאה בטיפול בעבודת הדפסה", ex); }
+            });
+        }
+
+        /// <summary>
+        /// עבודת הדפסה חדשה (מהמעקב המיידי, או מהבדיקה של WMI כרשת ביטחון): הדפסה ששולחת העמדה
+        /// אחרי חיוב - רק מעקב; אחרת - עצירה, "סיכום הדפסה" (מיידית / לאזור / ביטול), חיוב ושחרור.
+        /// כל עבודה מטופלת פעם אחת (ChargedJobs).
+        /// </summary>
+        private async Task HandleNewJobAsync(string printerName, int jobId, string document, int pages, bool alreadyPaused)
+        {
+            try
+            {
                 if (pages <= 0) pages = 1; // חלק מדרייברים לא מדווחים TotalPages - עדיף לחייב עמוד אחד מאשר לא לחייב כלל
 
                 // מדפסות וירטואליות (שמירה כ-PDF/XPS וכו') - לא מדפסת אמיתית, לא מחייבים כהדפסה
                 if (IsVirtualPrinter(printerName)) return;
 
-                // הדפסה מעורך הטקסט שכבר אושרה וחויבה מראש (PrepayAsync) - לא שואלים ולא מחייבים שוב,
+                // הדפסה ששולחת העמדה עצמה (עורך / אזור ההדפסות) שכבר אושרה וחויבה - לא שואלים ולא מחייבים שוב,
                 // רק עוקבים אחריה (תקלה ← ביטול + החזר)
-                var document = Convert.ToString(targetInstance["Document"]) ?? "";
                 if (PrepaidJobs.TryRemove(document, out var prepaid))
                 {
                     ChargedJobs.TryAdd($"{printerName}|{jobId}", DateTime.Now);
@@ -157,7 +195,7 @@ namespace KioskApp.Services
                     return;
                 }
                 // עוצרים את העבודה בתור עד שהמשתמש מאשר את העלות (חלון האישור של הקיוסק)
-                var paused = TryPauseJob(printerName, jobId);
+                var paused = alreadyPaused || TryPauseJob(printerName, jobId);
                 pages = await WaitForSpoolingAsync(printerName, jobId, pages);
                 var price = App.Session.Config?.PricePerPage ?? 0;
                 var cost = Math.Round(pages * price, 2);
