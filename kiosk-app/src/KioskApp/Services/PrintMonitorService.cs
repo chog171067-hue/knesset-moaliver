@@ -169,34 +169,44 @@ namespace KioskApp.Services
                 // מדפסות וירטואליות (שמירה כ-PDF/XPS וכו') - לא מדפסת אמיתית, לא מחייבים כהדפסה
                 if (IsVirtualPrinter(printerName)) return;
 
+                // כל עבודה מטופלת פעם אחת בלבד - גם אם גם המעקב המיידי וגם WMI דיווחו עליה
+                foreach (var old in ChargedJobs.Where(kv => DateTime.Now - kv.Value > TimeSpan.FromHours(2)).ToList())
+                    ChargedJobs.TryRemove(old.Key, out _);
+                var jobKey = $"{printerName}|{jobId}";
+                if (!ChargedJobs.TryAdd(jobKey, DateTime.Now))
+                {
+                    App.LogInfo($"הדפסה: דיווח כפול על אותה עבודה ({jobKey}) - מטופלת כבר");
+                    return;
+                }
+
+                // עוצרים (אם המעקב המיידי לא עצר כבר), אלא אם זו בוודאות הדפסה שהעמדה שלחה אחרי חיוב
+                var paused = alreadyPaused || (!PrepaidJobs.ContainsKey(document) && TryPauseJob(printerName, jobId));
+                pages = await WaitForSpoolingAsync(printerName, jobId, pages);
+
+                // השם הסופי של העבודה: ברגע היצירה Windows נותן שם זמני ("מסמך מקומי ברמה תחתונה"),
+                // ורק אחר כך את השם האמיתי - ממנו מזהים הדפסה ששולמה מראש, ואותו מציגים בהיסטוריה
+                var finalName = ReadJobDocument(printerName, jobId);
+                if (!string.IsNullOrEmpty(finalName)) document = finalName;
+
                 // הדפסה ששולחת העמדה עצמה (עורך / אזור ההדפסות) שכבר אושרה וחויבה - לא שואלים ולא מחייבים שוב,
-                // רק עוקבים אחריה (תקלה ← ביטול + החזר)
+                // רק משחררים (אם נעצרה) ועוקבים אחריה (תקלה ← ביטול + החזר)
                 if (PrepaidJobs.TryRemove(document, out var prepaid))
                 {
-                    ChargedJobs.TryAdd($"{printerName}|{jobId}", DateTime.Now);
+                    if (paused) TryResumeJob(printerName, jobId);
                     _lastCharged = (printerName, jobId, prepaid.UserId, prepaid.TransactionId, DateTime.Now);
                     _lastChargedRefunded = false;
-                    App.LogInfo($"הדפסה: עבודה {jobId} מעורך הטקסט - כבר אושרה וחויבה");
+                    App.LogInfo($"הדפסה: עבודה {jobId} נשלחה מהעמדה - כבר אושרה וחויבה");
                     _ = WatchChargedJobAsync(printerName, jobId, prepaid.UserId, prepaid.TransactionId, _stopCts.Token);
                     return;
                 }
 
                 var userId = _getCurrentUserId();
-                if (string.IsNullOrEmpty(userId)) return; // אין משתמש מחובר כרגע (לא אמור לקרות, שכבת הגנה בלבד)
-
-                // ניקוי רשומות ישנות (מספרי עבודות מתאפסים כש-Windows מאתחל את שירות ההדפסה)
-                foreach (var old in ChargedJobs.Where(kv => DateTime.Now - kv.Value > TimeSpan.FromHours(2)).ToList())
-                    ChargedJobs.TryRemove(old.Key, out _);
-
-                var jobKey = $"{printerName}|{jobId}";
-                if (!ChargedJobs.TryAdd(jobKey, DateTime.Now))
+                if (string.IsNullOrEmpty(userId))
                 {
-                    App.LogInfo($"הדפסה: דיווח כפול על אותה עבודה ({jobKey}) - לא מחייבים שוב");
+                    // אין משתמש מחובר (לא אמור לקרות) - לא מדפיסים בלי חיוב
+                    TryCancelPrintJob(printerName, jobId);
                     return;
                 }
-                // עוצרים את העבודה בתור עד שהמשתמש מאשר את העלות (חלון האישור של הקיוסק)
-                var paused = alreadyPaused || TryPauseJob(printerName, jobId);
-                pages = await WaitForSpoolingAsync(printerName, jobId, pages);
                 var price = App.Session.Config?.PricePerPage ?? 0;
                 var cost = Math.Round(pages * price, 2);
                 var source = App.CurrentAppName ?? "הדפסה";
@@ -775,6 +785,8 @@ namespace KioskApp.Services
         {
             var t = System.Text.RegularExpressions.Regex.Replace(title ?? "", @"\s+", " ").Trim();
             if (t.StartsWith("קיוסק - ")) return "";
+            // שם זמני של Windows - לא שם של מסמך
+            if (t == "מסמך מקומי ברמה תחתונה" || t.Equals("Local Downlevel Document", StringComparison.OrdinalIgnoreCase)) return "";
             return t.Length > 80 ? t.Substring(0, 80) : t;
         }
 
@@ -823,6 +835,23 @@ namespace KioskApp.Services
                 await Task.Delay(500);
             }
             return Math.Max(1, pages);
+        }
+
+        /// <summary>שם המסמך הנוכחי של עבודה בתור (null אם כבר לא בתור)</summary>
+        private static string? ReadJobDocument(string printerName, int jobId)
+        {
+            try
+            {
+                using var printServer = new PrintServer();
+                using var queue = printServer.GetPrintQueue(printerName);
+                using var job = queue.GetJob(jobId);
+                job.Refresh();
+                return job.Name;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static bool TryPauseJob(string printerName, int jobId)
