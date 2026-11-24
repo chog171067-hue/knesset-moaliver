@@ -387,16 +387,19 @@ namespace KioskApp.Views
         /// <summary>מציג את כפתור "חיוב מכרטיס הוראת הקבע" רק למי שיש לו הוראה פעילה עם כרטיס בתוקף</summary>
         private async Task LoadKevaChargeAsync()
         {
-            if (_signup != null) return;
             var userId = App.Session.CurrentUser?.Id;
-            if (string.IsNullOrEmpty(userId)) return;
+            if (_signup == null && string.IsNullOrEmpty(userId)) return;
             try
             {
-                var info = await App.ApiClient.CheckKevaChargeAsync(userId);
+                var info = _signup != null
+                    ? await App.ApiClient.CheckKevaChargeForSignupAsync(_signup)
+                    : await App.ApiClient.CheckKevaChargeAsync(userId!);
                 if (!info.Eligible || !IsLoaded) return;
                 _keva = info;
                 KevaPayTitle.Text = $"חיוב מכרטיס הוראת הקבע (מסתיים ב-{info.Last4})";
-                KevaPaySubtitle.Text = $"חיוב בודד, בלי להקליד כרטיס. עד {info.MaxPerCharge:0.##} ₪ בכל פעם, עד {info.MaxPerDay:0.##} ₪ ביום";
+                KevaPaySubtitle.Text = _signup != null
+                    ? $"חיוב בודד של {info.Amount:0.##} ₪, בלי להקליד כרטיס"
+                    : $"חיוב בודד, בלי להקליד כרטיס. עד {info.MaxPerCharge:0.##} ₪ בכל פעם, עד {info.MaxPerDay:0.##} ₪ ביום";
                 KevaPayButton.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
@@ -409,7 +412,10 @@ namespace KioskApp.Views
         {
             HideError();
             if (_keva == null || !TryGetAmount(out var amount)) return;
-            var userId = App.Session.CurrentUser!.Id;
+            // פתיחת חשבון: הסכום הוא סכום הפתיחה, ואין עדיין חשבון לשמור בו את ההסכמה -
+            // היא ניתנת כאן ונשמרת בחשבון שנפתח
+            if (_signup != null) amount = _keva.Amount;
+            var userId = App.Session.CurrentUser?.Id ?? "";
 
             if (amount > _keva.MaxPerCharge)
             {
@@ -435,22 +441,26 @@ namespace KioskApp.Views
                     "החיוב הוא בנוסף להוראת הקבע, וההוראה עצמה לא משתנה.",
                     "אני מאשר", "ביטול");
                 if (!agree) return;
-                try
+                if (_signup == null)
                 {
-                    await App.ApiClient.SaveKevaChargeConsentAsync(userId);
-                    _keva.Consented = true;
-                }
-                catch (Exception ex)
-                {
-                    App.LogError("חיוב מהוראת קבע: שמירת ההסכמה נכשלה", ex);
-                    ShowError("לא ניתן לשמור את האישור כרגע. נסו שוב בעוד רגע.");
-                    return;
+                    try
+                    {
+                        await App.ApiClient.SaveKevaChargeConsentAsync(userId);
+                        _keva.Consented = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        App.LogError("חיוב מהוראת קבע: שמירת ההסכמה נכשלה", ex);
+                        ShowError("לא ניתן לשמור את האישור כרגע. נסו שוב בעוד רגע.");
+                        return;
+                    }
                 }
             }
 
             // אישור לכל חיוב
             var confirm = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "אישור חיוב",
-                $"לחייב {amount:0.##} ₪ בכרטיס המסתיים ב-{_keva.Last4}?\nהסכום ייטען ליתרה שלך בעמדה.",
+                $"לחייב {amount:0.##} ₪ בכרטיס המסתיים ב-{_keva.Last4}?\n" +
+                (_signup != null ? "החשבון ייפתח, והסכום ייטען ליתרה שלך בעמדה." : "הסכום ייטען ליתרה שלך בעמדה."),
                 $"חיוב {amount:0.##} ₪", "ביטול");
             if (!confirm) return;
 
@@ -461,7 +471,9 @@ namespace KioskApp.Views
             KevaChargeResult result;
             try
             {
-                result = await App.ApiClient.ChargeKevaAsync(userId, amount);
+                result = _signup != null
+                    ? await App.ApiClient.ChargeKevaForSignupAsync(_signup)
+                    : await App.ApiClient.ChargeKevaAsync(userId, amount);
             }
             catch (Exception ex)
             {
@@ -476,6 +488,12 @@ namespace KioskApp.Views
                 OnlinePayButton.IsEnabled = true;
             }
 
+            if (result.Success && _signup != null)
+            {
+                App.LogInfo($"פתיחת חשבון בחיוב מהוראת קבע: {result.Amount} ₪");
+                await ShowConfirmedAndCloseAsync(result.Amount);
+                return;
+            }
             if (result.Success)
             {
                 _keva.ChargedToday += result.Amount;
@@ -491,8 +509,11 @@ namespace KioskApp.Views
             if (result.Uncertain)
             {
                 KioskMessageDialog.ShowMessage(this, KioskMessageKind.Info, "לא התקבלה תשובה",
-                    "לא התקבלה תשובה מנדרים פלוס. אם החיוב בוצע - היתרה תתעדכן לבד תוך כמה דקות " +
-                    "(אפשר להתנתק ולהתחבר מחדש כדי לראות). אין לנסות שוב לפני שבודקים.");
+                    _signup != null
+                        ? "לא התקבלה תשובה מנדרים פלוס. אם החיוב בוצע - החשבון ייפתח לבד תוך כמה דקות, ואז אפשר להיכנס " +
+                          "עם תעודת הזהות והסיסמה שבחרתם. אין לנסות שוב לפני שבודקים."
+                        : "לא התקבלה תשובה מנדרים פלוס. אם החיוב בוצע - היתרה תתעדכן לבד תוך כמה דקות " +
+                          "(אפשר להתנתק ולהתחבר מחדש כדי לראות). אין לנסות שוב לפני שבודקים.");
                 Close();
                 return;
             }

@@ -222,10 +222,17 @@ namespace KioskApp.Core
         /// חיוב מכרטיס הוראת הקבע: האם למשתמש יש הוראת קבע פעילה במוסד הראשי עם כרטיס בתוקף.
         /// בכשל תקשורת מחזיר "לא זכאי" (הכפתור פשוט לא יוצג).
         /// </summary>
-        public async Task<KevaChargeInfo> CheckKevaChargeAsync(string userId, CancellationToken ct = default)
+        public Task<KevaChargeInfo> CheckKevaChargeAsync(string userId, CancellationToken ct = default) =>
+            CheckKevaChargeCoreAsync(new { action = "check", userId }, ct);
+
+        /// <summary>פתיחת חשבון: הוראת הקבע נמצאת לפי הת"ז והטלפון שהוקלדו. Amount = סכום הפתיחה</summary>
+        public Task<KevaChargeInfo> CheckKevaChargeForSignupAsync(SignupDetails signup, CancellationToken ct = default) =>
+            CheckKevaChargeCoreAsync(new { action = "check", signup = ToPayload(signup) }, ct);
+
+        private async Task<KevaChargeInfo> CheckKevaChargeCoreAsync(object payload, CancellationToken ct)
         {
             var (_, response) = await PostRawAsync<KevaChargeCheckResponse>(
-                "/.netlify/functions/library-station-keva-charge", new { action = "check", userId }, ct);
+                "/.netlify/functions/library-station-keva-charge", payload, ct);
             return new KevaChargeInfo
             {
                 Eligible = response.Success && response.Eligible && !string.IsNullOrEmpty(response.Last4),
@@ -233,7 +240,8 @@ namespace KioskApp.Core
                 Consented = response.Consented,
                 MaxPerCharge = response.MaxPerCharge,
                 MaxPerDay = response.MaxPerDay,
-                ChargedToday = response.ChargedToday
+                ChargedToday = response.ChargedToday,
+                Amount = response.Amount
             };
         }
 
@@ -246,10 +254,17 @@ namespace KioskApp.Core
         }
 
         /// <summary>חיוב בודד מכרטיס הוראת הקבע. לא זורק על סירוב - התוצאה מתארת אותו</summary>
-        public async Task<KevaChargeResult> ChargeKevaAsync(string userId, decimal amount, CancellationToken ct = default)
+        public Task<KevaChargeResult> ChargeKevaAsync(string userId, decimal amount, CancellationToken ct = default) =>
+            ChargeKevaCoreAsync(new { action = "charge", userId, amount }, ct);
+
+        /// <summary>פתיחת חשבון בחיוב סכום הפתיחה מכרטיס הוראת הקבע - החשבון נוצר בשרת אם החיוב הצליח</summary>
+        public Task<KevaChargeResult> ChargeKevaForSignupAsync(SignupDetails signup, CancellationToken ct = default) =>
+            ChargeKevaCoreAsync(new { action = "charge", signup = ToPayload(signup) }, ct);
+
+        private async Task<KevaChargeResult> ChargeKevaCoreAsync(object payload, CancellationToken ct)
         {
             var (_, response) = await PostRawAsync<KevaChargeResponse>(
-                "/.netlify/functions/library-station-keva-charge", new { action = "charge", userId, amount }, ct);
+                "/.netlify/functions/library-station-keva-charge", payload, ct);
             return new KevaChargeResult
             {
                 Success = response.Success,
@@ -550,6 +565,7 @@ namespace KioskApp.Core
             public decimal MaxPerCharge { get; set; }
             public decimal MaxPerDay { get; set; }
             public decimal ChargedToday { get; set; }
+            public decimal Amount { get; set; }
         }
 
         private class KevaChargeResponse : ApiEnvelope
