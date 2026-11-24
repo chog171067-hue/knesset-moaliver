@@ -70,6 +70,15 @@
                                    HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
+                <!-- רק למי שיש הוראת קבע פעילה במוסד עם כרטיס בתוקף (נבדק בשרת בפתיחת החלון) -->
+                <Button x:Name="KevaPayButton" Style="{StaticResource KioskSecondaryButton}"
+                        MinHeight="52" FontSize="17" Margin="0,10,0,0" Click="OnKevaPayClick" Visibility="Collapsed">
+                    <StackPanel Margin="0,6">
+                        <TextBlock x:Name="KevaPayTitle" Text="חיוב מכרטיס הוראת הקבע" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="KevaPaySubtitle" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource KioskAccentBrush}"
+                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource KioskDangerBrush}" FontWeight="SemiBold" FontSize="15"
                            TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0" Visibility="Collapsed" />
             </StackPanel>

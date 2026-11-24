@@ -218,6 +218,48 @@ namespace KioskApp.Core
             return new OnlinePaymentResult { Token = response.Token!, Url = response.Url!, Amount = response.Amount };
         }
 
+        /// <summary>
+        /// חיוב מכרטיס הוראת הקבע: האם למשתמש יש הוראת קבע פעילה במוסד הראשי עם כרטיס בתוקף.
+        /// בכשל תקשורת מחזיר "לא זכאי" (הכפתור פשוט לא יוצג).
+        /// </summary>
+        public async Task<KevaChargeInfo> CheckKevaChargeAsync(string userId, CancellationToken ct = default)
+        {
+            var (_, response) = await PostRawAsync<KevaChargeCheckResponse>(
+                "/.netlify/functions/library-station-keva-charge", new { action = "check", userId }, ct);
+            return new KevaChargeInfo
+            {
+                Eligible = response.Success && response.Eligible && !string.IsNullOrEmpty(response.Last4),
+                Last4 = response.Last4 ?? "",
+                Consented = response.Consented,
+                MaxPerCharge = response.MaxPerCharge,
+                MaxPerDay = response.MaxPerDay,
+                ChargedToday = response.ChargedToday
+            };
+        }
+
+        /// <summary>שמירת ההסכמה החד-פעמית לחיוב מכרטיס הוראת הקבע</summary>
+        public async Task SaveKevaChargeConsentAsync(string userId, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<ApiEnvelope>(
+                "/.netlify/functions/library-station-keva-charge", new { action = "consent", userId }, ct);
+            if (!response.Success) throw new KioskApiException(response.Error ?? "שמירת האישור נכשלה", statusCode);
+        }
+
+        /// <summary>חיוב בודד מכרטיס הוראת הקבע. לא זורק על סירוב - התוצאה מתארת אותו</summary>
+        public async Task<KevaChargeResult> ChargeKevaAsync(string userId, decimal amount, CancellationToken ct = default)
+        {
+            var (_, response) = await PostRawAsync<KevaChargeResponse>(
+                "/.netlify/functions/library-station-keva-charge", new { action = "charge", userId, amount }, ct);
+            return new KevaChargeResult
+            {
+                Success = response.Success,
+                Uncertain = response.Uncertain,
+                Error = response.Error,
+                Amount = response.Amount,
+                Balance = response.Balance
+            };
+        }
+
         private static object ToPayload(SignupDetails d) =>
             new { tz = d.Tz, displayName = d.DisplayName, phone = d.Phone, password = d.Password };
 
@@ -498,6 +540,23 @@ namespace KioskApp.Core
             public string? Token { get; set; }
             public string? Url { get; set; }
             public decimal Amount { get; set; }
+        }
+
+        private class KevaChargeCheckResponse : ApiEnvelope
+        {
+            public bool Eligible { get; set; }
+            public string? Last4 { get; set; }
+            public bool Consented { get; set; }
+            public decimal MaxPerCharge { get; set; }
+            public decimal MaxPerDay { get; set; }
+            public decimal ChargedToday { get; set; }
+        }
+
+        private class KevaChargeResponse : ApiEnvelope
+        {
+            public bool Uncertain { get; set; }
+            public decimal Amount { get; set; }
+            public decimal? Balance { get; set; }
         }
 
         private class KevaSnapshotResponse : ApiEnvelope
