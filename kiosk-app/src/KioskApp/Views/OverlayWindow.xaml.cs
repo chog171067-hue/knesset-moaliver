@@ -58,6 +58,8 @@ namespace KioskApp.Views
                 ? Visibility.Visible : Visibility.Collapsed;
             MemberTag.Visibility = App.Session.IsCommunityMember == true ? Visibility.Visible : Visibility.Collapsed;
             App.Session.BalanceChanged += OnSessionBalanceChanged;
+            PrintArea.Changed += UpdatePrintAreaBadge;
+            UpdatePrintAreaBadge();
 
             UpdateTimerText();
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -431,8 +433,33 @@ namespace KioskApp.Views
             });
         }
 
+        private void OnPrintAreaClick(object sender, RoutedEventArgs e)
+        {
+            new PrintAreaWindow { Owner = this }.ShowDialog();
+        }
+
+        private void UpdatePrintAreaBadge()
+        {
+            var count = PrintArea.Count;
+            PrintAreaCount.Text = count.ToString();
+            PrintAreaBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private async void OnLogoutClick(object sender, RoutedEventArgs e)
         {
+            // יש הדפסות שלא הודפסו - אזהרה לפני שהן נמחקות
+            var waiting = PrintArea.Count;
+            if (waiting > 0)
+            {
+                var logout = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "יש הדפסות באזור ההדפסות",
+                    $"יש לך {waiting} {(waiting == 1 ? "הדפסה" : "הדפסות")} שעוד לא {(waiting == 1 ? "הודפסה" : "הודפסו")}. בניתוק {(waiting == 1 ? "היא תימחק" : "הן יימחקו")}.",
+                    "ניתוק ומחיקה", "מעבר לאזור ההדפסות");
+                if (!logout)
+                {
+                    new PrintAreaWindow { Owner = this }.ShowDialog();
+                    return;
+                }
+            }
             LogoutButton.IsEnabled = false;
             _guardTimer?.Stop(); // סוגרים בכוונה - שהשומר לא "יחזיר" חלונות בזמן הסגירה
             if (_process != null)
@@ -460,6 +487,7 @@ namespace KioskApp.Views
         private void Cleanup()
         {
             App.Session.BalanceChanged -= OnSessionBalanceChanged;
+            PrintArea.Changed -= UpdatePrintAreaBadge;
             _clockTimer?.Stop();
             _guardTimer?.Stop();
             _gabaiTimer?.Stop();

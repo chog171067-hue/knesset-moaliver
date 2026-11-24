@@ -42,6 +42,29 @@ namespace KioskApp.Services
         public static bool PdfPrinterAvailable() =>
             PrinterSettings.InstalledPrinters.Cast<string>().Any(p => p.Equals(PdfPrinterName, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>המסמך מהעורך כנתונים (לאזור ההדפסות - נשלח למדפסת רק כשמדפיסים)</summary>
+        public static byte[] SaveDocument(FlowDocument source)
+        {
+            using var ms = new MemoryStream();
+            new TextRange(source.ContentStart, source.ContentEnd).Save(ms, DataFormats.XamlPackage);
+            return ms.ToArray();
+        }
+
+        /// <summary>מסמך מהנתונים שנשמרו (SaveDocument), בגופן ובכיוון של העורך</summary>
+        public static FlowDocument LoadDocument(byte[] data)
+        {
+            var doc = new FlowDocument
+            {
+                FontFamily = new FontFamily("David, Arial"),
+                FontSize = 14 * 96.0 / 72.0,
+                FlowDirection = FlowDirection.RightToLeft,
+                TextAlignment = TextAlignment.Left
+            };
+            using var ms = new MemoryStream(data);
+            new TextRange(doc.ContentStart, doc.ContentEnd).Load(ms, DataFormats.XamlPackage);
+            return doc;
+        }
+
         /// <summary>עותק של המסמך מעובד לעמודי A4 (המקור בעורך לא משתנה)</summary>
         public static FlowDocument CloneForPrint(FlowDocument source)
         {

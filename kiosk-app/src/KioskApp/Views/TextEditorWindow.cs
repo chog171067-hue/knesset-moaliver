@@ -290,6 +290,13 @@ namespace KioskApp.Views
             _editor.Document = doc;
         }
 
+        /// <summary>השורה הראשונה בטקסט (לשם ההדפסה באזור ההדפסות / בהיסטוריה)</summary>
+        private string FirstLine()
+        {
+            var line = PlainText.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "";
+            return line.Length > 40 ? line.Substring(0, 40) + "…" : line;
+        }
+
         private string PlainText => new TextRange(_editor.Document.ContentStart, _editor.Document.ContentEnd).Text;
 
         private bool IsEmpty => string.IsNullOrWhiteSpace(PlainText);
@@ -499,7 +506,24 @@ namespace KioskApp.Views
             {
                 // אישור (עמודים + סכום) וחיוב - לפני ששולחים להדפסה
                 var pages = TextPrinter.CountPages(_editor.Document);
-                documentName = await monitor.PrepayAsync(printer, pages);
+                var title = FirstLine();
+                var (docName, addedToArea) = await monitor.PrepayAsync(printer, pages, string.IsNullOrEmpty(title) ? "עורך טקסט" : $"עורך טקסט - {title}");
+                if (addedToArea)
+                {
+                    PrintArea.Add(new PrintAreaItem
+                    {
+                        Kind = PrintAreaItemKind.EditorDocument,
+                        Title = title,
+                        Source = "עורך טקסט",
+                        Pages = pages,
+                        DocumentData = TextPrinter.SaveDocument(_editor.Document)
+                    });
+                    ShowStatus("נוסף לאזור ההדפסות.", isError: false);
+                    await KioskMessageDialog.ShowTimedAsync(this, KioskMessageKind.Success, "נוסף לאזור ההדפסות",
+                        "אפשר להדפיס אותו מתי שרוצים - מהלשונית ← \"אזור הדפסות\"", 2.5);
+                    return;
+                }
+                documentName = docName;
                 if (documentName == null)
                 {
                     ShowStatus("ההדפסה בוטלה.", isError: false);

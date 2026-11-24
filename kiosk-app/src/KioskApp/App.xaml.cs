@@ -130,6 +130,9 @@ namespace KioskApp
         // --- שירותים שפועלים לאורך כל ההתחברות (לא רק כשתוכנה פתוחה) ---
         private static PrintMonitorService? _printMonitor;
 
+        /// <summary>שם התוכנה שפתוחה כרגע (למקור ההדפסה באזור ההדפסות / בהיסטוריה). null = אין</summary>
+        public static string? CurrentAppName { get; set; }
+
         /// <summary>מעקב ההדפסות של ההתחברות הנוכחית (null אם אין משתמש מחובר)</summary>
         public static PrintMonitorService? PrintMonitor => _printMonitor;
 
@@ -236,6 +239,7 @@ namespace KioskApp
                     overlay.StopGuard(); // שהשומר לא "יחזיר" חלונות של תוכנות שנסגרות
                 }
                 await ChargeUsedMinutesAsync();
+                PrintArea.Clear(); // הדפסות שלא הודפסו - נמחקות (עבודות שעצורות בתור מבוטלות)
                 StopSessionServices();
                 await ProcessLauncher.CloseAllTrackedAsync();
                 await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)

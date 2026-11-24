@@ -147,6 +147,7 @@ namespace KioskApp.Views
             try
             {
                 var process = ProcessLauncher.Launch(app.ExePath);
+                App.CurrentAppName = app.DisplayName;
 
                 var overlay = new OverlayWindow();
                 Application.Current.MainWindow = overlay;
@@ -167,6 +168,7 @@ namespace KioskApp.Views
         /// <summary>נקרא מה-Overlay כשהמשתמש בוחר "החלפת תוכנה" - חוזרים למסך הזה בלי להתנתק.</summary>
         public void ShowAgain()
         {
+            App.CurrentAppName = null;
             PopulateApps();
             Show();
             Application.Current.MainWindow = this;

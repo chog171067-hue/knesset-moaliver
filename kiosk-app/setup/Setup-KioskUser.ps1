@@ -232,6 +232,13 @@ foreach ($d in $fixedDrives) {
 icacls "C:\Users\Public" /deny "*${sid}:(OI)(CI)(W,D,DC)" | Out-Null
 Write-Host "  $KioskUsername cannot write to C:\Users\Public" -ForegroundColor Green
 
+# --- מדפסות: "להתחיל להדפיס רק אחרי שהעמוד האחרון נכנס לתור" - נותן לקיוסק זמן לעצור את העבודה
+#     (לאישור וחיוב) לפני שעמוד מגיע למדפסת. מדפסות PDF / XPS / OneNote / Fax - לא נוגעים.
+Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch 'PDF|XPS|OneNote|Fax' } | ForEach-Object {
+    rundll32 printui.dll,PrintUIEntry /Xs /n "$($_.Name)" attributes +queued
+    Write-Host "  Printer '$($_.Name)': start printing after the last page is spooled" -ForegroundColor Green
+}
+
 # --- 4. התחברות אוטומטית, ו-Shell רגיל לכל המחשב (מתקן גם התקנה ישנה) ---
 $winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 Set-ItemProperty -Path $winlogon -Name "Shell" -Value "explorer.exe" -Type String

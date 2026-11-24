@@ -427,7 +427,7 @@ namespace KioskApp.Services
         }
 
         /// <summary>
-        /// סוגר חלונות "מצב הדפסה" של הדרייבר של המדפסת (Samsung): הם מציגים "שגיאה" כל עוד
+        /// מסתיר חלונות "מצב הדפסה" של הדרייבר של המדפסת (Samsung): הם מציגים "שגיאה" כל עוד
         /// העבודה עצורה לאישור בחלון של הקיוסק, ומבלבלים. תקלה אמיתית בהדפסה מטופלת בחלון של
         /// הקיוסק (ביטול + החזר כסף).
         /// </summary>
@@ -457,7 +457,9 @@ namespace KioskApp.Services
                     App.LogInfo($"נסגר חלון של דרייבר המדפסת: \"{t}\" | טקסט: {text} | תקלה: {(problem == null ? "אין" : problem.Split('\n')[0])}");
                     if (problem != null) DriverProblemDetected?.Invoke(problem);
                 }
-                PostMessage(hWnd, WmClose, IntPtr.Zero, IntPtr.Zero);
+                // מסתירים - לא סוגרים: חלון "מדפיס..." של הדרייבר (עם "Cancel") - סגירה שלו ביטלה לפעמים
+                // את ההדפסה עצמה (אוצר החכמה: "לוחצים הדפסה ולא קורה כלום")
+                ShowWindow(hWnd, SwHide);
                 return true;
             }, IntPtr.Zero);
             if (ClosedDriverPopups.Count > 200) ClosedDriverPopups.Clear();
@@ -739,6 +741,7 @@ namespace KioskApp.Services
         private const int GwlStyle = -16;
         private const int GwlExStyle = -20;
         private const int SwRestore = 9;
+        private const int SwHide = 0;
         private const int SmCxScreen = 0;
         private const int SmCyScreen = 1;
         private const int DwmwaCloaked = 14;

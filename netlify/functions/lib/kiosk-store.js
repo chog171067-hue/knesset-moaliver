@@ -551,7 +551,11 @@ async function addManualBalance(event, { userId, amount, description, performedB
 // משתמש יעברו את הבדיקה שתיהן על סמך אותה יתרה ישנה. במקרה של יתרה לא
 // מספיקה זורקים שגיאה מסומנת (err.insufficientFunds) לפני כל כתיבה בפועל -
 // כך שגם לא מתבזבזת כתיבה מיותרת על "אין שינוי".
-async function chargeForPrint(event, { userId, pages }) {
+function cleanPrintTitle(title) {
+  return String(title || '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+async function chargeForPrint(event, { userId, pages, title }) {
   const numericPages = Number(pages);
   if (!Number.isInteger(numericPages) || numericPages <= 0) {
     throw new Error('מספר עמודים לא תקין');
@@ -582,7 +586,8 @@ async function chargeForPrint(event, { userId, pages }) {
     type: 'charge',
     source: 'print',
     amount: cost,
-    description: `הדפסת ${numericPages} עמודים`,
+    // title - מה הודפס (למשל "אוצר החכמה - שם המסמך"), להיסטוריית ההדפסות בעמדה
+    description: `הדפסת ${numericPages} עמודים` + (cleanPrintTitle(title) ? ` - ${cleanPrintTitle(title)}` : ''),
     pages: numericPages
   });
 

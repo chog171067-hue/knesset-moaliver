@@ -237,10 +237,10 @@ namespace KioskApp.Core
         /// מספיקה - זה מצב צפוי (לא תקלה), והקורא אמור לתפוס אותו בנפרד כדי להציג
         /// ישירות את מסך "הטענת כסף" עם היתרה/העלות המדויקים.
         /// </summary>
-        public async Task<ChargeResult> ChargePrintAsync(string userId, int pages, CancellationToken ct = default)
+        public async Task<ChargeResult> ChargePrintAsync(string userId, int pages, string? title = null, CancellationToken ct = default)
         {
             var (statusCode, response) = await PostRawAsync<ChargeResponse>(
-                "/.netlify/functions/library-print-charge", new { userId, pages }, ct);
+                "/.netlify/functions/library-print-charge", new { userId, pages, title }, ct);
 
             if (statusCode == 402 || response.InsufficientFunds)
             {
