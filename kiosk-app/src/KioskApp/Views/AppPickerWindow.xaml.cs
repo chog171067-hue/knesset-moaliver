@@ -14,6 +14,8 @@ namespace KioskApp.Views
             App.KeepFullScreen(this);
             Loaded += (_, _) => { PopulateApps(); ShowTab(); };
             Closed += (_, _) => CloseTab();
+            // מסך הבחירה לעולם לא אמור להיות מעל עורך הטקסט כשהעורך פתוח
+            Activated += (_, _) => TextEditorWindow.RaiseIfShowing();
         }
 
         // הלשונית הצפה (שם, זמן, יתרה, הודעה לגבאי, ניתוק...) גם במסך הזה
