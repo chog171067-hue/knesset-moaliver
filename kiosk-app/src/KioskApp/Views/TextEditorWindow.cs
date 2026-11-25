@@ -49,12 +49,31 @@ namespace KioskApp.Views
         /// <param name="backLabel">לא בשימוש (נשמר לתאימות) - היציאה היא "סגירת העורך"</param>
         public static void ShowEditor(string backLabel)
         {
-            _instance ??= new TextEditorWindow();
-            _instance.Show();
-            App.BringToFront(_instance);
-            _instance._editor.Focus();
-            OverlayWindow.RaiseAllTabs(); // הלשונית הצפה - מעל העורך
+            try
+            {
+                // חלון שנסגר בפועל (לא רק הוסתר) אי אפשר להציג שוב - פותחים חדש
+                if (_instance != null && _instance._closed)
+                {
+                    App.LogInfo("עורך טקסט: החלון הקודם נסגר - נפתח חלון חדש");
+                    _instance = null;
+                }
+                _instance ??= new TextEditorWindow();
+                App.LogInfo($"עורך טקסט: פתיחה (מוצג: {_instance.IsVisible}, מצב: {_instance.WindowState})");
+                _instance.Show();
+                App.BringToFront(_instance);
+                _instance._editor.Focus();
+                OverlayWindow.RaiseAllTabs(); // הלשונית הצפה - מעל העורך
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: פתיחה נכשלה - נפתח חלון חדש", ex);
+                _instance = new TextEditorWindow();
+                _instance.Show();
+                App.BringToFront(_instance);
+            }
         }
+
+        private bool _closed;
 
         /// <summary>בניתוק: סוגר את העורך ומוחק את הטקסט - המשתמש הבא מתחיל בעמוד ריק.</summary>
         public static void EndSession()
@@ -268,9 +287,12 @@ namespace KioskApp.Views
             Closing += (_, e) =>
             {
                 if (_closingForSessionEnd) return;
+                App.LogInfo("עורך טקסט: בקשת סגירה - מוסתר במקום");
                 e.Cancel = true;
                 Hide();
             };
+            Closed += (_, _) => _closed = true;
+            IsVisibleChanged += (_, _) => App.LogInfo($"עורך טקסט: {(IsVisible ? "מוצג" : "הוסתר")}");
         }
 
         private static T Res<T>(string key) => (T)Application.Current.Resources[key];
@@ -547,11 +569,24 @@ namespace KioskApp.Views
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
             if (IsEmpty) return;
-            if (KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "ניקוי", "למחוק את כל הטקסט?", "מחיקה", "ביטול"))
+            var clear = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "ניקוי", "למחוק את כל הטקסט?", "מחיקה", "ביטול");
+            // העורך נשאר מעל מסך בחירת התוכנות גם אחרי סגירת ההודעה
+            App.BringToFront(this);
+            OverlayWindow.RaiseAllTabs();
+            if (clear)
             {
-                ResetDocument();
-                UpdateToolbar();
-                UpdatePageCount();
+                try
+                {
+                    ResetDocument();
+                    UpdateToolbar();
+                    UpdateWordCount();
+                    UpdatePageCount();
+                    App.LogInfo("עורך טקסט: הטקסט נוקה");
+                }
+                catch (Exception ex)
+                {
+                    App.LogError("עורך טקסט: ניקוי נכשל", ex);
+                }
             }
             _editor.Focus();
         }
