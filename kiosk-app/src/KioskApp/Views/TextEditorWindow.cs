@@ -57,6 +57,13 @@ namespace KioskApp.Views
                     App.LogInfo("עורך טקסט: החלון הקודם נסגר - נפתח חלון חדש");
                     _instance = null;
                 }
+                // לחיצה על "עורך טקסט" כשהעורך "מוצג" אבל המשתמש לא רואה אותו (נתקע מאחורי מסך
+                // בחירת התוכנות) - פותחים חלון חדש עם אותו טקסט, במקום לנסות להקפיץ את הישן
+                if (_instance != null && _instance.IsVisible)
+                {
+                    App.LogInfo("עורך טקסט: פתיחה כשהעורך כבר מוצג - נפתח מחדש עם אותו טקסט");
+                    _instance = _instance.Recreate();
+                }
                 _instance ??= new TextEditorWindow();
                 App.LogInfo($"עורך טקסט: פתיחה (מוצג: {_instance.IsVisible}, מצב: {_instance.WindowState})");
                 _instance.Show();
@@ -74,6 +81,33 @@ namespace KioskApp.Views
         }
 
         private bool _closed;
+
+        /// <summary>חלון עורך חדש עם הטקסט, שם הקובץ והקבצים שנשמרו - והישן נסגר</summary>
+        private TextEditorWindow Recreate()
+        {
+            var fresh = new TextEditorWindow();
+            try
+            {
+                var data = TextPrinter.SaveDocument(_editor.Document);
+                fresh.ResetDocument();
+                using var ms = new System.IO.MemoryStream(data);
+                new TextRange(fresh._editor.Document.ContentStart, fresh._editor.Document.ContentEnd)
+                    .Load(ms, DataFormats.XamlPackage);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: העברת הטקסט לחלון החדש נכשלה", ex);
+            }
+            fresh._lastFileName = _lastFileName;
+            foreach (var kv in _savedThisSession) fresh._savedThisSession[kv.Key] = kv.Value;
+            _closingForSessionEnd = true;
+            _countTimer.Stop();
+            try { Close(); } catch { }
+            fresh.UpdateToolbar();
+            fresh.UpdateWordCount();
+            fresh.UpdatePageCount();
+            return fresh;
+        }
 
         /// <summary>בניתוק: סוגר את העורך ומוחק את הטקסט - המשתמש הבא מתחיל בעמוד ריק.</summary>
         public static void EndSession()
@@ -216,7 +250,7 @@ namespace KioskApp.Views
             // הדבקה - כטקסט נקי (בלי צבעים/גופנים/טבלאות מהתוכנה שממנה העתיקו)
             DataObject.AddPastingHandler(_editor, OnPasting);
             _editor.SelectionChanged += (_, _) => UpdateToolbar();
-            _editor.TextChanged += (_, _) => { _countTimer.Stop(); _countTimer.Start(); UpdateWordCount(); };
+            _editor.TextChanged += (_, _) => { _countTimer.Stop(); _countTimer.Start(); UpdateWordCount(); if (_clearArmed) DisarmClear(); };
             _countTimer.Tick += (_, _) => { _countTimer.Stop(); UpdatePageCount(); };
 
             var page = new Border
@@ -566,29 +600,71 @@ namespace KioskApp.Views
             }
         }
 
+        // "ניקוי" בלי חלון הודעה (חלון הודעה מעל העורך גרם לו להיתקע מאחורי מסך בחירת התוכנות):
+        // לחיצה ראשונה - הכפתור הופך ל"לחצו שוב למחיקה" לכמה שניות; לחיצה שנייה - מוחקת.
+        private Button? _clearButton;
+        private DispatcherTimer? _clearConfirmTimer;
+        private bool _clearArmed;
+
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
-            if (IsEmpty) return;
-            var clear = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "ניקוי", "למחוק את כל הטקסט?", "מחיקה", "ביטול");
-            // העורך נשאר מעל מסך בחירת התוכנות גם אחרי סגירת ההודעה
-            App.BringToFront(this);
-            OverlayWindow.RaiseAllTabs();
-            if (clear)
+            _clearButton ??= sender as Button;
+            if (IsEmpty && !_clearArmed) return;
+
+            if (!_clearArmed)
             {
-                try
+                _clearArmed = true;
+                if (_clearButton != null)
                 {
-                    ResetDocument();
-                    UpdateToolbar();
-                    UpdateWordCount();
-                    UpdatePageCount();
-                    App.LogInfo("עורך טקסט: הטקסט נוקה");
+                    _clearButton.Content = "לחצו שוב למחיקה";
+                    _clearButton.Style = Res<Style>("KioskDangerButton");
                 }
-                catch (Exception ex)
-                {
-                    App.LogError("עורך טקסט: ניקוי נכשל", ex);
-                }
+                ShowStatus("למחוק את כל הטקסט? לחצו שוב על \"לחצו שוב למחיקה\" (או המשיכו לכתוב כדי לבטל).", isError: true);
+                _clearConfirmTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+                _clearConfirmTimer.Tick -= OnClearConfirmTimeout;
+                _clearConfirmTimer.Tick += OnClearConfirmTimeout;
+                _clearConfirmTimer.Stop();
+                _clearConfirmTimer.Start();
+                return;
+            }
+
+            DisarmClear();
+            try
+            {
+                // מוחקים את התוכן (לא מחליפים את המסמך עצמו) ומחזירים את עיצוב ברירת המחדל
+                var doc = _editor.Document;
+                doc.Blocks.Clear();
+                doc.Blocks.Add(new Paragraph());
+                doc.FontFamily = new FontFamily("David, Arial");
+                doc.FontSize = PtToDip(DefaultFontPt);
+                doc.TextAlignment = TextAlignment.Left;
+                _editor.CaretPosition = doc.ContentStart;
+                UpdateToolbar();
+                UpdateWordCount();
+                UpdatePageCount();
+                ShowStatus("הטקסט נמחק.", isError: false);
+                App.LogInfo("עורך טקסט: הטקסט נוקה");
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: ניקוי נכשל", ex);
             }
             _editor.Focus();
+        }
+
+        private void OnClearConfirmTimeout(object? sender, EventArgs e) => DisarmClear();
+
+        private void DisarmClear()
+        {
+            _clearConfirmTimer?.Stop();
+            if (!_clearArmed) return;
+            _clearArmed = false;
+            if (_clearButton != null)
+            {
+                _clearButton.Content = "ניקוי";
+                _clearButton.Style = Res<Style>("KioskSecondaryButton");
+            }
+            _status.Text = "";
         }
 
         private void OnSaveClick(object sender, RoutedEventArgs e)
