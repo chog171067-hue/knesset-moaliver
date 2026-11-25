@@ -625,6 +625,27 @@ namespace KioskApp.Services
         /// מרשות רק עותק אחד: עותק תקוע גורם לכל הפעלה חדשה "להיתקע" במסך הפתיחה.
         /// מחזיר כמה תהליכים נסגרו.
         /// </summary>
+        /// <summary>
+        /// סגירה "סבלנית" ברקע אחרי שהמשתמש יצא מהתוכנה: נותנים לתהליכים שלה זמן להיסגר לבד
+        /// (תוכנות כמו אוצר החכמה שומרות את המצב - ספרים פתוחים, מיקום - רק בסוף הסגירה, וסגירה
+        /// בכוח באמצע מאבדת אותו). רק מה שנשאר אחרי maxWait נסגר בכוח (עותק תקוע חוסם הפעלה חוזרת).
+        /// </summary>
+        public static async Task<int> WaitThenKillProcessesFromAsync(string? folder, DateTime closedAt, TimeSpan maxWait)
+        {
+            var deadline = DateTime.Now + maxWait;
+            while (DateTime.Now < deadline)
+            {
+                var remaining = ProcessesFrom(folder);
+                var any = remaining.Any(p => { try { return p.StartTime < closedAt; } catch { return false; } });
+                foreach (var p in remaining) p.Dispose();
+                if (!any) return 0;
+                await Task.Delay(500);
+            }
+            var killed = KillProcessesFrom(folder, closedAt);
+            if (killed > 0) App.LogInfo($"סגירת התוכנה: {killed} תהליכים לא נסגרו לבד תוך {maxWait.TotalSeconds:0} שניות - נסגרו בכוח ({folder})");
+            return killed;
+        }
+
         public static int KillProcessesFrom(string? folder, DateTime? startedBefore = null)
         {
             var killed = 0;

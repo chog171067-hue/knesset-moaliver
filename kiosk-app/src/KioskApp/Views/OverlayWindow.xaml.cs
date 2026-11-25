@@ -409,10 +409,12 @@ namespace KioskApp.Views
             ReturnToPicker();
             try
             {
-                if (process != null) await ProcessLauncher.CloseGracefullyAsync(process, TimeSpan.FromSeconds(2));
+                // סגירה רגילה, עם זמן לשמור את המצב (ספרים פתוחים וכו') - כדי שבפתיחה הבאה בהתחברות
+                // הזו התוכנה תחזור בדיוק לאיפה שהייתה. האיפוס נעשה רק בניתוק.
+                if (process != null) await ProcessLauncher.CloseGracefullyAsync(process, TimeSpan.FromSeconds(15));
                 await WindowGuard.CloseUserAppsAsync(); // גם חלונות שנפתחו בתהליכים אחרים (Launcher)
                 // תהליכים של התוכנה שנשארו בלי חלון (למשל אוצר החכמה) - שלא יחסמו הפעלה חוזרת
-                await System.Threading.Tasks.Task.Run(() => WindowGuard.KillProcessesFrom(folder, closedAt));
+                await WindowGuard.WaitThenKillProcessesFromAsync(folder, closedAt, TimeSpan.FromSeconds(20));
             }
             catch (Exception ex)
             {
@@ -426,9 +428,10 @@ namespace KioskApp.Views
             var folder = _appFolder;
             var closedAt = DateTime.Now;
             ReturnToPicker();
-            _ = System.Threading.Tasks.Task.Run(() =>
+            _ = System.Threading.Tasks.Task.Run(async () =>
             {
-                try { WindowGuard.KillProcessesFrom(folder, closedAt); }
+                // התוכנה עוד שומרת את המצב שלה - נותנים לה להסתיים לבד, ורק אחר כך סוגרים בכוח
+                try { await WindowGuard.WaitThenKillProcessesFromAsync(folder, closedAt, TimeSpan.FromSeconds(20)); }
                 catch (Exception ex) { App.LogError("סגירת תהליכים שנשארו מהתוכנה", ex); }
             });
         }
