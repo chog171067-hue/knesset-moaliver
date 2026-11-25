@@ -588,7 +588,8 @@
                     <div class="form-grid">
                         <div class="field"><label>קישור לדף ההצטרפות בנדרים פלוס</label><input type="url" id="libCommunityJoinUrl" placeholder="https://nedar.im/..." dir="ltr"></div>
                         <div class="field"><label>קטגוריית הוראת הקבע</label><input type="text" id="libMemberKevaGroupe" placeholder="דמי חבר"></div>
-                        <div class="field"><label>סכום מינימלי להוראת הקבע (₪)</label><input type="number" step="1" min="0" id="libMemberKevaMinAmount"></div>
+                        <div class="field"><label>סכום חודשי מינימלי להוראת הקבע (₪)</label><input type="number" step="1" min="0" id="libMemberKevaMinAmount"></div>
+                        <div class="field"><label>מספר תשלומים מינימלי (הוראה ללא הגבלה תמיד עוברת)</label><input type="number" step="1" min="0" id="libMemberKevaMinPayments"></div>
                     </div>
                     <button class="btn" id="libSaveSignupBtn" onclick="saveLibrarySignupAmount()" style="width:auto; padding:10px 22px;">שמירת הגדרות פתיחת חשבון</button>
                     <div class="form-error" id="libSignupError"></div>
@@ -2292,6 +2293,7 @@ if (!/^[0-9]{5,9}$/.test(username)) {
             document.getElementById('libCommunityJoinUrl').value = result.config.communityJoinUrl || '';
             document.getElementById('libMemberKevaGroupe').value = result.config.memberKevaGroupe || '';
             document.getElementById('libMemberKevaMinAmount').value = result.config.memberKevaMinAmount != null ? result.config.memberKevaMinAmount : 100;
+            document.getElementById('libMemberKevaMinPayments').value = result.config.memberKevaMinPayments != null ? result.config.memberKevaMinPayments : 12;
             libraryAppsDraft = (result.config.allowedApps || []).map(a => ({ ...a }));
             renderLibraryAppsTable();
         } catch (err) {
@@ -2338,7 +2340,8 @@ if (!/^[0-9]{5,9}$/.test(username)) {
                     usagePricePerMinute: Number(document.getElementById('libUsagePricePerMinute').value),
                     communityJoinUrl: document.getElementById('libCommunityJoinUrl').value.trim(),
                     memberKevaGroupe: document.getElementById('libMemberKevaGroupe').value.trim(),
-                    memberKevaMinAmount: Number(document.getElementById('libMemberKevaMinAmount').value)
+                    memberKevaMinAmount: Number(document.getElementById('libMemberKevaMinAmount').value),
+                    memberKevaMinPayments: Number(document.getElementById('libMemberKevaMinPayments').value)
                 })
             });
             successDiv.innerText = '✅ ההגדרות נשמרו.';

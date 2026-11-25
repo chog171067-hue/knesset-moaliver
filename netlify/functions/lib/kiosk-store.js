@@ -33,7 +33,8 @@ const MAX_WRITE_ATTEMPTS = 8;
 // passwordResetPhone: מספר הטלפון של שחזור הסיסמה בימות המשיח, מוצג במסך הכניסה בעמדה
 // signupAmount: ההטענה הראשונה שנדרשת כדי לפתוח חשבון בעמדה (נכנסת כולה ליתרה)
 // communityJoinUrl: דף נדרים פלוס להקמת הוראת קבע "דמי חבר" (ריק = בלי כפתור הצטרפות)
-// memberKevaGroupe / memberKevaMinAmount: איזו הוראת קבע מזכה בחברות מיידית (עד עדכון הקובץ)
+// memberKevaGroupe / memberKevaMinAmount / memberKevaMinPayments: איזו הוראת קבע מזכה בחברות
+// מיידית (עד עדכון הקובץ) - קטגוריה, סכום חודשי מינימלי, ומספר תשלומים מינימלי (או ללא הגבלה)
 const DEFAULT_CONFIG = {
   pricePerPage: 0.2,
   allowedApps: [],
@@ -43,6 +44,7 @@ const DEFAULT_CONFIG = {
   communityJoinUrl: 'https://nedar.im/icYF',
   memberKevaGroupe: 'דמי חבר',
   memberKevaMinAmount: 100,
+  memberKevaMinPayments: 12,
   // חיוב על זמן שימוש בעמדה (לא לחברי קהילה): לדקה, נגבה בסוף כל 10 דקות
   usagePricePerMinute: 0.2
 };
@@ -722,6 +724,10 @@ async function updateConfig(event, patch) {
     const min = Number(patch.memberKevaMinAmount);
     if (!Number.isFinite(min) || min < 0) throw new Error('הסכום המינימלי להוראת הקבע חייב להיות מספר לא שלילי');
   }
+  if (patch.memberKevaMinPayments !== undefined) {
+    const n = Number(patch.memberKevaMinPayments);
+    if (!Number.isInteger(n) || n < 0) throw new Error('מספר התשלומים המינימלי חייב להיות מספר שלם לא שלילי');
+  }
   if (patch.usagePricePerMinute !== undefined) {
     const p = Number(patch.usagePricePerMinute);
     if (!Number.isFinite(p) || p < 0) throw new Error('תעריף השימוש לדקה חייב להיות מספר לא שלילי');
@@ -743,6 +749,7 @@ async function updateConfig(event, patch) {
     if (joinUrl !== undefined) config.communityJoinUrl = joinUrl;
     if (patch.memberKevaGroupe !== undefined) config.memberKevaGroupe = String(patch.memberKevaGroupe || '').trim();
     if (patch.memberKevaMinAmount !== undefined) config.memberKevaMinAmount = Number(patch.memberKevaMinAmount);
+    if (patch.memberKevaMinPayments !== undefined) config.memberKevaMinPayments = Number(patch.memberKevaMinPayments);
     if (patch.usagePricePerMinute !== undefined) config.usagePricePerMinute = Number(patch.usagePricePerMinute);
     config.updatedAt = new Date().toISOString();
     return { ...DEFAULT_CONFIG, ...config };

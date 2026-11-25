@@ -4,7 +4,7 @@
 //    קיימות לת"ז. רק הוראה *חדשה* תיחשב - הוראות ישנות של מי שהושמט מהקובץ לא
 //    מחזירות לו חברות (הקובץ קובע לגביהן).
 // 2. { tz, knownKevaIds } - אחרי הדף: בודק אם נוספה הוראת קבע "דמי חבר" פעילה
-//    (קטגוריה וסכום מינימלי לפי הגדרות הקיוסק). אם כן - נרשמת חברות זמנית עד העלאת
+//    (קטגוריה, סכום חודשי מינימלי ומספר תשלומים מינימלי לפי הגדרות הקיוסק). אם כן - נרשמת חברות זמנית עד העלאת
 //    קובץ התורמים הבא (ראו getKioskMembership ב-lib/community.js).
 //
 // תשובה: { success, kevaIds } / { success, isCommunityMember }
@@ -42,6 +42,7 @@ exports.handler = async function (event) {
       fetchKevot: fetchAllKevot,
       groupe: config.memberKevaGroupe,
       minAmount: config.memberKevaMinAmount,
+      minPayments: config.memberKevaMinPayments,
       excludeKevaIds: Array.isArray(knownKevaIds) ? knownKevaIds : []
     });
     if (membership.joinedNow) console.log(`[member-check] חברות זמנית נרשמה אחרי הקמת הוראת קבע (ת"ז מסתיימת ב-${cleanTz.slice(-3)})`);
