@@ -57,6 +57,13 @@ namespace KioskApp.Views
                     App.LogInfo("עורך טקסט: החלון הקודם נסגר - נפתח חלון חדש");
                     _instance = null;
                 }
+                // לחיצה על "עורך טקסט" כשהעורך "מוצג" אבל המשתמש לא רואה אותו (נתקע מאחורי מסך
+                // בחירת התוכנות) - פותחים חלון חדש עם אותו טקסט, במקום לנסות להקפיץ את הישן
+                if (_instance != null && _instance.IsVisible)
+                {
+                    App.LogInfo("עורך טקסט: פתיחה כשהעורך כבר מוצג - נפתח מחדש עם אותו טקסט");
+                    _instance = _instance.Recreate();
+                }
                 _instance ??= new TextEditorWindow();
                 App.LogInfo($"עורך טקסט: פתיחה (מוצג: {_instance.IsVisible}, מצב: {_instance.WindowState})");
                 _instance.Show();
@@ -74,6 +81,33 @@ namespace KioskApp.Views
         }
 
         private bool _closed;
+
+        /// <summary>חלון עורך חדש עם הטקסט, שם הקובץ והקבצים שנשמרו - והישן נסגר</summary>
+        private TextEditorWindow Recreate()
+        {
+            var fresh = new TextEditorWindow();
+            try
+            {
+                var data = TextPrinter.SaveDocument(_editor.Document);
+                fresh.ResetDocument();
+                using var ms = new System.IO.MemoryStream(data);
+                new TextRange(fresh._editor.Document.ContentStart, fresh._editor.Document.ContentEnd)
+                    .Load(ms, DataFormats.XamlPackage);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("עורך טקסט: העברת הטקסט לחלון החדש נכשלה", ex);
+            }
+            fresh._lastFileName = _lastFileName;
+            foreach (var kv in _savedThisSession) fresh._savedThisSession[kv.Key] = kv.Value;
+            _closingForSessionEnd = true;
+            _countTimer.Stop();
+            try { Close(); } catch { }
+            fresh.UpdateToolbar();
+            fresh.UpdateWordCount();
+            fresh.UpdatePageCount();
+            return fresh;
+        }
 
         /// <summary>בניתוק: סוגר את העורך ומוחק את הטקסט - המשתמש הבא מתחיל בעמוד ריק.</summary>
         public static void EndSession()
@@ -265,11 +299,38 @@ namespace KioskApp.Views
             };
 
             var layout = new DockPanel();
+            // ===== פס אישור "ניקוי" - בתוך העורך (לא חלון נפרד, שגרם לעורך להיתקע מאחורי מסך הבחירה) =====
+            var confirmText = new TextBlock
+            {
+                Text = "למחוק את כל הטקסט?",
+                FontSize = 18,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 16, 0)
+            };
+            var confirmDelete = MakeButton("מחיקה", "KioskDangerButton", (_, _) => ConfirmClear(true));
+            var confirmCancel = MakeButton("ביטול", "KioskSecondaryButton", (_, _) => ConfirmClear(false));
+            var confirmRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            confirmRow.Children.Add(confirmText);
+            confirmRow.Children.Add(confirmDelete);
+            confirmRow.Children.Add(confirmCancel);
+            _clearConfirmBar = new Border
+            {
+                Background = Res<Brush>("KioskSoftBrush"),
+                BorderBrush = Res<Brush>("KioskDangerBrush"),
+                BorderThickness = new Thickness(0, 0, 0, 2),
+                Padding = new Thickness(16, 10, 16, 10),
+                Child = confirmRow,
+                Visibility = Visibility.Collapsed
+            };
+
             DockPanel.SetDock(bar, Dock.Top);
+            DockPanel.SetDock(_clearConfirmBar, Dock.Top);
             DockPanel.SetDock(formatCard, Dock.Top);
             DockPanel.SetDock(_status, Dock.Top);
             DockPanel.SetDock(footer, Dock.Bottom);
             layout.Children.Add(bar);
+            layout.Children.Add(_clearConfirmBar);
             layout.Children.Add(formatCard);
             layout.Children.Add(_status);
             layout.Children.Add(footer);
@@ -566,18 +627,31 @@ namespace KioskApp.Views
             }
         }
 
+        // "ניקוי": שאלת האישור מוצגת כפס בתוך העורך (חלון הודעה נפרד גרם לעורך להיתקע מאחורי
+        // מסך בחירת התוכנות)
+        private Border _clearConfirmBar = null!;
+
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
             if (IsEmpty) return;
-            var clear = KioskMessageDialog.ShowChoice(this, KioskMessageKind.Info, "ניקוי", "למחוק את כל הטקסט?", "מחיקה", "ביטול");
-            // העורך נשאר מעל מסך בחירת התוכנות גם אחרי סגירת ההודעה
-            App.BringToFront(this);
-            OverlayWindow.RaiseAllTabs();
-            if (clear)
+            _clearConfirmBar.Visibility = Visibility.Visible;
+        }
+
+        private void ConfirmClear(bool delete)
+        {
+            _clearConfirmBar.Visibility = Visibility.Collapsed;
+            if (delete)
             {
                 try
                 {
-                    ResetDocument();
+                    // מוחקים את התוכן (לא מחליפים את המסמך עצמו) ומחזירים את עיצוב ברירת המחדל
+                    var doc = _editor.Document;
+                    doc.Blocks.Clear();
+                    doc.Blocks.Add(new Paragraph());
+                    doc.FontFamily = new FontFamily("David, Arial");
+                    doc.FontSize = PtToDip(DefaultFontPt);
+                    doc.TextAlignment = TextAlignment.Left;
+                    _editor.CaretPosition = doc.ContentStart;
                     UpdateToolbar();
                     UpdateWordCount();
                     UpdatePageCount();
