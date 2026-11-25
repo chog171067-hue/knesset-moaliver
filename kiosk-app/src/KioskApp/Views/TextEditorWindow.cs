@@ -250,7 +250,7 @@ namespace KioskApp.Views
             // הדבקה - כטקסט נקי (בלי צבעים/גופנים/טבלאות מהתוכנה שממנה העתיקו)
             DataObject.AddPastingHandler(_editor, OnPasting);
             _editor.SelectionChanged += (_, _) => UpdateToolbar();
-            _editor.TextChanged += (_, _) => { _countTimer.Stop(); _countTimer.Start(); UpdateWordCount(); if (_clearArmed) DisarmClear(); };
+            _editor.TextChanged += (_, _) => { _countTimer.Stop(); _countTimer.Start(); UpdateWordCount(); };
             _countTimer.Tick += (_, _) => { _countTimer.Stop(); UpdatePageCount(); };
 
             var page = new Border
@@ -299,11 +299,38 @@ namespace KioskApp.Views
             };
 
             var layout = new DockPanel();
+            // ===== פס אישור "ניקוי" - בתוך העורך (לא חלון נפרד, שגרם לעורך להיתקע מאחורי מסך הבחירה) =====
+            var confirmText = new TextBlock
+            {
+                Text = "למחוק את כל הטקסט?",
+                FontSize = 18,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 16, 0)
+            };
+            var confirmDelete = MakeButton("מחיקה", "KioskDangerButton", (_, _) => ConfirmClear(true));
+            var confirmCancel = MakeButton("ביטול", "KioskSecondaryButton", (_, _) => ConfirmClear(false));
+            var confirmRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            confirmRow.Children.Add(confirmText);
+            confirmRow.Children.Add(confirmDelete);
+            confirmRow.Children.Add(confirmCancel);
+            _clearConfirmBar = new Border
+            {
+                Background = Res<Brush>("KioskSoftBrush"),
+                BorderBrush = Res<Brush>("KioskDangerBrush"),
+                BorderThickness = new Thickness(0, 0, 0, 2),
+                Padding = new Thickness(16, 10, 16, 10),
+                Child = confirmRow,
+                Visibility = Visibility.Collapsed
+            };
+
             DockPanel.SetDock(bar, Dock.Top);
+            DockPanel.SetDock(_clearConfirmBar, Dock.Top);
             DockPanel.SetDock(formatCard, Dock.Top);
             DockPanel.SetDock(_status, Dock.Top);
             DockPanel.SetDock(footer, Dock.Bottom);
             layout.Children.Add(bar);
+            layout.Children.Add(_clearConfirmBar);
             layout.Children.Add(formatCard);
             layout.Children.Add(_status);
             layout.Children.Add(footer);
@@ -600,71 +627,42 @@ namespace KioskApp.Views
             }
         }
 
-        // "ניקוי" בלי חלון הודעה (חלון הודעה מעל העורך גרם לו להיתקע מאחורי מסך בחירת התוכנות):
-        // לחיצה ראשונה - הכפתור הופך ל"לחצו שוב למחיקה" לכמה שניות; לחיצה שנייה - מוחקת.
-        private Button? _clearButton;
-        private DispatcherTimer? _clearConfirmTimer;
-        private bool _clearArmed;
+        // "ניקוי": שאלת האישור מוצגת כפס בתוך העורך (חלון הודעה נפרד גרם לעורך להיתקע מאחורי
+        // מסך בחירת התוכנות)
+        private Border _clearConfirmBar = null!;
 
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
-            _clearButton ??= sender as Button;
-            if (IsEmpty && !_clearArmed) return;
-
-            if (!_clearArmed)
-            {
-                _clearArmed = true;
-                if (_clearButton != null)
-                {
-                    _clearButton.Content = "לחצו שוב למחיקה";
-                    _clearButton.Style = Res<Style>("KioskDangerButton");
-                }
-                ShowStatus("למחוק את כל הטקסט? לחצו שוב על \"לחצו שוב למחיקה\" (או המשיכו לכתוב כדי לבטל).", isError: true);
-                _clearConfirmTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-                _clearConfirmTimer.Tick -= OnClearConfirmTimeout;
-                _clearConfirmTimer.Tick += OnClearConfirmTimeout;
-                _clearConfirmTimer.Stop();
-                _clearConfirmTimer.Start();
-                return;
-            }
-
-            DisarmClear();
-            try
-            {
-                // מוחקים את התוכן (לא מחליפים את המסמך עצמו) ומחזירים את עיצוב ברירת המחדל
-                var doc = _editor.Document;
-                doc.Blocks.Clear();
-                doc.Blocks.Add(new Paragraph());
-                doc.FontFamily = new FontFamily("David, Arial");
-                doc.FontSize = PtToDip(DefaultFontPt);
-                doc.TextAlignment = TextAlignment.Left;
-                _editor.CaretPosition = doc.ContentStart;
-                UpdateToolbar();
-                UpdateWordCount();
-                UpdatePageCount();
-                ShowStatus("הטקסט נמחק.", isError: false);
-                App.LogInfo("עורך טקסט: הטקסט נוקה");
-            }
-            catch (Exception ex)
-            {
-                App.LogError("עורך טקסט: ניקוי נכשל", ex);
-            }
-            _editor.Focus();
+            if (IsEmpty) return;
+            _clearConfirmBar.Visibility = Visibility.Visible;
         }
 
-        private void OnClearConfirmTimeout(object? sender, EventArgs e) => DisarmClear();
-
-        private void DisarmClear()
+        private void ConfirmClear(bool delete)
         {
-            _clearConfirmTimer?.Stop();
-            if (!_clearArmed) return;
-            _clearArmed = false;
-            if (_clearButton != null)
+            _clearConfirmBar.Visibility = Visibility.Collapsed;
+            if (delete)
             {
-                _clearButton.Content = "ניקוי";
-                _clearButton.Style = Res<Style>("KioskSecondaryButton");
+                try
+                {
+                    // מוחקים את התוכן (לא מחליפים את המסמך עצמו) ומחזירים את עיצוב ברירת המחדל
+                    var doc = _editor.Document;
+                    doc.Blocks.Clear();
+                    doc.Blocks.Add(new Paragraph());
+                    doc.FontFamily = new FontFamily("David, Arial");
+                    doc.FontSize = PtToDip(DefaultFontPt);
+                    doc.TextAlignment = TextAlignment.Left;
+                    _editor.CaretPosition = doc.ContentStart;
+                    UpdateToolbar();
+                    UpdateWordCount();
+                    UpdatePageCount();
+                    App.LogInfo("עורך טקסט: הטקסט נוקה");
+                }
+                catch (Exception ex)
+                {
+                    App.LogError("עורך טקסט: ניקוי נכשל", ex);
+                }
             }
-            _status.Text = "";
+            _editor.Focus();
         }
 
         private void OnSaveClick(object sender, RoutedEventArgs e)
