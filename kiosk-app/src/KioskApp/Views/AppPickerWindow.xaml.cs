@@ -149,19 +149,9 @@ namespace KioskApp.Views
                 // התוכנה נסגרה לפני רגע ועוד שומרת את המצב שלה (ספרים פתוחים וכו') - מחכים שתסיים,
                 // כדי לא לסגור אותה בכוח באמצע (ואז היא הייתה נפתחת מאופסת)
                 var folder = WindowGuard.AppFolderRoot((app.ExePath ?? "").Trim().Trim('"'));
-                if (WindowGuard.AnyProcessRunningFrom(folder))
-                {
-                    var wait = KioskMessageDialog.ShowProgress(this, "רגע אחד", "התוכנה עוד נסגרת מהפעם הקודמת...");
-                    try
-                    {
-                        for (var i = 0; i < 24 && WindowGuard.AnyProcessRunningFrom(folder); i++)
-                            await System.Threading.Tasks.Task.Delay(500);
-                    }
-                    finally
-                    {
-                        wait.CloseProgress();
-                    }
-                }
+                // (בלי הודעה - פשוט ממתינים, עד 12 שניות לכל היותר)
+                for (var i = 0; i < 24 && WindowGuard.AnyProcessRunningFrom(folder); i++)
+                    await System.Threading.Tasks.Task.Delay(500);
 
                 var process = ProcessLauncher.Launch(app.ExePath);
                 App.CurrentAppName = app.DisplayName;
