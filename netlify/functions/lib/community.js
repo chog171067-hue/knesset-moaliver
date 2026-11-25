@@ -152,9 +152,19 @@ function kevaIdsForTz(kevot, tz) {
   return kevot.filter(k => tzKey(k.Zeout) === key).map(k => String(k.KevaId));
 }
 
-// הוראת קבע פעילה שעומדת בתנאי החברות (קטגוריה + סכום מינימלי), לפי ת"ז.
+// מספר התשלומים הכולל של הוראה: שבוצעו (Success) + שנשארו (Itra). Itra ריק / 0 = ללא הגבלה
+// (הוראה פעילה שהסתיימו התשלומים שלה כבר אינה פעילה).
+function kevaTotalPayments(k) {
+  const itra = Number(String(k.Itra == null ? '' : k.Itra).trim() || 0);
+  if (!(itra > 0)) return Infinity;
+  return itra + (Number(k.Success) || 0);
+}
+
+// הוראת קבע פעילה שעומדת בתנאי החברות (קטגוריה + סכום חודשי מינימלי + מספר תשלומים
+// מינימלי), לפי ת"ז. מי ששינה בדף ההצטרפות את הסכום או את מספר התשלומים לפחות מהנדרש -
+// לא נחשב חבר קהילה.
 // excludeKevaIds: הוראות שהיו קיימות כבר לפני ההצטרפות - לא נחשבות (הקובץ קובע לגביהן)
-function findMembershipKeva(kevot, tz, { groupe, minAmount, excludeKevaIds = [] }) {
+function findMembershipKeva(kevot, tz, { groupe, minAmount, minPayments, excludeKevaIds = [] }) {
   const key = tzKey(tz);
   const wantedGroupe = String(groupe || '').trim();
   const excluded = new Set(excludeKevaIds.map(String));
@@ -163,7 +173,8 @@ function findMembershipKeva(kevot, tz, { groupe, minAmount, excludeKevaIds = [] 
     !excluded.has(String(k.KevaId)) &&
     String(k.Enabled) === '1' &&
     (!wantedGroupe || String(k.Groupe || '').trim().includes(wantedGroupe)) &&
-    Number(k.Amount) >= Number(minAmount || 0)
+    Number(k.Amount) >= Number(minAmount || 0) &&
+    kevaTotalPayments(k) >= Number(minPayments || 0)
   ) || null;
 }
 
@@ -171,7 +182,7 @@ function findMembershipKeva(kevot, tz, { groupe, minAmount, excludeKevaIds = [] 
 // העלאת הקובץ האחרונה. fetchKevot (אופציונלי, רק אחרי "הצטרפות"): פונקציה שמחזירה את כל
 // הוראות הקבע - אם נשלחה ואין חברות, מחפשים הוראה חדשה (שאינה ב-excludeKevaIds) ושומרים
 // חברות זמנית. מחזיר { member, source, joinedNow }.
-async function getKioskMembership(event, tz, { fetchKevot, groupe, minAmount, excludeKevaIds } = {}) {
+async function getKioskMembership(event, tz, { fetchKevot, groupe, minAmount, minPayments, excludeKevaIds } = {}) {
   if (await getCommunityRecord(tz, event)) return { member: true, source: 'list' };
 
   const key = tzKey(tz);
@@ -181,9 +192,10 @@ async function getKioskMembership(event, tz, { fetchKevot, groupe, minAmount, ex
   if (joined && Date.parse(joined.addedAt) > rosterTime) return { member: true, source: 'keva' };
 
   if (!fetchKevot) return { member: false, source: null };
-  const keva = findMembershipKeva(await fetchKevot(), tz, { groupe, minAmount, excludeKevaIds });
+  const keva = findMembershipKeva(await fetchKevot(), tz, { groupe, minAmount, minPayments, excludeKevaIds });
   if (!keva) return { member: false, source: null };
   await addKevaJoinedMember(event, { tz, kevaId: keva.KevaId, amount: keva.Amount, groupe: keva.Groupe, mosadId: keva.mosadId });
+  console.log(`[membership] הוראה ${keva.KevaId}: ${keva.Amount} ₪, תשלומים: ${kevaTotalPayments(keva) === Infinity ? 'ללא הגבלה' : kevaTotalPayments(keva)}`);
   return { member: true, source: 'keva', joinedNow: true };
 }
 
