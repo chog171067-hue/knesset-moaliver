@@ -47,6 +47,9 @@ namespace KioskApp.Views
             FontFamily = Res<FontFamily>("KioskBodyFont");
             Foreground = Res<Brush>("KioskTextBrush");
             if (owner != null && owner.IsVisible) Owner = owner;
+            // בסגירת הודעה (מודאלית) Windows מפעיל לפעמים את החלון הבא בערימה (למשל מסך בחירת
+            // התוכנות) במקום החלון שפתח אותה - והוא קופץ מעליו. מחזירים את הפוקוס לחלון שפתח אותה.
+            Closing += (_, _) => { try { Owner?.Activate(); } catch { } };
 
             var (iconData, iconBrush) = kind switch
             {
