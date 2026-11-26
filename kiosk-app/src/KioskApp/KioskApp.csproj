@@ -4,7 +4,7 @@
     <!-- net8.0-windows: זהו פרויקט WPF, לא ניתן לבנות אותו במחשב שאינו Windows.
          ראו kiosk-app/README.md להוראות בנייה מלאות. -->
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
