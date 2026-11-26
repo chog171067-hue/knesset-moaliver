@@ -157,6 +157,7 @@ namespace KioskApp.Views
 
                 var process = ProcessLauncher.Launch(app.ExePath);
                 App.CurrentAppName = app.DisplayName;
+                App.CurrentAppFolder = folder;
 
                 var overlay = new OverlayWindow();
                 Application.Current.MainWindow = overlay;
@@ -178,6 +179,7 @@ namespace KioskApp.Views
         public void ShowAgain()
         {
             App.CurrentAppName = null;
+            App.CurrentAppFolder = null;
             PopulateApps();
             Show();
             Application.Current.MainWindow = this;

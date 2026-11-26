@@ -587,6 +587,31 @@ namespace KioskApp.Services
         }
 
         /// <summary>
+        /// כותרת החלון הראשי (הגדול ביותר הגלוי) של התוכנה מהתיקייה הזו - לשם הדפסה כשהתוכנה
+        /// נותנת לעבודה שם כללי (אוצר החכמה: "print.html"). "" אם אין.
+        /// </summary>
+        public static string MainWindowTitle(string? folder)
+        {
+            var pids = new HashSet<int>();
+            foreach (var p in ProcessesFrom(folder)) { pids.Add(p.Id); p.Dispose(); }
+            if (pids.Count == 0) return "";
+            var best = "";
+            long bestArea = 0;
+            EnumWindows((hWnd, _) =>
+            {
+                GetWindowThreadProcessId(hWnd, out var pidRaw);
+                if (!pids.Contains((int)pidRaw) || !IsUserAppWindow(hWnd)) return true;
+                var title = new StringBuilder(512);
+                GetWindowText(hWnd, title, title.Capacity);
+                if (title.Length == 0 || !GetWindowRect(hWnd, out var r)) return true;
+                long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
+                if (area > bestArea) { bestArea = area; best = title.ToString(); }
+                return true;
+            }, IntPtr.Zero);
+            return best;
+        }
+
+        /// <summary>
         /// ליומן: החלונות הגלויים של תהליכי התוכנה (מחלקה, כותרת, סגנון, בעלים, והאם הקיוסק
         /// מזהה אותם כחלון תוכנה) - לאבחון תוכנה שלא נשארת במסך מלא.
         /// </summary>

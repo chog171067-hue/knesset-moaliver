@@ -132,6 +132,8 @@ namespace KioskApp
 
         /// <summary>שם התוכנה שפתוחה כרגע (למקור ההדפסה באזור ההדפסות / בהיסטוריה). null = אין</summary>
         public static string? CurrentAppName { get; set; }
+        /// <summary>התיקייה של התוכנה הפתוחה (לכותרת החלון שלה - שם להדפסה)</summary>
+        public static string? CurrentAppFolder { get; set; }
 
         /// <summary>מעקב ההדפסות של ההתחברות הנוכחית (null אם אין משתמש מחובר)</summary>
         public static PrintMonitorService? PrintMonitor => _printMonitor;

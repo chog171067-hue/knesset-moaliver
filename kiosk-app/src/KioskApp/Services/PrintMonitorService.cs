@@ -211,6 +211,13 @@ namespace KioskApp.Services
                 var cost = Math.Round(pages * price, 2);
                 var source = App.CurrentAppName ?? "הדפסה";
                 var docTitle = CleanTitle(document);
+                if (IsGenericTitle(docTitle))
+                {
+                    // התוכנה נתנה לעבודה שם כללי (אוצר החכמה: "print.html") - לוקחים את כותרת החלון שלה
+                    var windowTitle = TitleFromWindow(App.CurrentAppFolder, source);
+                    App.LogInfo($"הדפסה: שם העבודה \"{docTitle}\" כללי - כותרת החלון: \"{windowTitle}\"");
+                    docTitle = windowTitle;
+                }
                 App.LogInfo($"הדפסה: עבודה חדשה {jobKey} \"{docTitle}\" ({source}), {pages} עמודים, {cost:0.00} ₪ - ממתין לאישור (נעצרה: {paused})");
 
                 // סיכום הדפסה: הדפסה מיידית / הוספה לאזור ההדפסות (רק אם העבודה נעצרה) / ביטול
@@ -782,6 +789,28 @@ namespace KioskApp.Services
                 }
                 return PrintChoice.Cancel;
             });
+        }
+
+        /// <summary>שם עבודה שלא אומר כלום על המסמך</summary>
+        private static bool IsGenericTitle(string title)
+        {
+            var t = title.Trim().ToLowerInvariant();
+            return t.Length == 0 || t.EndsWith(".html") || t.EndsWith(".htm") || t == "about:blank"
+                   || t == "print" || t == "print document" || t == "document" || t == "untitled" || t == "ללא שם";
+        }
+
+        /// <summary>כותרת החלון של התוכנה, בלי שם התוכנה עצמה ("ברכות - אוצר החכמה" ← "ברכות")</summary>
+        private static string TitleFromWindow(string? folder, string appName)
+        {
+            string raw;
+            try { raw = WindowGuard.MainWindowTitle(folder); } catch { return ""; }
+            var t = CleanTitle(raw);
+            foreach (var sep in new[] { " - ", " – ", " | " })
+            {
+                if (t.EndsWith(sep + appName)) t = t[..^(sep.Length + appName.Length)].Trim();
+                if (t.StartsWith(appName + sep)) t = t[(appName.Length + sep.Length)..].Trim();
+            }
+            return t == appName || IsGenericTitle(t) ? "" : t;
         }
 
         private static string CleanTitle(string? title)
