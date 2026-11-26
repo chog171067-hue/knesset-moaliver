@@ -15,7 +15,12 @@ namespace KioskApp.Services
         public string Title { get; init; } = "";
         /// <summary>מאיזו תוכנה (אוצר החכמה, אוצריא, עורך טקסט...)</summary>
         public string Source { get; init; } = "";
-        public int Pages { get; init; }
+        /// <summary>כמה עמודים יודפסו (ובהתאם - החיוב)</summary>
+        public int Pages { get; set; }
+        /// <summary>PdfFile: כמה עמודים בקובץ כולו</summary>
+        public int TotalPages { get; init; }
+        /// <summary>PdfFile: אילו עמודים להדפיס (מספרים מ-0, לפי הסדר). null = כל הקובץ</summary>
+        public List<int>? SelectedPages { get; set; }
         public DateTime AddedAt { get; } = DateTime.Now;
 
         // SpoolJob: העבודה עצורה בתור של המדפסת עד שמדפיסים אותה
@@ -55,6 +60,13 @@ namespace KioskApp.Services
         {
             lock (Lock) _items.Add(item);
             App.LogInfo($"אזור הדפסות: נוסף \"{item.ChargeTitle}\" ({item.Pages} עמודים)");
+            RaiseChanged();
+        }
+
+        /// <summary>ההדפסה השתנתה (למשל נבחרו עמודים) - מרעננים את התצוגה</summary>
+        public static void Updated(PrintAreaItem item)
+        {
+            App.LogInfo($"אזור הדפסות: \"{item.ChargeTitle}\" - {item.Pages} עמודים להדפסה");
             RaiseChanged();
         }
 

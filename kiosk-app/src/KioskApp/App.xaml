@@ -230,5 +230,42 @@
             <Setter Property="Margin" Value="0,0,0,0" />
             <Setter Property="FlowDirection" Value="LeftToRight" />
         </Style>
+
+        <!-- תיבת סימון בעיצוב הקיוסק. ב-RTL תיבת ברירת המחדל של WPF מציגה את סימן ה-V הפוך -
+             כאן הסימן תמיד בכיוון הנכון (FlowDirection=LeftToRight על הסימן בלבד) -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource KioskTextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Border x:Name="Box" Width="22" Height="22" CornerRadius="5" BorderThickness="2"
+                                    BorderBrush="{StaticResource KioskOutlineBrush}" Background="{StaticResource KioskInputBrush}"
+                                    VerticalAlignment="Center">
+                                <Path x:Name="Mark" Data="M4,11 L9,16 L18,6" Stroke="White" StrokeThickness="2.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      FlowDirection="LeftToRight" Visibility="Collapsed"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" Width="22" Height="22" />
+                            </Border>
+                            <ContentPresenter x:Name="Text" Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource KioskAccentBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource KioskAccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource KioskAccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="HasContent" Value="False">
+                                <Setter TargetName="Text" Property="Margin" Value="0" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>

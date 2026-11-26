@@ -76,7 +76,7 @@ namespace KioskApp.Views
             // הדפסה מדיסק-און-קי: קובץ PDF נבחר מרשימה של הקיוסק ומתווסף לאזור ההדפסות
             var fromUsb = new Button
             {
-                Content = "➕ הוספת קובץ מדיסק-און-קי (PDF / Word)",
+                Content = "הדפסה מ-USB",
                 Style = Res<Style>("KioskSecondaryButton"),
                 MinHeight = 42,
                 FontSize = 15,
@@ -245,9 +245,12 @@ namespace KioskApp.Views
                 Foreground = Res<Brush>("KioskMutedBrush")
             });
 
+            var pagesText = item.Kind == PrintAreaItemKind.PdfFile && item.SelectedPages != null
+                ? $"{item.Pages} מתוך {item.TotalPages} עמודים"
+                : $"{item.Pages} {(item.Pages == 1 ? "עמוד" : "עמודים")}";
             var info = new TextBlock
             {
-                Text = $"{item.Pages} {(item.Pages == 1 ? "עמוד" : "עמודים")} · {item.Pages * Price:0.00} ₪",
+                Text = $"{pagesText} · {item.Pages * Price:0.00} ₪",
                 FontSize = 15,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -277,6 +280,22 @@ namespace KioskApp.Views
             DockPanel.SetDock(info, Dock.Right);
             row.Children.Add(check);
             row.Children.Add(trash);
+            // קובץ (PDF / Word): תצוגה ובחירת עמודים
+            if (item.Kind == PrintAreaItemKind.PdfFile && item.DocumentData != null)
+            {
+                var preview = new Button
+                {
+                    Content = "תצוגה ובחירת עמודים",
+                    Style = Res<Style>("KioskSecondaryButton"),
+                    MinHeight = 38,
+                    FontSize = 14,
+                    Padding = new Thickness(10, 0, 10, 0),
+                    Margin = new Thickness(0, 0, 8, 0)
+                };
+                preview.Click += (_, _) => new PdfPagesWindow(item) { Owner = this }.ShowDialog();
+                DockPanel.SetDock(preview, Dock.Right);
+                row.Children.Add(preview);
+            }
             row.Children.Add(info);
             row.Children.Add(texts);
             return new Border
@@ -377,6 +396,7 @@ namespace KioskApp.Views
                     Title = System.IO.Path.GetFileNameWithoutExtension(path),
                     Source = "דיסק-און-קי",
                     Pages = pages,
+                    TotalPages = pages,
                     DocumentData = data
                 });
             }
