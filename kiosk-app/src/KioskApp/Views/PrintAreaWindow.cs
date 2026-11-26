@@ -76,7 +76,7 @@ namespace KioskApp.Views
             // הדפסה מדיסק-און-קי: קובץ PDF נבחר מרשימה של הקיוסק ומתווסף לאזור ההדפסות
             var fromUsb = new Button
             {
-                Content = "➕ הוספת קובץ PDF מדיסק-און-קי",
+                Content = "➕ הוספת קובץ מדיסק-און-קי (PDF / Word)",
                 Style = Res<Style>("KioskSecondaryButton"),
                 MinHeight = 42,
                 FontSize = 15,
@@ -207,7 +207,7 @@ namespace KioskApp.Views
             {
                 _list.Children.Add(new TextBlock
                 {
-                    Text = "אין הדפסות ממתינות.\nכשמדפיסים מתוכנה אפשר לבחור \"הוספה לאזור ההדפסות\", ולהדפיס כאן מתי שרוצים.\nאפשר גם להוסיף קובץ PDF מדיסק-און-קי.",
+                    Text = "אין הדפסות ממתינות.\nכשמדפיסים מתוכנה אפשר לבחור \"הוספה לאזור ההדפסות\", ולהדפיס כאן מתי שרוצים.\nאפשר גם להוסיף קובץ PDF או Word מדיסק-און-קי.",
                     FontSize = 15,
                     Foreground = Res<Brush>("KioskMutedBrush"),
                     TextAlignment = TextAlignment.Center,
@@ -347,7 +347,24 @@ namespace KioskApp.Views
                         "אפשר להדפיס קבצים עד 100MB.");
                     return;
                 }
-                var data = await System.IO.File.ReadAllBytesAsync(path);
+                byte[] data;
+                if (WordConverter.IsWordFile(path))
+                {
+                    // Word: ממירים ל-PDF (Word מוסתר) - ומשם כמו כל קובץ PDF
+                    var progress = KioskMessageDialog.ShowProgress(this, "מכינים את הקובץ להדפסה", "נא להמתין מספר שניות...");
+                    try
+                    {
+                        data = await WordConverter.ConvertToPdfAsync(path, TimeSpan.FromSeconds(90));
+                    }
+                    finally
+                    {
+                        progress.CloseProgress();
+                    }
+                }
+                else
+                {
+                    data = await System.IO.File.ReadAllBytesAsync(path);
+                }
                 var pages = await PdfPrinter.CountPagesAsync(data);
                 if (pages <= 0)
                 {

@@ -10,7 +10,7 @@ using KioskApp.Services;
 namespace KioskApp.Views
 {
     /// <summary>
-    /// "הדפסה מדיסק-און-קי": רשימת קובצי ה-PDF שבדיסק-און-קי (כולל תיקיות שבתוכו), בחלון של
+    /// "הדפסה מדיסק-און-קי": רשימת קובצי ה-PDF וה-Word שבדיסק-און-קי (כולל תיקיות שבתוכו), בחלון של
     /// הקיוסק - לא חלון הקבצים של Windows, כך שאי אפשר לשוטט משם בקבצי המחשב.
     /// SelectedFile: הקובץ שנבחר, או null אם בוטל.
     /// </summary>
@@ -50,7 +50,7 @@ namespace KioskApp.Views
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "בוחרים קובץ PDF. הוא יתווסף לאזור ההדפסות, ומשם מדפיסים.",
+                Text = "בוחרים קובץ (PDF או Word). הוא יתווסף לאזור ההדפסות, ומשם מדפיסים.",
                 FontSize = 15,
                 Foreground = Res<Brush>("KioskMutedBrush"),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -63,7 +63,7 @@ namespace KioskApp.Views
             {
                 list.Children.Add(new TextBlock
                 {
-                    Text = "לא נמצאו קובצי PDF בדיסק-און-קי.",
+                    Text = "לא נמצאו קובצי PDF או Word בדיסק-און-קי.",
                     FontSize = 16,
                     Foreground = Res<Brush>("KioskMutedBrush"),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -138,7 +138,8 @@ namespace KioskApp.Views
             });
             texts.Children.Add(new TextBlock
             {
-                Text = (folder == "." ? "" : folder + " · ") + $"{file.Length / 1024.0 / 1024.0:0.0} MB",
+                Text = (WordConverter.IsWordFile(file.Name) ? "Word · " : "PDF · ") +
+                       (folder == "." ? "" : folder + " · ") + $"{file.Length / 1024.0 / 1024.0:0.0} MB",
                 FontSize = 13,
                 Foreground = Res<Brush>("KioskMutedBrush"),
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -171,7 +172,7 @@ namespace KioskApp.Views
             };
         }
 
-        /// <summary>קובצי PDF בדיסק-און-קי (גם בתיקיות), בלי קבצים מוסתרים / של המערכת</summary>
+        /// <summary>קובצי PDF ו-Word בדיסק-און-קי (גם בתיקיות), בלי קבצים מוסתרים / של המערכת / זמניים של Word</summary>
         private static List<FileInfo> FindPdfFiles(string usbRoot)
         {
             var result = new List<FileInfo>();
@@ -184,8 +185,12 @@ namespace KioskApp.Views
             };
             try
             {
-                foreach (var path in Directory.EnumerateFiles(usbRoot, "*.pdf", options))
+                foreach (var path in Directory.EnumerateFiles(usbRoot, "*", options))
                 {
+                    var name = Path.GetFileName(path);
+                    if (name.StartsWith("~$")) continue; // קובץ נעילה זמני של Word
+                    var isPdf = Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+                    if (!isPdf && !WordConverter.IsWordFile(path)) continue;
                     result.Add(new FileInfo(path));
                     if (result.Count >= MaxFiles) break;
                 }
