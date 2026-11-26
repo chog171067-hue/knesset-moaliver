@@ -38,6 +38,17 @@ namespace KioskApp.Core
             BalanceChanged?.Invoke(this, newBalance);
         }
 
+        /// <summary>"פרטי החשבון": השם והטלפון התעדכנו בשרת</summary>
+        public void UpdateDetails(string? displayName, string? phone)
+        {
+            if (CurrentUser == null) return;
+            CurrentUser.DisplayName = displayName;
+            CurrentUser.Phone = phone;
+            DetailsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public event EventHandler? DetailsChanged;
+
         public void End()
         {
             CurrentUser = null;
