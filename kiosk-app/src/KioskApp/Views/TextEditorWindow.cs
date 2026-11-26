@@ -82,6 +82,23 @@ namespace KioskApp.Views
 
         private bool _closed;
 
+        /// <summary>
+        /// העורך פתוח אבל מסך בחירת התוכנות קפץ מעליו (קורה כשנסגר חלון אחר - הודעה, אישור הדפסה,
+        /// חלון של Windows - ו-Windows מעביר את הפוקוס למסך הבחירה): מחזירים את העורך למעלה.
+        /// נקרא ממסך הבחירה בכל פעם שהוא מקבל פוקוס.
+        /// </summary>
+        public static void RaiseIfShowing()
+        {
+            var editor = _instance;
+            if (editor == null || editor._closed || !editor.IsVisible) return;
+            editor.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (editor._closed || !editor.IsVisible) return;
+                App.BringToFront(editor);
+                OverlayWindow.RaiseAllTabs();
+            }));
+        }
+
         /// <summary>חלון עורך חדש עם הטקסט, שם הקובץ והקבצים שנשמרו - והישן נסגר</summary>
         private TextEditorWindow Recreate()
         {

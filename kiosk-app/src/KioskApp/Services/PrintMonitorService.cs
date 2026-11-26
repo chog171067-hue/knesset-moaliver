@@ -725,7 +725,10 @@ namespace KioskApp.Services
                     if (documentName == null) break;
                     try
                     {
-                        TextPrinter.Print(TextPrinter.LoadDocument(item.DocumentData!), printer, documentName);
+                        if (item.Kind == PrintAreaItemKind.PdfFile)
+                            await PdfPrinter.PrintAsync(item.DocumentData!, printer, documentName);
+                        else
+                            TextPrinter.Print(TextPrinter.LoadDocument(item.DocumentData!), printer, documentName);
                         PrintArea.Remove(item);
                         printed++;
                     }

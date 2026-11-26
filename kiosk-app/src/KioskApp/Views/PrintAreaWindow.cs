@@ -73,6 +73,19 @@ namespace KioskApp.Views
                 foreach (var c in _checks.Values) c.IsChecked = selectAll.IsChecked == true;
                 UpdatePrintButton();
             };
+            // הדפסה מדיסק-און-קי: קובץ PDF נבחר מרשימה של הקיוסק ומתווסף לאזור ההדפסות
+            var fromUsb = new Button
+            {
+                Content = "➕ הוספת קובץ מדיסק-און-קי (PDF / Word)",
+                Style = Res<Style>("KioskSecondaryButton"),
+                MinHeight = 42,
+                FontSize = 15,
+                Padding = new Thickness(16, 0, 16, 0),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            fromUsb.Click += async (_, _) => await AddFromUsbAsync(fromUsb);
+            waiting.Children.Add(fromUsb);
             waiting.Children.Add(selectAll);
             waiting.Children.Add(new Border
             {
@@ -194,7 +207,7 @@ namespace KioskApp.Views
             {
                 _list.Children.Add(new TextBlock
                 {
-                    Text = "אין הדפסות ממתינות.\nכשמדפיסים מתוכנה אפשר לבחור \"הוספה לאזור ההדפסות\", ולהדפיס כאן מתי שרוצים.",
+                    Text = "אין הדפסות ממתינות.\nכשמדפיסים מתוכנה אפשר לבחור \"הוספה לאזור ההדפסות\", ולהדפיס כאן מתי שרוצים.\nאפשר גם להוסיף קובץ PDF או Word מדיסק-און-קי.",
                     FontSize = 15,
                     Foreground = Res<Brush>("KioskMutedBrush"),
                     TextAlignment = TextAlignment.Center,
@@ -307,6 +320,75 @@ namespace KioskApp.Views
             {
                 _busy = false;
                 Render();
+            }
+        }
+
+        private async Task AddFromUsbAsync(Button button)
+        {
+            var usb = FileDialogAssistant.FindUsbDrive();
+            if (usb == null)
+            {
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא נמצא דיסק-און-קי",
+                    "יש לחבר דיסק-און-קי לעמדה, ולנסות שוב.");
+                return;
+            }
+            var picker = new UsbPdfPickerDialog(usb) { Owner = this };
+            picker.ShowDialog();
+            var path = picker.SelectedFile;
+            if (path == null) return;
+
+            button.IsEnabled = false;
+            try
+            {
+                var info = new System.IO.FileInfo(path);
+                if (info.Length > UsbPdfPickerDialog.MaxFileBytes)
+                {
+                    KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "הקובץ גדול מדי",
+                        "אפשר להדפיס קבצים עד 100MB.");
+                    return;
+                }
+                byte[] data;
+                if (WordConverter.IsWordFile(path))
+                {
+                    // Word: ממירים ל-PDF (Word מוסתר) - ומשם כמו כל קובץ PDF
+                    var progress = KioskMessageDialog.ShowProgress(this, "מכינים את הקובץ להדפסה", "נא להמתין מספר שניות...");
+                    try
+                    {
+                        data = await WordConverter.ConvertToPdfAsync(path, TimeSpan.FromSeconds(90));
+                    }
+                    finally
+                    {
+                        progress.CloseProgress();
+                    }
+                }
+                else
+                {
+                    data = await System.IO.File.ReadAllBytesAsync(path);
+                }
+                var pages = await PdfPrinter.CountPagesAsync(data);
+                if (pages <= 0)
+                {
+                    KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "הקובץ ריק", "אין בקובץ עמודים להדפסה.");
+                    return;
+                }
+                PrintArea.Add(new PrintAreaItem
+                {
+                    Kind = PrintAreaItemKind.PdfFile,
+                    Title = System.IO.Path.GetFileNameWithoutExtension(path),
+                    Source = "דיסק-און-קי",
+                    Pages = pages,
+                    DocumentData = data
+                });
+            }
+            catch (Exception ex)
+            {
+                App.LogError("אזור הדפסות: הוספת קובץ מדיסק-און-קי נכשלה", ex);
+                KioskMessageDialog.ShowMessage(this, KioskMessageKind.Error, "לא ניתן להוסיף את הקובץ",
+                    ex is InvalidOperationException ? ex.Message : "קריאת הקובץ מהדיסק-און-קי נכשלה. אפשר לנסות שוב.");
+            }
+            finally
+            {
+                button.IsEnabled = true;
             }
         }
 

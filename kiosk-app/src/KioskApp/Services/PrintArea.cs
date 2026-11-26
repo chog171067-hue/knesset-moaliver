@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace KioskApp.Services
 {
-    public enum PrintAreaItemKind { SpoolJob, EditorDocument }
+    public enum PrintAreaItemKind { SpoolJob, EditorDocument, PdfFile }
 
     /// <summary>הדפסה שממתינה באזור ההדפסות</summary>
     public class PrintAreaItem
@@ -22,7 +22,8 @@ namespace KioskApp.Services
         public string PrinterName { get; init; } = "";
         public int JobId { get; init; }
 
-        // EditorDocument: המסמך מעורך הטקסט (XamlPackage) - נשלח למדפסת רק כשמדפיסים
+        // EditorDocument: המסמך מעורך הטקסט (XamlPackage); PdfFile: תוכן קובץ ה-PDF (מדיסק-און-קי).
+        // נשמר בזיכרון בלבד, ונשלח למדפסת רק כשמדפיסים
         public byte[]? DocumentData { get; init; }
 
         /// <summary>טקסט לחיוב / להיסטוריה: "מקור - שם"</summary>
