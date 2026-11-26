@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.IO;
@@ -19,7 +20,7 @@ namespace KioskApp.Services
     {
         private const double PrintDpi = 300;
 
-        private static async Task<PdfDocument> OpenAsync(byte[] data)
+        public static async Task<PdfDocument> OpenAsync(byte[] data)
         {
             var stream = new InMemoryRandomAccessStream();
             await stream.WriteAsync(data.AsBuffer());
@@ -42,11 +43,45 @@ namespace KioskApp.Services
             }
         }
 
-        /// <summary>שולח את הקובץ להדפסה. documentName - שם העבודה בתור (לזיהוי החיוב המוקדם).</summary>
-        public static Task PrintAsync(byte[] data, string printerName, string documentName) => Task.Run(async () =>
+        /// <summary>
+        /// עמוד אחד כתמונה לתצוגה (ברוחב widthPx), על רקע לבן. נקרא על ה-UI thread.
+        /// </summary>
+        public static async Task<System.Windows.Media.Imaging.BitmapImage> RenderPreviewAsync(PdfDocument pdf, int pageIndex, uint widthPx)
+        {
+            using var page = pdf.GetPage((uint)pageIndex);
+            var options = new PdfPageRenderOptions
+            {
+                DestinationWidth = widthPx,
+                DestinationHeight = (uint)Math.Max(1, Math.Round(widthPx * page.Size.Height / page.Size.Width)),
+                BackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255)
+            };
+            var stream = new InMemoryRandomAccessStream();
+            await page.RenderToStreamAsync(stream, options);
+            stream.Seek(0);
+            var ms = new MemoryStream();
+            await stream.AsStreamForRead().CopyToAsync(ms);
+            ms.Position = 0;
+            var image = new System.Windows.Media.Imaging.BitmapImage();
+            image.BeginInit();
+            image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            image.StreamSource = ms;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+
+        /// <summary>
+        /// שולח את הקובץ להדפסה. documentName - שם העבודה בתור (לזיהוי החיוב המוקדם).
+        /// pages - אילו עמודים (מספרים מ-0, לפי הסדר); null = כל הקובץ.
+        /// </summary>
+        public static Task PrintAsync(byte[] data, string printerName, string documentName, IReadOnlyList<int>? pages = null) => Task.Run(async () =>
         {
             var pdf = await OpenAsync(data);
-            var count = (int)pdf.PageCount;
+            var order = (pages != null && pages.Count > 0)
+                ? pages.Where(p => p >= 0 && p < pdf.PageCount).ToList()
+                : Enumerable.Range(0, (int)pdf.PageCount).ToList();
+            var count = order.Count;
+            if (count == 0) return;
 
             using var doc = new PrintDocument { DocumentName = documentName };
             doc.PrinterSettings.PrinterName = printerName;
@@ -59,12 +94,13 @@ namespace KioskApp.Services
             doc.BeginPrint += (_, _) => index = 0;
             doc.QueryPageSettings += (_, e) =>
             {
-                var size = pdf.GetPage((uint)index).Size;
+                using var p = pdf.GetPage((uint)order[index]);
+                var size = p.Size;
                 e.PageSettings.Landscape = size.Width > size.Height;
             };
             doc.PrintPage += (_, e) =>
             {
-                using (var page = pdf.GetPage((uint)index))
+                using (var page = pdf.GetPage((uint)order[index]))
                 using (var image = RenderPage(page))
                 {
                     // התאמה לשטח שהמדפסת מסוגלת להדפיס (בלי לעוות את היחס). ב-OriginAtMargins=false

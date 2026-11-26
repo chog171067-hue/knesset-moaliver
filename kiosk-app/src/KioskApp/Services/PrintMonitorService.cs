@@ -726,7 +726,7 @@ namespace KioskApp.Services
                     try
                     {
                         if (item.Kind == PrintAreaItemKind.PdfFile)
-                            await PdfPrinter.PrintAsync(item.DocumentData!, printer, documentName);
+                            await PdfPrinter.PrintAsync(item.DocumentData!, printer, documentName, item.SelectedPages);
                         else
                             TextPrinter.Print(TextPrinter.LoadDocument(item.DocumentData!), printer, documentName);
                         PrintArea.Remove(item);
