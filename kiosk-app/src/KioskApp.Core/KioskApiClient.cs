@@ -72,6 +72,23 @@ namespace KioskApp.Core
         }
 
         /// <summary>
+        /// "פרטי החשבון": שם, טלפון וסיסמה חדשה (ריק = בלי שינוי). דורש את הסיסמה הנוכחית.
+        /// מחזיר את המשתמש המעודכן. זורק KioskAuthException כשהסיסמה הנוכחית שגויה.
+        /// </summary>
+        public async Task<KioskUser> UpdateAccountAsync(string userId, string currentPassword, string displayName, string phone, string? newPassword, CancellationToken ct = default)
+        {
+            var (statusCode, response) = await PostRawAsync<LoginResponse>(
+                "/.netlify/functions/library-station-account-update",
+                new { userId, currentPassword, displayName, phone, newPassword = newPassword ?? "" }, ct);
+            if (!response.Success || response.User == null)
+            {
+                if (statusCode == 401) throw new KioskAuthException(response.Error ?? "הסיסמה הנוכחית שגויה", 401);
+                throw new KioskApiException(response.Error ?? "שמירת הפרטים נכשלה", statusCode);
+            }
+            return response.User;
+        }
+
+        /// <summary>
         /// למסך "שכחתי סיסמה": לאיזה מספר להתקשר, והטלפון הרשום בחשבון (מוסתר).
         /// </summary>
         /// <summary>

@@ -58,6 +58,7 @@ namespace KioskApp.Views
                 ? Visibility.Visible : Visibility.Collapsed;
             MemberTag.Visibility = App.Session.IsCommunityMember == true ? Visibility.Visible : Visibility.Collapsed;
             App.Session.BalanceChanged += OnSessionBalanceChanged;
+            App.Session.DetailsChanged += OnSessionDetailsChanged;
             PrintArea.Changed += UpdatePrintAreaBadge;
             UpdatePrintAreaBadge();
 
@@ -177,6 +178,21 @@ namespace KioskApp.Views
             var h = ActualHeight > 0 ? ActualHeight : 90;
             Left = Math.Max(area.Left, Math.Min(Left, area.Right - w));
             Top = Math.Max(area.Top, Math.Min(Top, area.Bottom - h));
+        }
+
+        private void OnSessionDetailsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var user = App.Session.CurrentUser;
+                UsernameText.Text = string.IsNullOrWhiteSpace(user?.DisplayName) ? user?.Username ?? "" : user!.DisplayName!;
+            }));
+        }
+
+        private void OnAccountDetailsClick(object sender, RoutedEventArgs e)
+        {
+            if (App.Session.CurrentUser == null) return;
+            new AccountDetailsWindow { Owner = this }.ShowDialog();
         }
 
         private void OnHistoryClick(object sender, RoutedEventArgs e)
@@ -490,6 +506,7 @@ namespace KioskApp.Views
         private void Cleanup()
         {
             App.Session.BalanceChanged -= OnSessionBalanceChanged;
+            App.Session.DetailsChanged -= OnSessionDetailsChanged;
             PrintArea.Changed -= UpdatePrintAreaBadge;
             _clockTimer?.Stop();
             _guardTimer?.Stop();

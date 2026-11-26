@@ -432,6 +432,36 @@ async function authenticateKioskUser(event, { username, password }) {
   return { ok: false };
 }
 
+// עמדת הקיוסק - "פרטי החשבון": המשתמש המחובר מעדכן שם, טלפון וסיסמה. ת"ז (שם המשתמש) לא
+// משתנה. הסיסמה הנוכחית נבדקה כבר (authenticateKioskUser) בפונקציה הקוראת.
+// newPassword ריק = הסיסמה לא משתנה. הסיסמה - 4 עד 8 ספרות, כמו בפתיחת חשבון.
+async function updateOwnAccount(event, { userId, displayName, phone, newPassword }) {
+  const name = String(displayName || '').trim().replace(/\s+/g, ' ');
+  if (name.length < 2) throw new Error('יש להזין שם מלא');
+  if (name.split(' ').length < 2) throw new Error('יש להזין שם פרטי ושם משפחה');
+  const cleanPhone = normalizePhone(phone);
+  if (!cleanPhone) throw new Error('יש להזין מספר טלפון תקין (למשל 0501234567)');
+  const next = String(newPassword || '');
+  if (next && !SIGNUP_PASSWORD_PATTERN.test(next)) throw new Error('הסיסמה החדשה צריכה להיות בין 4 ל-8 ספרות (ספרות בלבד)');
+  const hashed = next ? hashPassword(next) : null;
+
+  const store = getKioskStore(event);
+  return writeWithRetry(store, USERS_KEY, {}, (users) => {
+    const u = users[userId];
+    if (!u) throw new Error('משתמש לא נמצא');
+    if (!u.isActive) throw new Error('החשבון מושבת - יש לפנות לגבאים');
+    u.displayName = name;
+    u.phone = cleanPhone;
+    if (hashed) {
+      u.passwordSalt = hashed.salt;
+      u.passwordHash = hashed.hash;
+      clearTempPassword(u);
+    }
+    u.updatedAt = new Date().toISOString();
+    return toPublicUser(u);
+  });
+}
+
 // החלפת סיסמה ע"י המשתמש עצמו בעמדה (אחרי כניסה עם סיסמה זמנית, או בכלל).
 // האימות של הסיסמה הנוכחית נעשה בתוך הכתיבה, כך שאין חלון זמן בין בדיקה לשינוי.
 async function changeOwnPassword(event, { username, currentPassword, newPassword }) {
@@ -1576,6 +1606,7 @@ module.exports = {
   listPasswordResetLog,
   authenticateKioskUser,
   changeOwnPassword,
+  updateOwnAccount,
   setUserDetails,
   setUserCanExit,
   setUserActive,

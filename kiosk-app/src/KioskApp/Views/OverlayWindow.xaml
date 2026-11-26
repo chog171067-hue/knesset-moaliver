@@ -109,6 +109,10 @@
                     <TextBlock Text="היסטוריית תשלומים" HorizontalAlignment="Center" />
                 </Button>
 
+                <Button Style="{StaticResource TabMenuButton}" Click="OnAccountDetailsClick">
+                    <TextBlock Text="פרטי החשבון" HorizontalAlignment="Center" />
+                </Button>
+
                 <Button Style="{StaticResource TabMenuButton}" Click="OnGabaiClick">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock Text="שליחת הודעה לגבאי" />

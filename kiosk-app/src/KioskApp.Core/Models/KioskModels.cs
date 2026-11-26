@@ -11,6 +11,7 @@ namespace KioskApp.Core.Models
         public string Id { get; set; } = "";
         public string Username { get; set; } = "";
         public string? DisplayName { get; set; }
+        public string? Phone { get; set; }
         public decimal Balance { get; set; }
         public bool IsActive { get; set; }
         /// <summary>מורשה לצאת מהקיוסק לשולחן העבודה של Windows (נקבע בדף הניהול בלבד)</summary>
